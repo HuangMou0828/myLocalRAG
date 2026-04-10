@@ -50,9 +50,13 @@ const {
   taskReviewProviderFilter,
   taskReviewStatusFilter,
   taskReviewTypeFilter,
+  taskReviewAnswerFilter,
+  taskReviewPromotionTargetFilter,
   taskReviewProviderOptions,
   taskReviewStatusOptions,
   taskReviewTypeOptions,
+  taskReviewAnswerFilterOptions,
+  taskReviewPromotionTargetOptions,
   taskReviewSessions,
   selectedTaskReviewSessionId,
   selectedTaskReviewSegmentId,
@@ -459,6 +463,12 @@ function getPromotionTargetChipType(value: string) {
   return 'capture'
 }
 
+function getPromotionSectionFromTarget(value: string): 'issues' | 'patterns' | 'syntheses' {
+  if (value === 'pattern-candidate') return 'patterns'
+  if (value === 'synthesis-candidate') return 'syntheses'
+  return 'issues'
+}
+
 function scoreTone(value: number) {
   if (value >= 75) return 'strong'
   if (value >= 55) return 'medium'
@@ -789,8 +799,13 @@ async function confirmTaskReviewAction() {
   const item = selectedTaskReviewItemResolved.value
   const action = taskReviewConfirmAction.value
   if (!item || !action) return
-  await applyTaskReviewAction(action, item.id, item.sessionId)
+  const updated = await applyTaskReviewAction(action, item.id, item.sessionId)
   closeTaskReviewConfirm()
+  if (updated && action === 'promote-candidate') {
+    activePromotionSection.value = getPromotionSectionFromTarget(item.predictedPromotionTarget)
+    activePromotionSourceSection.value = 'auto'
+    await setWorkbenchTab('promotion')
+  }
 }
 
 const promotionDecisionConfirmTitleResolved = computed(() => {
@@ -1136,6 +1151,24 @@ function goToAdjacentTaskSegment(direction: -1 | 1) {
             <small>任务类型</small>
             <select v-model="taskReviewTypeFilter" class="app-select">
               <option v-for="option in taskReviewTypeOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <small>回答精华</small>
+            <select v-model="taskReviewAnswerFilter" class="app-select">
+              <option v-for="option in taskReviewAnswerFilterOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <small>预计去向</small>
+            <select v-model="taskReviewPromotionTargetFilter" class="app-select">
+              <option v-for="option in taskReviewPromotionTargetOptions" :key="option.value" :value="option.value">
                 {{ option.label }}
               </option>
             </select>

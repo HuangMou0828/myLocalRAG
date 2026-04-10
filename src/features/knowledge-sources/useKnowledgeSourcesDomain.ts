@@ -25,6 +25,8 @@ type TaskReviewAction = 'keep-search' | 'promote-candidate' | 'archive-only' | '
 type TaskReviewStatusFilter = 'all' | SessionReviewStatus
 type TaskReviewTypeFilter = 'all' | TaskReviewType
 type PromotionTargetKind = 'issue-review' | 'pattern-candidate' | 'synthesis-candidate'
+type TaskReviewAnswerFilter = 'all' | 'essence' | 'non-essence'
+type TaskReviewPromotionTargetFilter = 'all' | PromotionTargetKind
 
 interface UseKnowledgeSourcesDomainOptions {
   service: KnowledgeItemsApi
@@ -981,6 +983,8 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   const taskReviewProviderFilter = ref('all')
   const taskReviewStatusFilter = ref<TaskReviewStatusFilter>('pending')
   const taskReviewTypeFilter = ref<TaskReviewTypeFilter>('all')
+  const taskReviewAnswerFilter = ref<TaskReviewAnswerFilter>('all')
+  const taskReviewPromotionTargetFilter = ref<TaskReviewPromotionTargetFilter>('all')
   const taskReviewSessionsRaw = ref<SessionItem[]>([])
   const selectedTaskReviewSessionId = ref('')
   const selectedTaskReviewSegmentId = ref('')
@@ -1074,6 +1078,9 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
         const visibleSegments = session.segments.filter((segment) => {
           if (taskReviewStatusFilter.value !== 'all' && segment.reviewStatus !== taskReviewStatusFilter.value) return false
           if (taskReviewTypeFilter.value !== 'all' && segment.taskType !== taskReviewTypeFilter.value) return false
+          if (taskReviewAnswerFilter.value === 'essence' && !segment.isAnswerEssence) return false
+          if (taskReviewAnswerFilter.value === 'non-essence' && segment.isAnswerEssence) return false
+          if (taskReviewPromotionTargetFilter.value !== 'all' && segment.predictedPromotionTarget !== taskReviewPromotionTargetFilter.value) return false
           return true
         })
         return {
@@ -1121,6 +1128,19 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     { value: 'hidden', label: '已隐藏' },
   ] as const
 
+  const taskReviewAnswerFilterOptions = [
+    { value: 'all', label: '全部回答' },
+    { value: 'essence', label: '只看回答精华' },
+    { value: 'non-essence', label: '非回答精华' },
+  ] as const
+
+  const taskReviewPromotionTargetOptions = [
+    { value: 'all', label: '全部去向' },
+    { value: 'issue-review', label: 'Issue Review' },
+    { value: 'pattern-candidate', label: 'Pattern Candidate' },
+    { value: 'synthesis-candidate', label: 'Synthesis Candidate' },
+  ] as const
+
   const selectedTaskReviewSession = computed(() =>
     filteredTaskReviewSessions.value.find((item) => item.id === selectedTaskReviewSessionId.value)
     || filteredTaskReviewSessions.value[0]
@@ -1136,6 +1156,14 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   const taskReviewSummaryCards = computed(() => {
     const sessions = taskReviewSessions.value
     const totalSegments = sessions.reduce((sum, item) => sum + item.segmentCount, 0)
+    const answerEssenceCount = sessions.reduce(
+      (sum, item) => sum + item.segments.filter((segment) => segment.isAnswerEssence).length,
+      0,
+    )
+    const promoteCandidateCount = sessions.reduce(
+      (sum, item) => sum + item.segments.filter((segment) => segment.recommendedAction === 'promote-candidate').length,
+      0,
+    )
     return [
       {
         id: 'total',
@@ -1151,9 +1179,15 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
       },
       {
         id: 'promotion',
-        title: '高升格价值',
-        count: sessions.filter((item) => item.primaryPromotionValue >= 68).length,
-        description: '主任务段更像 issue / pattern / synthesis 原料',
+        title: '建议送审',
+        count: promoteCandidateCount,
+        description: '任务段已经接近 issue / pattern / synthesis 原料',
+      },
+      {
+        id: 'answer',
+        title: '回答精华',
+        count: answerEssenceCount,
+        description: '优先回看可沉淀为问答结论的回答段',
       },
       {
         id: 'noise',
@@ -1665,7 +1699,7 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   async function applyTaskReviewAction(action: TaskReviewAction, segmentId = '', sessionId = '') {
     const targetSegmentId = String(segmentId || selectedTaskReviewItem.value?.id || '').trim()
     const targetSessionId = String(sessionId || selectedTaskReviewItem.value?.sessionId || '').trim()
-    if (!targetSegmentId || !targetSessionId || taskReviewUpdatingId.value) return
+    if (!targetSegmentId || !targetSessionId || taskReviewUpdatingId.value) return false
     taskReviewUpdatingId.value = targetSegmentId
     try {
       const payloadByAction: Record<TaskReviewAction, Parameters<typeof options.sessionService.updateSessionReview>[0]> = {
@@ -1721,8 +1755,10 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
         loadTaskReviewSessions(true),
         action === 'promote-candidate' ? loadPromotionQueue(true) : Promise.resolve(),
       ])
+      return true
     } catch (error) {
       options.notify(String(error instanceof Error ? error.message : error || 'Task Review 更新失败'), 'danger')
+      return false
     } finally {
       taskReviewUpdatingId.value = ''
     }
@@ -2179,10 +2215,14 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     taskReviewProviderFilter,
     taskReviewStatusFilter,
     taskReviewTypeFilter,
+    taskReviewAnswerFilter,
+    taskReviewPromotionTargetFilter,
     taskReviewProviderOptions,
     taskReviewStatusOptions,
     taskReviewTypeOptions,
-      taskReviewSessions: filteredTaskReviewSessions,
+    taskReviewAnswerFilterOptions,
+    taskReviewPromotionTargetOptions,
+    taskReviewSessions: filteredTaskReviewSessions,
     taskReviewSummaryCards,
     selectedTaskReviewSessionId,
     selectedTaskReviewSegmentId,
