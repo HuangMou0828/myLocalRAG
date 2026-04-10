@@ -14,11 +14,12 @@ if ! printf '%s\n' "$subject" | grep -Eq '^(feat|fix|refactor|chore|docs|test|st
   cat >&2 <<'EOF'
 Invalid commit message.
 
-Use Conventional Commit style:
-  feat: add wiki promotion queue
-  fix(feishu): guard empty todo payload
-  refactor(app-shell): collapse toolbar config
-  chore(snapshot): work in progress
+Use the project Chinese Conventional Commit style:
+  feat(wiki): 增加升格队列预览入口
+  fix(feishu): 处理空待办列表的刷新状态
+  refactor(app-shell): 收敛工具栏和侧栏配置
+  docs(git): 记录半自动审批和提交规范
+  chore(snapshot): 保存组件库重构前的临时状态
 EOF
   exit 1
 fi
