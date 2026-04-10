@@ -490,6 +490,12 @@ function formatSourceTypeLabel(value: string) {
   return 'Capture'
 }
 
+function formatSourceTypeMark(value: string) {
+  if (value === 'note') return '记'
+  if (value === 'document') return '文'
+  return '采'
+}
+
 function formatStatusLabel(value: string) {
   if (value === 'active') return 'Active'
   if (value === 'archived') return 'Archived'
@@ -1155,11 +1161,13 @@ function focusTaskReviewBySummary(cardId: string) {
         <aside class="knowledge-sources-list">
           <header class="knowledge-list-head">
             <div>
-              <strong>原始条目</strong>
-              <small>共 {{ statsResolved.total || 0 }} 条，可作为后续 wiki 编译的原料</small>
+              <div class="knowledge-list-title-row">
+                <strong>原始条目</strong>
+                <span class="knowledge-list-badge">{{ itemsResolved.length }}</span>
+              </div>
+              <small>可作为后续 wiki 编译的原料</small>
             </div>
             <div class="knowledge-list-head-actions">
-              <span class="knowledge-list-badge">{{ itemsResolved.length }}</span>
               <button type="button" class="app-btn" @click="openNewKnowledgeItemEditor('capture')">新建条目</button>
             </div>
           </header>
@@ -1227,17 +1235,22 @@ function focusTaskReviewBySummary(cardId: string) {
                   <small>类型会影响默认子类型和后续分流口径。</small>
                 </div>
               </header>
-            <button
-              v-for="option in sourceTypeOptions"
-              :key="option.value"
-              type="button"
-              class="app-btn-ghost knowledge-editor-create-type-btn"
-              :class="{ active: editorSourceType === option.value }"
-              @click="setEditorSourceType(option.value)"
-            >
-              <strong>{{ option.label }}</strong>
-              <small>{{ option.description }}</small>
-            </button>
+              <button
+                v-for="option in sourceTypeOptions"
+                :key="option.value"
+                type="button"
+                class="app-btn-ghost knowledge-editor-create-type-btn"
+                :class="{ active: editorSourceType === option.value }"
+                @click="setEditorSourceType(option.value)"
+              >
+                <span class="knowledge-editor-create-type-icon" :data-type="option.value">
+                  {{ formatSourceTypeMark(option.value) }}
+                </span>
+                <span class="knowledge-editor-create-type-copy">
+                  <strong>{{ option.label }}</strong>
+                  <small>{{ option.description }}</small>
+                </span>
+              </button>
             </section>
 
             <section class="knowledge-editor-main-column">
