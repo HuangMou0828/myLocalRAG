@@ -28,8 +28,11 @@ const {
   knowledgeLoading,
   knowledgeSaving,
   selectedKnowledgeItemId,
+  filteredKnowledgeItems,
   knowledgeSourceTypeFilter,
   knowledgeStatusFilter,
+  knowledgeIntakeStageFilter,
+  knowledgeConfidenceFilter,
   knowledgeKeyword,
   sourceTypeOptions,
   statusOptions,
@@ -55,6 +58,7 @@ const {
   editorKeyQuestion,
   editorDecisionNote,
   editorPreview,
+  editorDuplicateCandidates,
   taskReviewLoading,
   taskReviewUpdatingId,
   taskReviewKeyword,
@@ -139,7 +143,7 @@ const isKnowledgeSourcesModeResolved = computed(() => Boolean(unref(isKnowledgeS
 const workbenchTabResolved = computed(() => String(unref(workbenchTab) || 'raw'))
 const workbenchHeroResolved = computed(() => unref(workbenchHero) || { eyebrow: '', title: '', description: '', cards: [] })
 const itemsResolved = computed(() => {
-  const list = unref(knowledgeItems)
+  const list = unref(filteredKnowledgeItems) || unref(knowledgeItems)
   return Array.isArray(list) ? list : []
 })
 const statsResolved = computed(() => unref(knowledgeStats) || {})
@@ -154,6 +158,10 @@ const confidenceOptionsResolved = computed(() => {
 const editorIntakeStageOptionResolved = computed(() => unref(editorIntakeStageOption) || { label: 'Inbox', description: '' })
 const editorConfidenceOptionResolved = computed(() => unref(editorConfidenceOption) || { label: '中', description: '' })
 const editorIntakeSummaryResolved = computed(() => String(unref(editorIntakeSummary) || ''))
+const editorDuplicateCandidatesResolved = computed(() => {
+  const list = unref(editorDuplicateCandidates)
+  return Array.isArray(list) ? list : []
+})
 const summaryCardsResolved = computed(() => {
   const list = workbenchHeroResolved.value.cards
   return Array.isArray(list) ? list : []
@@ -1057,6 +1065,26 @@ function focusTaskReviewBySummary(cardId: string) {
             </select>
           </label>
 
+          <label>
+            <small>去向</small>
+            <select v-model="knowledgeIntakeStageFilter" class="app-select">
+              <option value="all">全部</option>
+              <option v-for="option in intakeStageOptionsResolved" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <small>可信度</small>
+            <select v-model="knowledgeConfidenceFilter" class="app-select">
+              <option value="all">全部</option>
+              <option v-for="option in confidenceOptionsResolved" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+
           <label class="knowledge-filter-search">
             <small>关键词</small>
             <input
@@ -1237,6 +1265,27 @@ function focusTaskReviewBySummary(cardId: string) {
                 placeholder="还缺什么上下文、为什么值得保留、后续应该怎么处理"
               />
             </label>
+          </section>
+
+          <section v-if="editorDuplicateCandidatesResolved.length" class="knowledge-duplicate-panel">
+            <header class="knowledge-duplicate-panel-head">
+              <IconTriangleAlert :size="16" />
+              <div>
+                <strong>可能重复</strong>
+                <small>保存前先确认是否已经采过，避免 Raw Inbox 继续堆冗余项。</small>
+              </div>
+            </header>
+            <button
+              v-for="candidate in editorDuplicateCandidatesResolved"
+              :key="candidate.item.id"
+              type="button"
+              class="knowledge-duplicate-item"
+              @click="selectKnowledgeItem(candidate.item)"
+            >
+              <span>{{ candidate.reason || '内容相近' }}</span>
+              <strong>{{ candidate.item.title || '未命名条目' }}</strong>
+              <small>{{ formatDateTime(candidate.item.updatedAt) }}</small>
+            </button>
           </section>
 
           <label class="knowledge-editor-field knowledge-editor-field--title">

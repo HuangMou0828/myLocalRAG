@@ -14,6 +14,9 @@ type KnowledgeSourceTypeFilter = 'all' | KnowledgeSourceType
 type KnowledgeStatusFilter = 'all' | KnowledgeStatus
 type KnowledgeIntakeStage = 'inbox' | 'needs-context' | 'search-candidate' | 'wiki-candidate' | 'reference-only'
 type KnowledgeConfidence = 'low' | 'medium' | 'high'
+type KnowledgeIntakeStageFilter = 'all' | KnowledgeIntakeStage
+type KnowledgeConfidenceFilter = 'all' | KnowledgeConfidence
+type QuickCaptureMode = 'single' | 'batch'
 type KnowledgeWorkbenchTab = 'raw' | 'task-review' | 'promotion' | 'health'
 type TaskReviewType =
   | 'bug-investigation'
@@ -321,6 +324,43 @@ function buildKnowledgeItemMeta(base: unknown, payload: {
     keyQuestion: payload.keyQuestion,
     decisionNote: payload.decisionNote,
   }
+}
+
+function normalizeFingerprintText(value: unknown) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[，。！？；：“”‘’、,.!?;:"'()[\]{}<>]/g, '')
+    .trim()
+}
+
+function buildKnowledgeFingerprint(value: unknown) {
+  return normalizeFingerprintText(value).slice(0, 360)
+}
+
+function buildKnowledgeContentTitle(content: string, fallback = '未命名片段') {
+  const firstLine = String(content || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean)
+  if (!firstLine) return fallback
+  return firstLine.slice(0, 60)
+}
+
+function parseQuickCaptureBatchEntries(value: unknown) {
+  const normalized = String(value || '').replace(/\r\n/g, '\n').trim()
+  if (!normalized) return []
+
+  const chunks = normalized
+    .split(/\n\s*(?:---+|={3,})\s*\n|\n{2,}/u)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean)
+
+  return chunks.map((content, index) => ({
+    id: `batch-${index}`,
+    title: buildKnowledgeContentTitle(content, `批量片段 ${index + 1}`),
+    content,
+  }))
 }
 
 function extractContentPreview(text: string) {
@@ -1058,6 +1098,8 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   const selectedKnowledgeItemId = ref('')
   const knowledgeSourceTypeFilter = ref<KnowledgeSourceTypeFilter>('all')
   const knowledgeStatusFilter = ref<KnowledgeStatusFilter>('all')
+  const knowledgeIntakeStageFilter = ref<KnowledgeIntakeStageFilter>('all')
+  const knowledgeConfidenceFilter = ref<KnowledgeConfidenceFilter>('all')
   const knowledgeKeyword = ref('')
   const workbenchTab = ref<KnowledgeWorkbenchTab>('raw')
 
@@ -1078,12 +1120,18 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   const editorDecisionNote = ref('')
   const quickCaptureOpen = ref(false)
   const quickCaptureSaving = ref(false)
+  const quickCaptureMode = ref<QuickCaptureMode>('single')
   const quickCaptureSourceType = ref<KnowledgeSourceType>('capture')
   const quickCaptureTitle = ref('')
   const quickCaptureContent = ref('')
   const quickCaptureSourceUrl = ref('')
   const quickCaptureTagsInput = ref('')
   const quickCaptureMarkActive = ref(false)
+  const quickCaptureProject = ref('')
+  const quickCaptureTopic = ref('')
+  const quickCaptureIntakeStage = ref<KnowledgeIntakeStage>('inbox')
+  const quickCaptureConfidence = ref<KnowledgeConfidence>('medium')
+  const quickCaptureDecisionNote = ref('')
 
   const taskReviewLoading = ref(false)
   const taskReviewUpdatingId = ref('')
@@ -1147,6 +1195,17 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   const subtypeSuggestions = computed(() => SUBTYPE_SUGGESTIONS[editorSourceType.value] || [])
   const selectedKnowledgeItem = computed(() =>
     knowledgeItems.value.find((item) => item.id === selectedKnowledgeItemId.value) || null,
+  )
+  const filteredKnowledgeItems = computed(() =>
+    knowledgeItems.value.filter((item) => {
+      if (knowledgeIntakeStageFilter.value !== 'all' && normalizeIntakeStage(item?.meta?.intakeStage) !== knowledgeIntakeStageFilter.value) {
+        return false
+      }
+      if (knowledgeConfidenceFilter.value !== 'all' && normalizeConfidence(item?.meta?.confidence) !== knowledgeConfidenceFilter.value) {
+        return false
+      }
+      return true
+    }),
   )
   const editorIntakeStageOption = computed(() =>
     intakeStageOptions.find((item) => item.value === editorIntakeStage.value) || intakeStageOptions[0],
@@ -1568,9 +1627,65 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
 
   const editorPreview = computed(() => extractContentPreview(editorContent.value))
   const quickCapturePreview = computed(() => extractContentPreview(quickCaptureContent.value))
+  const quickCaptureBatchEntries = computed(() => parseQuickCaptureBatchEntries(quickCaptureContent.value))
   const quickCaptureCanSave = computed(() =>
-    Boolean(String(quickCaptureTitle.value || '').trim() || String(quickCaptureContent.value || '').trim()),
+    quickCaptureMode.value === 'batch'
+      ? quickCaptureBatchEntries.value.length > 0
+      : Boolean(String(quickCaptureTitle.value || '').trim() || String(quickCaptureContent.value || '').trim()),
   )
+  const quickCaptureSummary = computed(() => {
+    if (quickCaptureMode.value === 'batch') {
+      const count = quickCaptureBatchEntries.value.length
+      return count ? `将拆成 ${count} 条采集项` : '用空行或 --- 分隔多条片段'
+    }
+    return quickCapturePreview.value
+  })
+  const editorDuplicateCandidates = computed(() => {
+    const currentId = String(editorId.value || selectedKnowledgeItemId.value || '').trim()
+    const sourceUrl = String(editorSourceUrl.value || '').trim().toLowerCase()
+    const titleFingerprint = buildKnowledgeFingerprint(editorTitle.value)
+    const contentFingerprint = buildKnowledgeFingerprint(editorContent.value)
+    if (!sourceUrl && !titleFingerprint && !contentFingerprint) return []
+
+    return knowledgeItems.value
+      .filter((item) => item.id !== currentId)
+      .map((item) => {
+        const itemUrl = String(item.sourceUrl || '').trim().toLowerCase()
+        const itemTitleFingerprint = buildKnowledgeFingerprint(item.title)
+        const itemContentFingerprint = buildKnowledgeFingerprint(item.content)
+        let score = 0
+        const reasons: string[] = []
+        if (sourceUrl && itemUrl && sourceUrl === itemUrl) {
+          score += 90
+          reasons.push('来源链接一致')
+        }
+        if (titleFingerprint && itemTitleFingerprint && titleFingerprint === itemTitleFingerprint) {
+          score += 55
+          reasons.push('标题一致')
+        }
+        if (contentFingerprint && itemContentFingerprint) {
+          if (contentFingerprint === itemContentFingerprint) {
+            score += 80
+            reasons.push('内容一致')
+          } else if (
+            contentFingerprint.length >= 48
+            && itemContentFingerprint.length >= 48
+            && (contentFingerprint.includes(itemContentFingerprint.slice(0, 80)) || itemContentFingerprint.includes(contentFingerprint.slice(0, 80)))
+          ) {
+            score += 42
+            reasons.push('内容开头相近')
+          }
+        }
+        return {
+          item,
+          score,
+          reason: reasons.join('、'),
+        }
+      })
+      .filter((candidate) => candidate.score >= 42)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+  })
 
   function resetEditor(sourceType: KnowledgeSourceType = 'capture') {
     editorId.value = ''
@@ -1592,12 +1707,18 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   }
 
   function resetQuickCapture() {
+    quickCaptureMode.value = 'single'
     quickCaptureSourceType.value = 'capture'
     quickCaptureTitle.value = ''
     quickCaptureContent.value = ''
     quickCaptureSourceUrl.value = ''
     quickCaptureTagsInput.value = ''
     quickCaptureMarkActive.value = false
+    quickCaptureProject.value = ''
+    quickCaptureTopic.value = ''
+    quickCaptureIntakeStage.value = 'inbox'
+    quickCaptureConfidence.value = 'medium'
+    quickCaptureDecisionNote.value = ''
   }
 
   function openQuickCapture(sourceType: KnowledgeSourceType = 'capture') {
@@ -1844,23 +1965,51 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     if (quickCaptureSaving.value || !quickCaptureCanSave.value) return
     quickCaptureSaving.value = true
     try {
-      const result = await options.service.saveItem({
-        sourceType: quickCaptureSourceType.value,
-        sourceSubtype: inferDefaultSubtype(quickCaptureSourceType.value),
-        status: quickCaptureMarkActive.value ? 'active' : 'draft',
-        title: quickCaptureTitle.value,
-        content: quickCaptureContent.value,
-        sourceUrl: quickCaptureSourceUrl.value,
-        tags: parseTagsInput(quickCaptureTagsInput.value),
+      const tags = parseTagsInput(quickCaptureTagsInput.value)
+      const sharedMeta = buildKnowledgeItemMeta({}, {
+        project: quickCaptureProject.value.trim(),
+        topic: quickCaptureTopic.value.trim(),
+        intakeStage: quickCaptureIntakeStage.value,
+        confidence: quickCaptureConfidence.value,
+        keyQuestion: '',
+        decisionNote: quickCaptureDecisionNote.value.trim(),
       })
-      const item = result?.item || null
-      if (item) {
-        applyItemToEditor(item)
-        options.onQuickCaptureSaved?.(item)
+      const entries = quickCaptureMode.value === 'batch'
+        ? quickCaptureBatchEntries.value
+        : [{
+            id: 'single',
+            title: String(quickCaptureTitle.value || '').trim(),
+            content: String(quickCaptureContent.value || '').trim(),
+          }]
+      let lastItem: KnowledgeItemDto | null = null
+      for (const [index, entry] of entries.entries()) {
+        const entryTitle = String(quickCaptureTitle.value || '').trim()
+          ? entries.length > 1
+            ? `${quickCaptureTitle.value.trim()} ${index + 1}`
+            : quickCaptureTitle.value.trim()
+          : entry.title
+        const result = await options.service.saveItem({
+          sourceType: quickCaptureSourceType.value,
+          sourceSubtype: inferDefaultSubtype(quickCaptureSourceType.value),
+          status: quickCaptureMarkActive.value ? 'active' : 'draft',
+          title: entryTitle,
+          content: entry.content,
+          sourceUrl: quickCaptureSourceUrl.value,
+          tags,
+          meta: sharedMeta,
+        })
+        const item = result?.item || null
+        if (item) {
+          lastItem = item
+          options.onQuickCaptureSaved?.(item)
+        }
+      }
+      if (lastItem) {
+        applyItemToEditor(lastItem)
       }
       closeQuickCapture(true)
       await loadKnowledgeItems()
-      options.notify('快速采集已保存', 'success')
+      options.notify(entries.length > 1 ? `已批量保存 ${entries.length} 条采集项` : '快速采集已保存', 'success')
     } catch (error) {
       options.notify(String(error instanceof Error ? error.message : error || '快速采集失败'), 'danger')
     } finally {
@@ -2354,8 +2503,11 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     knowledgeSaving,
     selectedKnowledgeItemId,
     selectedKnowledgeItem,
+    filteredKnowledgeItems,
     knowledgeSourceTypeFilter,
     knowledgeStatusFilter,
+    knowledgeIntakeStageFilter,
+    knowledgeConfidenceFilter,
     knowledgeKeyword,
     summaryCards: rawSummaryCards,
     sourceTypeOptions,
@@ -2382,16 +2534,25 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     editorKeyQuestion,
     editorDecisionNote,
     editorPreview,
+    editorDuplicateCandidates,
     quickCaptureOpen,
     quickCaptureSaving,
+    quickCaptureMode,
     quickCaptureSourceType,
     quickCaptureTitle,
     quickCaptureContent,
     quickCaptureSourceUrl,
     quickCaptureTagsInput,
     quickCaptureMarkActive,
+    quickCaptureProject,
+    quickCaptureTopic,
+    quickCaptureIntakeStage,
+    quickCaptureConfidence,
+    quickCaptureDecisionNote,
     quickCapturePreview,
+    quickCaptureBatchEntries,
     quickCaptureCanSave,
+    quickCaptureSummary,
     taskReviewLoading,
     taskReviewUpdatingId,
     taskReviewKeyword,

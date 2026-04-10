@@ -28,14 +28,22 @@ const {
   quickCaptureOpen,
   closeQuickCapture,
   quickCaptureSaving,
+  quickCaptureMode,
   quickCaptureSourceType,
   quickCaptureTitle,
   quickCaptureContent,
   quickCaptureSourceUrl,
   quickCaptureTagsInput,
   quickCaptureMarkActive,
+  quickCaptureProject,
+  quickCaptureTopic,
+  quickCaptureIntakeStage,
+  quickCaptureConfidence,
+  quickCaptureDecisionNote,
   quickCapturePreview,
+  quickCaptureBatchEntries,
   quickCaptureCanSave,
+  quickCaptureSummary,
   saveQuickCapture,
   modelSettingsOpen,
   closeModelSettings,
@@ -500,20 +508,39 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
           </button>
         </div>
 
+        <div class="quick-capture-mode-options">
+          <button
+            type="button"
+            class="app-btn-ghost quick-capture-mode-btn"
+            :class="{ active: quickCaptureMode === 'single' }"
+            @click="quickCaptureMode = 'single'"
+          >
+            单条采集
+          </button>
+          <button
+            type="button"
+            class="app-btn-ghost quick-capture-mode-btn"
+            :class="{ active: quickCaptureMode === 'batch' }"
+            @click="quickCaptureMode = 'batch'"
+          >
+            批量采集
+          </button>
+        </div>
+
         <div class="quick-capture-workspace">
           <section class="quick-capture-main">
             <label class="form-modal-field quick-capture-title-field">
-              <small>标题，可选</small>
+              <small>{{ quickCaptureMode === 'batch' ? '标题前缀，可选' : '标题，可选' }}</small>
               <input class="app-input" v-model="quickCaptureTitle" type="text" placeholder="一句话概括这条内容" />
             </label>
 
             <label class="form-modal-field quick-capture-content-field">
-              <small>内容</small>
+              <small>{{ quickCaptureMode === 'batch' ? '批量内容' : '内容' }}</small>
               <textarea
                 class="app-textarea quick-capture-textarea"
                 v-model="quickCaptureContent"
                 rows="8"
-                placeholder="直接粘贴网页摘录、聊天片段、终端输出或你自己的想法"
+                :placeholder="quickCaptureMode === 'batch' ? '每条片段之间空一行，或用 --- 分隔' : '直接粘贴网页摘录、聊天片段、终端输出或你自己的想法'"
               />
             </label>
           </section>
@@ -532,6 +559,36 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
                 <small>标签，可选</small>
                 <input class="app-input" v-model="quickCaptureTagsInput" type="text" placeholder="karpathy, wiki, workflow" />
               </label>
+
+              <label class="form-modal-field">
+                <small>项目 / 工作流</small>
+                <input class="app-input" v-model="quickCaptureProject" type="text" placeholder="myLocalRAG / srs-h5" />
+              </label>
+
+              <label class="form-modal-field">
+                <small>主题</small>
+                <input class="app-input" v-model="quickCaptureTopic" type="text" placeholder="采集流程 / obsidian" />
+              </label>
+
+              <label class="form-modal-field">
+                <small>下一步去向</small>
+                <select class="app-select" v-model="quickCaptureIntakeStage">
+                  <option value="inbox">Inbox</option>
+                  <option value="needs-context">补上下文</option>
+                  <option value="search-candidate">进主检索</option>
+                  <option value="wiki-candidate">进 Wiki 编译</option>
+                  <option value="reference-only">仅参考</option>
+                </select>
+              </label>
+
+              <label class="form-modal-field">
+                <small>可信度</small>
+                <select class="app-select" v-model="quickCaptureConfidence">
+                  <option value="low">低</option>
+                  <option value="medium">中</option>
+                  <option value="high">高</option>
+                </select>
+              </label>
             </div>
 
             <label class="quick-capture-checkbox">
@@ -539,12 +596,24 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
               <span>保存后直接标为 Active，作为后续 wiki 编译候选</span>
             </label>
 
+            <label class="form-modal-field">
+              <small>处理备注，可选</small>
+              <textarea
+                class="app-textarea quick-capture-note-textarea"
+                v-model="quickCaptureDecisionNote"
+                placeholder="为什么值得保留，或者还缺什么上下文"
+              />
+            </label>
+
             <article class="quick-capture-preview-card">
               <div class="quick-capture-preview-head">
                 <IconSparkles :size="16" />
                 <strong>预览</strong>
               </div>
-              <p>{{ quickCapturePreview }}</p>
+              <p>{{ quickCaptureSummary || quickCapturePreview }}</p>
+              <small v-if="quickCaptureMode === 'batch' && quickCaptureBatchEntries.length">
+                第一条：{{ quickCaptureBatchEntries[0]?.title }}
+              </small>
             </article>
           </aside>
         </div>
