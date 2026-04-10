@@ -1,0 +1,1745 @@
+openapi: 3.0.3
+info:
+  title: Multi-AI Session Hub HTTP API
+  version: 1.0.0
+  description: |
+    Multi-AI Session Hub 的标准 HTTP 接口文档（OpenAPI）。
+
+    说明：
+    - 默认服务地址是 `http://127.0.0.1:3030`
+    - 当前接口未启用鉴权，建议对外暴露前增加网关鉴权与速率限制
+    - 错误响应通常形如 `{ "error": "..." }`
+servers:
+  - url: http://127.0.0.1:3030
+    description: Local development server
+tags:
+  - name: System
+  - name: Sources
+  - name: Import
+  - name: Sessions
+  - name: Retrieval
+  - name: Wiki
+  - name: Prompt
+  - name: Bug Trace
+  - name: Bug Inbox
+  - name: Feishu
+  - name: Embedding
+  - name: Review
+
+paths:
+  /api/health:
+    get:
+      tags: [System]
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, workspace]
+                properties:
+                  ok:
+                    type: boolean
+                  workspace:
+                    type: string
+
+  /api/workspace:
+    get:
+      tags: [System]
+      summary: Get workspace and storage file paths
+      responses:
+        '200':
+          description: Workspace metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace, files]
+                properties:
+                  workspace:
+                    type: string
+                  files:
+                    type: object
+                    additionalProperties:
+                      type: string
+
+  /api/wiki-vault/explain:
+    get:
+      tags: [Wiki]
+      summary: Explain vault audience, read order, and usage rules
+      responses:
+        '200':
+          description: Vault usage guide
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/wiki-vault/lint:
+    get:
+      tags: [Wiki]
+      summary: Run lint checks against the generated wiki
+      parameters:
+        - in: query
+          name: writeReport
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Wiki lint report
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/wiki-vault/promotion-queue:
+    get:
+      tags: [Wiki]
+      summary: Build or read the pending promotion queue for draft wiki updates
+      parameters:
+        - in: query
+          name: writeReport
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Promotion queue snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/wiki-vault/search:
+    post:
+      tags: [Wiki]
+      summary: Search wiki-facing markdown notes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                topK:
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                spaces:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: string
+                includeMarkdown:
+                  type: boolean
+      responses:
+        '200':
+          description: Wiki note search result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [query, topK, spaces, totalNotes, totalMatched, results]
+                properties:
+                  query: { type: string }
+                  topK: { type: integer }
+                  spaces:
+                    type: array
+                    items:
+                      type: string
+                  totalNotes: { type: integer }
+                  totalMatched: { type: integer }
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/wiki-vault/note:
+    get:
+      tags: [Wiki]
+      summary: Read a wiki note by relative path
+      parameters:
+        - in: query
+          name: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Wiki note content
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/wiki-vault/project:
+    get:
+      tags: [Wiki]
+      summary: Read a project hub by project key or title
+      parameters:
+        - in: query
+          name: project
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project hub content
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/prompt-rubric:
+    get:
+      tags: [Prompt]
+      summary: Get prompt scoring rubric
+      responses:
+        '200':
+          description: Prompt rubric
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rubric]
+                properties:
+                  rubric:
+                    type: object
+                    additionalProperties: true
+
+  /api/prompt-score:
+    post:
+      tags: [Prompt]
+      summary: Score a single prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:
+                  type: string
+                promptId:
+                  type: string
+                contextMessages:
+                  type: array
+                  items:
+                    type: string
+            example:
+              prompt: 请分析这段文本并输出 JSON
+              promptId: p_001
+              contextMessages:
+                - 我们在 Vue 项目里改 UI
+      responses:
+        '200':
+          description: Prompt score result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/prompt-score-batch:
+    post:
+      tags: [Prompt]
+      summary: Score prompts in batch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompts]
+              properties:
+                prompts:
+                  type: array
+                  minItems: 1
+                  items:
+                    oneOf:
+                      - type: string
+                      - type: object
+                        additionalProperties: true
+            example:
+              prompts:
+                - 帮我总结下面文档
+                - prompt: 生成测试用例并给覆盖率建议
+      responses:
+        '200':
+          description: Batch score result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total, results]
+                properties:
+                  total:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/prompt-optimize:
+    post:
+      tags: [Prompt]
+      summary: Optimize a prompt (DSPy with fallback)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:
+                  type: string
+                promptId:
+                  type: string
+                taskType:
+                  type: string
+                model:
+                  type: string
+                language:
+                  type: string
+                  enum: [zh-CN, en-US]
+                forceRegenerate:
+                  type: boolean
+                timeoutMs:
+                  type: integer
+                contextMessages:
+                  type: array
+                  items:
+                    type: string
+                constraints:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: string
+            example:
+              prompt: 帮我优化这个页面
+              taskType: coding
+              language: zh-CN
+              forceRegenerate: false
+              timeoutMs: 120000
+              contextMessages:
+                - 我们在 Cursor 里改 Vue 项目
+              constraints:
+                - 输出先给方案后给代码
+      responses:
+        '200':
+          description: Optimization result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/ask:
+    post:
+      tags: [Prompt]
+      summary: Ask a remote LLM (OpenAI-compatible)
+      description: |
+        通过 OpenAI 兼容接口请求问答模型，支持 `query` 或 `messages` 两种输入。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                prompt:
+                  type: string
+                input:
+                  type: string
+                systemPrompt:
+                  type: string
+                model:
+                  type: string
+                apiBase:
+                  type: string
+                apiKey:
+                  type: string
+                timeoutMs:
+                  type: integer
+                temperature:
+                  type: number
+                topP:
+                  type: number
+                maxTokens:
+                  type: integer
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                      content:
+                        oneOf:
+                          - type: string
+                          - type: array
+                            items:
+                              type: object
+                              additionalProperties: true
+            example:
+              query: 用三句话解释什么是 RAG
+              systemPrompt: 你是一个简洁准确的中文助手
+              model: Qwen/Qwen2.5-72B-Instruct
+      responses:
+        '200':
+          description: Ask result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [answer, model, source, request]
+                properties:
+                  answer:
+                    type: string
+                  id:
+                    type: string
+                  model:
+                    type: string
+                  finishReason:
+                    type: string
+                  usage:
+                    oneOf:
+                      - type: object
+                        additionalProperties: true
+                      - type: 'null'
+                  source:
+                    type: string
+                  apiBase:
+                    type: string
+                  request:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+
+  /api/sources:
+    get:
+      tags: [Sources]
+      summary: List data sources
+      responses:
+        '200':
+          description: Data source list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sources]
+                properties:
+                  sources:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Source'
+    post:
+      tags: [Sources]
+      summary: Add a data source
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, provider, path]
+              properties:
+                name:
+                  type: string
+                provider:
+                  type: string
+                path:
+                  type: string
+                format:
+                  type: string
+                  default: auto
+            example:
+              name: Cursor 本地会话
+              provider: cursor
+              path: /Users/me/.cursor/projects
+              format: auto
+      responses:
+        '200':
+          description: Created source
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [source]
+                properties:
+                  source:
+                    $ref: '#/components/schemas/Source'
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/discover-sources:
+    get:
+      tags: [Sources]
+      summary: Auto discover source suggestions
+      responses:
+        '200':
+          description: Source suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [suggestions]
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+
+  /api/scan:
+    post:
+      tags: [Sources]
+      summary: Scan all configured sources and rebuild index
+      responses:
+        '200':
+          description: Full index snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexSnapshot'
+
+  /api/scan-provider:
+    post:
+      tags: [Sources]
+      summary: Scan and refresh by provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider]
+              properties:
+                provider:
+                  type: string
+            example:
+              provider: cursor
+      responses:
+        '200':
+          description: Provider refresh result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [provider, scannedSources, refreshed, total, issues, updatedAt]
+                properties:
+                  provider:
+                    type: string
+                  scannedSources:
+                    type: integer
+                  refreshed:
+                    type: integer
+                  total:
+                    type: integer
+                  issues:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  updatedAt:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/import-folder:
+    post:
+      tags: [Import]
+      summary: Import from local folder path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+      responses:
+        '200':
+          description: Import summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/import-preview:
+    post:
+      tags: [Import]
+      summary: Preview import by uploaded files
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                provider:
+                  type: string
+                  default: other
+                sourceRoot:
+                  type: string
+                  default: upload
+                files:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/UploadedFile'
+      responses:
+        '200':
+          description: Import preview result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [count, bySourceType, issues, sample]
+                properties:
+                  count:
+                    type: integer
+                  bySourceType:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  issues:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  sample:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        title: { type: string }
+                        provider: { type: string }
+                        sourceType: { type: string }
+                        messageCount: { type: integer }
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/import-folder-files:
+    post:
+      tags: [Import]
+      summary: Import by uploaded files
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                provider:
+                  type: string
+                  default: other
+                sourceRoot:
+                  type: string
+                  default: upload
+                files:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/UploadedFile'
+      responses:
+        '200':
+          description: Import summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/bug-trace/settings/patch-dirs:
+    get:
+      tags: [Bug Trace]
+      summary: List patch directory presets
+      responses:
+        '200':
+          description: Preset list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [presets]
+                properties:
+                  presets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PatchDirPreset'
+    post:
+      tags: [Bug Trace]
+      summary: Create or update patch directory preset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [alias, path]
+              properties:
+                id:
+                  type: string
+                alias:
+                  type: string
+                path:
+                  type: string
+            example:
+              alias: default patches
+              path: /Users/me/work/.ai-patches
+      responses:
+        '200':
+          description: Preset upsert result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [preset, presets]
+                properties:
+                  preset:
+                    $ref: '#/components/schemas/PatchDirPreset'
+                  presets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PatchDirPreset'
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/bug-trace/settings/patch-dirs/delete:
+    post:
+      tags: [Bug Trace]
+      summary: Delete patch directory preset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: Delete result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [removed, presets]
+                properties:
+                  removed:
+                    type: boolean
+                  presets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PatchDirPreset'
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/bug-trace/patch-count:
+    get:
+      tags: [Bug Trace]
+      summary: Get patch file count under a directory
+      parameters:
+        - in: query
+          name: patchDir
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Patch count
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [patchDir, total]
+                properties:
+                  patchDir:
+                    type: string
+                  total:
+                    type: integer
+
+  /api/bug-trace:
+    post:
+      tags: [Bug Trace]
+      summary: Trace bug code to patch and cursor conversations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bugCode]
+              properties:
+                bugCode:
+                  type: string
+                patchDir:
+                  type: string
+                cursorRoot:
+                  type: string
+                topK:
+                  type: integer
+                  minimum: 1
+                  maximum: 30
+      responses:
+        '200':
+          description: Bug trace result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [bugCode, patchDir, cursorRoot, totalPatchRecords, totalMatched, results]
+                properties:
+                  bugCode: { type: string }
+                  patchDir: { type: string }
+                  cursorRoot: { type: string }
+                  totalPatchRecords: { type: integer }
+                  totalMatched: { type: integer }
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/bug-trace/file-preview:
+    post:
+      tags: [Bug Trace]
+      summary: Preview file content from before/after snapshot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filePath]
+              properties:
+                patchDir:
+                  type: string
+                turnDir:
+                  type: string
+                  nullable: true
+                patchPath:
+                  type: string
+                filePath:
+                  type: string
+      responses:
+        '200':
+          description: File preview result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [filePath, beforeExists, afterExists, beforeContent, afterContent]
+                properties:
+                  filePath: { type: string }
+                  beforeExists: { type: boolean }
+                  afterExists: { type: boolean }
+                  beforeContent: { type: string }
+                  afterContent: { type: string }
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/bug-trace/conversation-detail:
+    post:
+      tags: [Bug Trace]
+      summary: Get cursor conversation detail by transcript path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [transcriptPath]
+              properties:
+                transcriptPath:
+                  type: string
+                cursorRoot:
+                  type: string
+                limit:
+                  type: integer
+      responses:
+        '200':
+          description: Conversation detail
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /api/feishu/todolist:
+    get:
+      tags: [Feishu]
+      summary: List Feishu todo items
+      parameters:
+        - in: query
+          name: action
+          required: false
+          schema:
+            type: string
+            default: todo
+        - in: query
+          name: pages
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+      responses:
+        '200':
+          description: Todo list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [action, total, items]
+                properties:
+                  action:
+                    type: string
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/feishu/bug-candidates:
+    get:
+      tags: [Feishu]
+      summary: List Feishu bug candidates for binding
+      responses:
+        '200':
+          description: Candidate list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total, strategy, candidates]
+                properties:
+                  total:
+                    type: integer
+                  strategy:
+                    type: string
+                  candidates:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/feishu/todolist/batch-transition:
+    post:
+      tags: [Feishu]
+      summary: Batch transition Feishu todo workflow status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, items]
+              properties:
+                action:
+                  type: string
+                  enum: [confirm, rollback]
+                rollbackReason:
+                  type: string
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [id, projectKey, nodeStateKey]
+                    properties:
+                      id: { type: string }
+                      title: { type: string }
+                      projectKey: { type: string }
+                      nodeStateKey: { type: string }
+                      workItemType: { type: string }
+      responses:
+        '200':
+          description: Batch transition result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [action, total, succeeded, failed, results]
+                properties:
+                  action:
+                    type: string
+                    enum: [confirm, rollback]
+                  total:
+                    type: integer
+                  succeeded:
+                    type: integer
+                  failed:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        title: { type: string }
+                        ok: { type: boolean }
+                        error: { type: string }
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/bug-inbox:
+    get:
+      tags: [Bug Inbox]
+      summary: List bug inbox items
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: Bug inbox items
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+    post:
+      tags: [Bug Inbox]
+      summary: Create bug inbox item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bugCode]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                severity:
+                  type: string
+                status:
+                  type: string
+                bugCode:
+                  type: string
+                patchDir:
+                  type: string
+                cursorRoot:
+                  type: string
+                trace:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: Created bug inbox item
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item]
+                properties:
+                  item:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/bug-inbox/match-feishu:
+    post:
+      tags: [Bug Inbox]
+      summary: Match Feishu candidates by bug inbox item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bugId]
+              properties:
+                bugId:
+                  type: string
+      responses:
+        '200':
+          description: Candidate match result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [bugId, query, candidates, strategy]
+                properties:
+                  bugId: { type: string }
+                  query: { type: string }
+                  strategy: { type: string }
+                  candidates:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /api/bug-inbox/link-feishu:
+    post:
+      tags: [Bug Inbox]
+      summary: Link bug inbox item to Feishu issue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bugId, candidate]
+              properties:
+                bugId:
+                  type: string
+                candidate:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: Updated bug inbox item
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item]
+                properties:
+                  item:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/bug-inbox/delete:
+    post:
+      tags: [Bug Inbox]
+      summary: Delete bug inbox item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: Delete result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [removed]
+                properties:
+                  removed:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/sessions:
+    get:
+      tags: [Sessions]
+      summary: Query sessions
+      parameters:
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: provider
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: from
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: conversationId
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updatedAt, issues, sessions]
+                properties:
+                  updatedAt:
+                    type: string
+                    nullable: true
+                  issues:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  sessions:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+
+  /api/sessions/delete:
+    post:
+      tags: [Sessions]
+      summary: Delete a session by id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: Delete result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [removed, total, updatedAt]
+                properties:
+                  removed: { type: boolean }
+                  total: { type: integer }
+                  updatedAt:
+                    type: string
+                    nullable: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/messages/tags:
+    post:
+      tags: [Sessions]
+      summary: Update message tags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, messageIds]
+              properties:
+                sessionId:
+                  type: string
+                messageIds:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+            example:
+              sessionId: s_123
+              messageIds: [m_1, m_2]
+              tags: [工作, AI]
+      responses:
+        '200':
+          description: Tag update result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/messages/tags/:
+    post:
+      tags: [Sessions]
+      summary: Update message tags (alias)
+      deprecated: true
+      requestBody:
+        $ref: '#/components/requestBodies/MessageTagsBody'
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageTagsResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/message-tags:
+    post:
+      tags: [Sessions]
+      summary: Update message tags (alias)
+      deprecated: true
+      requestBody:
+        $ref: '#/components/requestBodies/MessageTagsBody'
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageTagsResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/retrieve:
+    post:
+      tags: [Retrieval]
+      summary: Retrieve memory candidates for a query
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                provider:
+                  type: string
+                topK:
+                  type: integer
+                  minimum: 1
+                  maximum: 30
+                includeMessages:
+                  type: boolean
+                autoEmbed:
+                  type: boolean
+                rewriteQuery:
+                  type: boolean
+                  description: Use assistant model to rewrite the retrieval query before recall
+                generateAnswer:
+                  type: boolean
+                  description: Use assistant model to synthesize a grounded answer from retrieved evidence
+                timeRange:
+                  type: object
+                  properties:
+                    from:
+                      type: string
+                      format: date-time
+                    to:
+                      type: string
+                      format: date-time
+      responses:
+        '200':
+          description: Retrieval result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [query, topK, totalCandidates, totalMatched, context_block, results]
+                properties:
+                  query: { type: string }
+                  retrievalQuery:
+                    type: string
+                  topK: { type: integer }
+                  totalCandidates: { type: integer }
+                  totalMatched: { type: integer }
+                  updatedAt:
+                    type: string
+                    nullable: true
+                  context_block:
+                    type: string
+                  embedding:
+                    type: object
+                    additionalProperties: true
+                  queryRewrite:
+                    type: object
+                    additionalProperties: true
+                  answer:
+                    type: object
+                    additionalProperties: true
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/embeddings/rebuild:
+    post:
+      tags: [Embedding]
+      summary: Rebuild session embeddings
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                  description: provider name or all
+                force:
+                  type: boolean
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 5000
+      responses:
+        '200':
+          description: Rebuild summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - provider
+                  - limit
+                  - force
+                  - totalSessions
+                  - alreadyEmbedded
+                  - targetCount
+                  - generated
+                  - embedding
+                  - generatedAt
+                properties:
+                  provider: { type: string }
+                  limit: { type: integer }
+                  force: { type: boolean }
+                  totalSessions: { type: integer }
+                  alreadyEmbedded: { type: integer }
+                  targetCount: { type: integer }
+                  generated: { type: integer }
+                  embedding:
+                    type: object
+                    properties:
+                      source: { type: string }
+                      model: { type: string }
+                      fallback: { type: boolean }
+                      error: { type: string, nullable: true }
+                  generatedAt:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/embeddings/evaluate:
+    post:
+      tags: [Embedding]
+      summary: Evaluate hybrid retrieval quality
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                topK:
+                  type: integer
+                  minimum: 1
+                  maximum: 30
+                sampleSize:
+                  type: integer
+                  minimum: 5
+                  maximum: 200
+                autoEmbed:
+                  type: boolean
+      responses:
+        '200':
+          description: Evaluation metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [provider, topK, sampleSize, autoEmbed, metrics, embedding, generatedAt]
+                properties:
+                  provider: { type: string }
+                  topK: { type: integer }
+                  sampleSize: { type: integer }
+                  autoEmbed: { type: boolean }
+                  metrics:
+                    type: object
+                    additionalProperties:
+                      type: number
+                  embedding:
+                    type: object
+                    properties:
+                      fallbackRate: { type: number }
+                  improvedCases:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  regressedCases:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  generatedAt:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/review:
+    post:
+      tags: [Review]
+      summary: Generate behavior review and skill candidates
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                recentDays:
+                  type: integer
+                  minimum: 1
+                minRepeatedPrompt:
+                  type: integer
+                  minimum: 2
+      responses:
+        '200':
+          description: Review report
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [generatedAt, range, summary, behaviorMetrics, providerStats, roleStats, topTerms, repeatedPrompts, skillCandidates]
+                properties:
+                  generatedAt:
+                    type: string
+                    format: date-time
+                  range:
+                    type: object
+                    additionalProperties: true
+                  summary:
+                    type: object
+                    additionalProperties: true
+                  behaviorMetrics:
+                    type: object
+                    additionalProperties: true
+                  providerStats:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  roleStats:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  topTerms:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        term: { type: string }
+                        count: { type: integer }
+                  repeatedPrompts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        prompt: { type: string }
+                        count: { type: integer }
+                  skillCandidates:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+components:
+  requestBodies:
+    MessageTagsBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [sessionId, messageIds]
+            properties:
+              sessionId:
+                type: string
+              messageIds:
+                type: array
+                minItems: 1
+                items:
+                  type: string
+              tags:
+                type: array
+                items:
+                  type: string
+
+  responses:
+    Error400:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Error404:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    MessageTagsResponse:
+      description: Tag update result
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    Source:
+      type: object
+      required: [id, name, provider, path, format, createdAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        provider:
+          type: string
+        path:
+          type: string
+        format:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    PatchDirPreset:
+      type: object
+      required: [id, alias, path]
+      properties:
+        id:
+          type: string
+        alias:
+          type: string
+        path:
+          type: string
+
+    UploadedFile:
+      type: object
+      required: [path, content]
+      properties:
+        path:
+          type: string
+        content:
+          type: string
+
+    ImportResult:
+      type: object
+      required: [imported, total, issues, updatedAt]
+      properties:
+        imported:
+          type: integer
+        total:
+          type: integer
+        issues:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        updatedAt:
+          type: string
+          format: date-time
+
+    IndexSnapshot:
+      type: object
+      required: [updatedAt, sessions, issues]
+      properties:
+        updatedAt:
+          type: string
+          format: date-time
+        sessions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        issues:
+          type: array
+          items:
+            type: object
+            additionalProperties: true

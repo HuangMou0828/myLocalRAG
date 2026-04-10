@@ -1,0 +1,544 @@
+openapi: 3.0.3
+info:
+  title: Multi-AI Session Hub Public API
+  version: 1.0.0
+  description: |
+    对外公开版接口文档（精简版）。
+
+    设计原则：
+    - 仅保留外部调用方常用能力
+    - 隐藏数据源管理、导入、Bug/Feishu、Embedding 运维相关接口
+    - 默认未启用鉴权，生产环境请在网关层补充鉴权和限流
+servers:
+  - url: http://127.0.0.1:3030
+    description: Local development server
+
+tags:
+  - name: System
+  - name: Sessions
+  - name: Retrieval
+  - name: Wiki
+  - name: Prompt
+  - name: Review
+
+paths:
+  /api/health:
+    get:
+      tags: [System]
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, workspace]
+                properties:
+                  ok:
+                    type: boolean
+                  workspace:
+                    type: string
+
+  /api/sessions:
+    get:
+      tags: [Sessions]
+      summary: Query sessions
+      parameters:
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: provider
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: from
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: conversationId
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updatedAt, issues, sessions]
+                properties:
+                  updatedAt:
+                    type: string
+                    nullable: true
+                  issues:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  sessions:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+
+  /api/retrieve:
+    post:
+      tags: [Retrieval]
+      summary: Retrieve memory candidates for a query
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                provider:
+                  type: string
+                topK:
+                  type: integer
+                  minimum: 1
+                  maximum: 30
+                includeMessages:
+                  type: boolean
+                autoEmbed:
+                  type: boolean
+                rewriteQuery:
+                  type: boolean
+                  description: Use assistant model to rewrite the retrieval query before recall
+                generateAnswer:
+                  type: boolean
+                  description: Use assistant model to synthesize a grounded answer from retrieved evidence
+                timeRange:
+                  type: object
+                  properties:
+                    from:
+                      type: string
+                      format: date-time
+                    to:
+                      type: string
+                      format: date-time
+      responses:
+        '200':
+          description: Retrieval result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [query, topK, totalCandidates, totalMatched, context_block, results]
+                properties:
+                  query: { type: string }
+                  retrievalQuery:
+                    type: string
+                  topK: { type: integer }
+                  totalCandidates: { type: integer }
+                  totalMatched: { type: integer }
+                  updatedAt:
+                    type: string
+                    nullable: true
+                  context_block:
+                    type: string
+                  embedding:
+                    type: object
+                    additionalProperties: true
+                  queryRewrite:
+                    type: object
+                    additionalProperties: true
+                  answer:
+                    type: object
+                    additionalProperties: true
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/wiki-vault/explain:
+    get:
+      tags: [Wiki]
+      summary: Explain vault audience, read order, and usage rules
+      responses:
+        '200':
+          description: Vault usage guide
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/wiki-vault/lint:
+    get:
+      tags: [Wiki]
+      summary: Run lint checks against the generated wiki
+      parameters:
+        - in: query
+          name: writeReport
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Wiki lint report
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/wiki-vault/promotion-queue:
+    get:
+      tags: [Wiki]
+      summary: Build or read the pending promotion queue for draft wiki updates
+      parameters:
+        - in: query
+          name: writeReport
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Promotion queue snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/wiki-vault/search:
+    post:
+      tags: [Wiki]
+      summary: Search wiki-facing markdown notes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                topK:
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                spaces:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: string
+                includeMarkdown:
+                  type: boolean
+      responses:
+        '200':
+          description: Wiki note search result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [query, topK, spaces, totalNotes, totalMatched, results]
+                properties:
+                  query: { type: string }
+                  topK: { type: integer }
+                  spaces:
+                    type: array
+                    items:
+                      type: string
+                  totalNotes: { type: integer }
+                  totalMatched: { type: integer }
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/wiki-vault/note:
+    get:
+      tags: [Wiki]
+      summary: Read a wiki note by relative path
+      parameters:
+        - in: query
+          name: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Wiki note content
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/wiki-vault/project:
+    get:
+      tags: [Wiki]
+      summary: Read a project hub by project key or title
+      parameters:
+        - in: query
+          name: project
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project hub content
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/prompt-rubric:
+    get:
+      tags: [Prompt]
+      summary: Get prompt scoring rubric
+      responses:
+        '200':
+          description: Prompt rubric
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rubric]
+                properties:
+                  rubric:
+                    type: object
+                    additionalProperties: true
+
+  /api/prompt-score:
+    post:
+      tags: [Prompt]
+      summary: Score a single prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:
+                  type: string
+                promptId:
+                  type: string
+                contextMessages:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Prompt score result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/prompt-score-batch:
+    post:
+      tags: [Prompt]
+      summary: Score prompts in batch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompts]
+              properties:
+                prompts:
+                  type: array
+                  minItems: 1
+                  items:
+                    oneOf:
+                      - type: string
+                      - type: object
+                        additionalProperties: true
+      responses:
+        '200':
+          description: Batch score result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total, results]
+                properties:
+                  total:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/prompt-optimize:
+    post:
+      tags: [Prompt]
+      summary: Optimize a prompt (DSPy with fallback)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:
+                  type: string
+                promptId:
+                  type: string
+                taskType:
+                  type: string
+                model:
+                  type: string
+                language:
+                  type: string
+                  enum: [zh-CN, en-US]
+                forceRegenerate:
+                  type: boolean
+                timeoutMs:
+                  type: integer
+                contextMessages:
+                  type: array
+                  items:
+                    type: string
+                constraints:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: string
+      responses:
+        '200':
+          description: Optimization result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/ask:
+    post:
+      tags: [Prompt]
+      summary: Ask a remote LLM (OpenAI-compatible)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+                systemPrompt:
+                  type: string
+                model:
+                  type: string
+                timeoutMs:
+                  type: integer
+                temperature:
+                  type: number
+                topP:
+                  type: number
+                maxTokens:
+                  type: integer
+            example:
+              query: 用三句话解释什么是 RAG
+              systemPrompt: 你是一个简洁准确的中文助手
+      responses:
+        '200':
+          description: Ask result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+
+  /api/review:
+    post:
+      tags: [Review]
+      summary: Generate behavior review and skill candidates
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                recentDays:
+                  type: integer
+                  minimum: 1
+                minRepeatedPrompt:
+                  type: integer
+                  minimum: 2
+      responses:
+        '200':
+          description: Review report
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+components:
+  responses:
+    Error400:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string

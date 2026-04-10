@@ -1,0 +1,250 @@
+.model-management-panel {
+  display: grid;
+  gap: 0.82rem;
+}
+
+.model-management-head {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.08rem 1.1rem;
+  border-radius: 1.05rem;
+  border: 1px solid rgba(123, 151, 188, 0.22);
+  background:
+    radial-gradient(circle at top right, rgba(96, 165, 250, 0.14), transparent 32%),
+    radial-gradient(circle at bottom left, rgba(20, 184, 166, 0.1), transparent 34%),
+    linear-gradient(135deg, rgba(10, 21, 40, 0.94), rgba(7, 13, 26, 0.98));
+  box-shadow: 0 20px 48px rgba(2, 6, 23, 0.2);
+}
+
+.model-management-head::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 46%);
+  opacity: 0.72;
+}
+
+.model-management-head-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.model-management-head-copy small {
+  color: #8bc7ff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.model-management-head-copy h2 {
+  margin: 0;
+  color: #f5f9ff;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.model-management-head-copy p {
+  max-width: 42rem;
+  margin: 0;
+  color: #b6cae2;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.model-management-head-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.model-management-head-actions .app-btn,
+.model-management-head-actions .app-btn-ghost {
+  width: auto;
+  min-width: 5.8rem;
+}
+
+.model-management-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.model-management-overview article {
+  min-width: 0;
+  display: grid;
+  gap: 0.14rem;
+  padding: 0.75rem 0.82rem;
+  border: 1px solid var(--border-light);
+  border-radius: 0.92rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.022), transparent 62%),
+    rgba(8, 15, 31, 0.48);
+}
+
+.model-management-overview small {
+  color: #91a6c0;
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.model-management-overview strong {
+  color: #eef6ff;
+  font-size: 1.16rem;
+  line-height: 1.1;
+}
+
+.model-management-overview span {
+  color: #aebfd5;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.model-management-list {
+  gap: 0.75rem;
+}
+
+.model-management-item {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(139, 170, 206, 0.2);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 62%),
+    rgba(8, 15, 31, 0.52);
+}
+
+.model-management-item::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: rgba(96, 165, 250, 0.52);
+  opacity: 0.78;
+}
+
+.model-management-item .component-list-leading,
+.model-management-item .component-list-main {
+  position: relative;
+  z-index: 1;
+}
+
+.model-management-item .component-list-avatar {
+  width: 2.12rem;
+  height: 2.12rem;
+  border-radius: 0.72rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.model-management-item .component-list-avatar[data-tone='success'] {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.78), rgba(37, 99, 235, 0.62));
+}
+
+.model-management-item .component-list-avatar[data-tone='info'] {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.76), rgba(37, 99, 235, 0.68));
+}
+
+.model-management-item .component-list-avatar[data-tone='warn'] {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.78), rgba(217, 119, 6, 0.64));
+}
+
+.model-management-item .component-list-top {
+  align-items: center;
+}
+
+.model-management-item .component-list-actions {
+  justify-content: flex-end;
+  padding-top: 0.3rem;
+}
+
+.model-management-role-chip,
+.model-management-meta-tag,
+.model-management-path-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.55rem;
+  padding: 0.18rem 0.52rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.model-management-role-chip {
+  color: #dbeafe;
+  background: rgba(37, 99, 235, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+}
+
+.model-management-meta-tag {
+  color: #d9f99d;
+  background: rgba(101, 163, 13, 0.12);
+  border: 1px solid rgba(132, 204, 22, 0.18);
+}
+
+.model-management-deadline-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.55rem;
+  padding: 0.18rem 0.52rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.18);
+}
+
+.model-management-path-tag {
+  color: #8dd6ff;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.14);
+}
+
+.model-management-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.model-management-meta-row small {
+  color: #9fb6d5;
+}
+
+.model-management-empty {
+  min-height: 12rem;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 1rem;
+  border-radius: 1rem;
+}
+
+.model-management-skeleton-list {
+  margin-top: 0.1rem;
+}
+
+@media (max-width: 760px) {
+  .model-management-head {
+    display: grid;
+  }
+
+  .model-management-head-actions {
+    justify-content: flex-start;
+  }
+
+  .model-management-overview {
+    grid-template-columns: 1fr;
+  }
+}

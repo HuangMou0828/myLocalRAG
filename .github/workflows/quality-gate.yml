@@ -1,0 +1,37 @@
+name: Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Architecture Check
+        run: npm run arch:check
+
+      - name: Type Check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test (If Present)
+        run: npm run test --if-present

@@ -1,0 +1,13 @@
+node_modules
+dist
+server/data/*.json
+server/data/*.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.env.local
+vault/
