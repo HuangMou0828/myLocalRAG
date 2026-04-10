@@ -18,7 +18,9 @@
 .accordion-item {
   border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 0.78rem;
-  background: linear-gradient(180deg, rgba(17, 23, 33, 0.94), rgba(13, 18, 27, 0.98));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 58%),
+    linear-gradient(180deg, rgba(17, 23, 33, 0.94), rgba(13, 18, 27, 0.98));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
   overflow: hidden;
 }
@@ -130,9 +132,11 @@
 .provider-item {
   position: relative;
   width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.08);
-  border-radius: 0.72rem;
-  background: rgba(255, 255, 255, 0.018);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 0.78rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.014), transparent 62%),
+    rgba(255, 255, 255, 0.018);
   padding: 0.6rem 0.66rem;
   display: flex;
   align-items: center;
@@ -149,7 +153,10 @@
 }
 
 .provider-item:hover {
-  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(148, 163, 184, 0.2);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.024), transparent 62%),
+    rgba(255, 255, 255, 0.034);
   transform: translateY(-1px);
 }
 
@@ -167,7 +174,9 @@
 
 .provider-item.active {
   border-color: rgba(111, 134, 255, 0.32);
-  background: linear-gradient(180deg, rgba(111, 134, 255, 0.08), rgba(111, 134, 255, 0.04));
+  background:
+    radial-gradient(circle at 100% 0%, rgba(111, 134, 255, 0.1), transparent 42%),
+    linear-gradient(180deg, rgba(111, 134, 255, 0.08), rgba(111, 134, 255, 0.04));
   color: var(--accent-primary);
 }
 
@@ -342,27 +351,43 @@
 }
 
 .icon-btn {
-  width: 2.35rem;
-  min-width: 2.35rem;
-  height: 2.35rem;
+  width: 2.42rem;
+  min-width: 2.42rem;
+  height: 2.42rem;
   padding: 0;
-  flex: 0 0 2.35rem;
+  flex: 0 0 2.42rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.78rem;
+  border-radius: 0.82rem;
   font-size: 1.1rem;
   line-height: 1;
   color: var(--text-secondary);
-  background: var(--bg-element);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.024), transparent 58%),
+    var(--bg-element);
   border: 1px solid var(--border-light);
   transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
 
+.icon-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(148, 163, 184, 0.26);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 58%),
+    var(--bg-element-hover);
+  color: var(--text-primary);
+}
+
 .toolbar-shell {
-  align-items: flex-start;
-  padding: 0.2rem 0;
+  align-items: center;
+  padding: 0.72rem 0.82rem;
   gap: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 1.05rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 58%),
+    rgba(8, 15, 31, 0.36);
 }
 
 .toolbar-context {
@@ -449,7 +474,9 @@
   padding: 0.35rem;
   border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 0.95rem;
-  background: rgba(255, 255, 255, 0.02);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 60%),
+    rgba(255, 255, 255, 0.02);
 }
 
 .sidebar-brand {
@@ -526,11 +553,13 @@
 
 .sidebar-rail-item {
   width: 100%;
-  min-height: 4.9rem;
+  min-height: 4.2rem;
   padding: 0.55rem 0.38rem;
   border-radius: 1rem;
   border: 1px solid rgba(148, 163, 184, 0.12);
-  background: linear-gradient(180deg, rgba(18, 25, 35, 0.94), rgba(15, 21, 31, 0.98));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 58%),
+    linear-gradient(180deg, rgba(18, 25, 35, 0.94), rgba(15, 21, 31, 0.98));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -547,6 +576,9 @@
   transform: translateY(-1px);
   border-color: rgba(148, 163, 184, 0.22);
   color: #eef2f9;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), transparent 58%),
+    linear-gradient(180deg, rgba(23, 32, 46, 0.96), rgba(16, 23, 34, 0.98));
 }
 
 .sidebar-rail-item.active {
@@ -3972,24 +4004,27 @@
 }
 
 .skeleton {
-  background: linear-gradient(90deg, 
-    var(--bg-panel-soft) 25%, 
-    rgba(255, 255, 255, 0.03) 50%, 
-    var(--bg-panel-soft) 75%);
+  background: linear-gradient(90deg,
+    rgba(15, 23, 42, 0.74) 25%,
+    rgba(100, 116, 139, 0.2) 50%,
+    rgba(15, 23, 42, 0.74) 75%);
   background-size: 200% 100%;
   animation: shimmer 2s infinite linear;
-  border-radius: 4px;
+  border-radius: 999px;
 }
 
 .skeleton-card {
   height: 100px;
   margin-bottom: 0.75rem;
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid var(--border-light);
   padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 58%),
+    rgba(8, 15, 31, 0.42);
 }
 
 .skeleton-text {
@@ -4003,28 +4038,41 @@
 
 /* Enhanced Empty States */
 .empty-dashboard-state {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   align-items: center;
   justify-content: center;
+  justify-items: center;
+  gap: 0.72rem;
   text-align: center;
   padding: 3rem 1.5rem;
   height: 100%;
   min-height: 320px;
   opacity: 1;
+  border-radius: 1.15rem;
+  border: 1px dashed rgba(148, 163, 184, 0.18);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(111, 134, 255, 0.08), transparent 34%),
+    rgba(8, 15, 31, 0.2);
 }
 
 .empty-state-icon {
-  margin-bottom: 1.4rem;
+  width: 3rem;
+  height: 3rem;
+  display: inline-grid;
+  place-items: center;
+  margin-bottom: 0.2rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(111, 134, 255, 0.16);
+  background: rgba(111, 134, 255, 0.08);
   color: var(--accent-primary);
-  opacity: 0.14;
+  opacity: 0.8;
   filter: none;
 }
 
 .empty-state-title {
   font-size: 1.32rem;
   font-weight: 700;
-  margin-bottom: 0.65rem;
+  margin: 0;
   color: #f5f8fd;
   letter-spacing: -0.01em;
 }
@@ -4033,7 +4081,7 @@
   max-width: 32rem;
   color: var(--text-secondary);
   line-height: 1.6;
-  margin-bottom: 1.5rem;
+  margin: 0 0 0.4rem;
 }
 
 .empty-state-actions {

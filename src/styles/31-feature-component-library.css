@@ -609,23 +609,29 @@
 
 .component-list-empty {
   min-height: 128px;
-  border: 1px dashed rgba(148, 163, 184, 0.35);
-  border-radius: 0.65rem;
+  border: 1px dashed rgba(148, 163, 184, 0.2);
+  border-radius: 0.9rem;
   display: grid;
   place-items: center;
   color: #94a3b8;
-  background: rgba(15, 23, 42, 0.24);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(111, 134, 255, 0.08), transparent 38%),
+    rgba(15, 23, 42, 0.24);
   text-align: center;
   font-size: 0.8rem;
+  padding: 1rem;
 }
 
 .component-list-skeleton {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.48rem 0.5rem;
-  border-radius: 0.55rem;
-  background: rgba(15, 23, 42, 0.34);
+  padding: 0.52rem 0.56rem;
+  border-radius: 0.72rem;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 58%),
+    rgba(15, 23, 42, 0.36);
 }
 
 .component-list-skeleton-avatar {

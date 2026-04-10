@@ -296,6 +296,52 @@ const selectedTaskSignalSummaryResolved = computed(() => {
     helper: '由上下文、检索、升格、回答与噪声风险折算',
   }
 })
+const selectedTaskSignalRadarResolved = computed(() => {
+  const signals = selectedTaskSignalsResolved.value
+  const center = 80
+  const radius = 54
+  const total = signals.length
+  if (!total) {
+    return {
+      axes: [],
+      areaPoints: '',
+      gridPolygons: [],
+    }
+  }
+
+  const axes = signals.map((signal, index) => {
+    const score = clampTaskSignalScore(signal.visualScore)
+    const point = getRadarPoint(index, total, score / 100, center, radius)
+    const axis = getRadarPoint(index, total, 1, center, radius)
+    const label = getRadarPoint(index, total, 1.26, center, radius)
+    const isNoise = signal.direction === 'lower'
+    return {
+      ...signal,
+      score,
+      shortLabel: radarSignalShortLabel(signal.id),
+      x: point.x,
+      y: point.y,
+      axisX: axis.x,
+      axisY: axis.y,
+      labelX: label.x,
+      labelY: label.y,
+      legendValue: isNoise ? score : signal.value,
+      legendMeta: isNoise ? `原噪声 ${signal.value}` : signalDirectionLabel(signal.direction),
+    }
+  })
+
+  return {
+    axes,
+    areaPoints: axes.map((axis) => `${axis.x},${axis.y}`).join(' '),
+    gridPolygons: [0.25, 0.5, 0.75, 1].map((level) => ({
+      level: Math.round(level * 100),
+      points: Array.from({ length: total }, (_, index) => {
+        const point = getRadarPoint(index, total, level, center, radius)
+        return `${point.x},${point.y}`
+      }).join(' '),
+    })),
+  }
+})
 const promotionQueueResolved = computed(() => unref(promotionQueue) || {
   summary: {},
   issueReviews: [],
@@ -481,6 +527,29 @@ function scoreTone(value: number) {
 
 function signalDirectionLabel(value: string) {
   return value === 'lower' ? '越低越好' : '越高越好'
+}
+
+function clampTaskSignalScore(value: unknown) {
+  const numeric = Number(value || 0)
+  if (!Number.isFinite(numeric)) return 0
+  return Math.max(0, Math.min(100, Math.round(numeric)))
+}
+
+function getRadarPoint(index: number, total: number, scale: number, center: number, radius: number) {
+  const angle = -Math.PI / 2 + (index * Math.PI * 2) / Math.max(1, total)
+  return {
+    x: Number((center + Math.cos(angle) * radius * scale).toFixed(2)),
+    y: Number((center + Math.sin(angle) * radius * scale).toFixed(2)),
+  }
+}
+
+function radarSignalShortLabel(value: string) {
+  if (value === 'context') return '上下文'
+  if (value === 'retrieval') return '检索'
+  if (value === 'promotion') return '升格'
+  if (value === 'answer') return '回答'
+  if (value === 'noise') return '抗噪'
+  return value
 }
 
 function confidencePercent(value: unknown) {
@@ -1428,42 +1497,44 @@ function focusTaskReviewBySummary(cardId: string) {
                   <IconSparkles :size="16" />
                   <strong>筛选判断</strong>
                 </div>
-                <div class="knowledge-task-meta-grid">
-                  <div>
-                    <small>推荐动作</small>
+                <div class="knowledge-task-decision-board">
+                  <section class="knowledge-task-decision-primary">
+                    <div class="knowledge-task-decision-primary-head">
+                      <small>推荐动作</small>
+                      <span class="knowledge-task-decision-signal" :data-tone="selectedTaskSignalSummaryResolved.tone">
+                        综合 {{ selectedTaskSignalSummaryResolved.score }} · {{ selectedTaskSignalSummaryResolved.label }}
+                      </span>
+                    </div>
                     <strong>{{ formatTaskActionLabel(selectedTaskReviewItemResolved.recommendedAction) }}</strong>
-                  </div>
+                    <p>结合任务信号、噪声风险和升格价值后的当前处理建议。</p>
+                  </section>
+                  <section class="knowledge-task-decision-route">
+                    <div>
+                      <small>升格去向</small>
+                      <strong>{{ formatPromotionTargetLabel(selectedTaskReviewItemResolved.predictedPromotionTarget) }}</strong>
+                    </div>
+                    <div :data-tone="selectedTaskReviewItemResolved.isAnswerEssence ? 'answer' : 'neutral'">
+                      <small>回答精华</small>
+                      <strong>{{ selectedTaskReviewItemResolved.isAnswerEssence ? '是' : '否' }}</strong>
+                    </div>
+                  </section>
+                </div>
+                <div class="knowledge-task-fact-list">
                   <div>
-                    <small>来源会话</small>
+                    <small>来源</small>
                     <strong>{{ selectedTaskReviewSessionResolved.title }}</strong>
                   </div>
                   <div>
-                    <small>任务类型</small>
-                    <strong>{{ formatTaskTypeLabel(selectedTaskReviewItemResolved.taskType) }}</strong>
+                    <small>类型</small>
+                    <strong>{{ formatTaskTypeLabel(selectedTaskReviewItemResolved.taskType) }} · {{ selectedTaskReviewItemResolved.segmentLabel }}</strong>
                   </div>
                   <div>
-                    <small>任务段定位</small>
-                    <strong>{{ selectedTaskReviewItemResolved.segmentLabel }}</strong>
-                  </div>
-                  <div>
-                    <small>若送审预计去向</small>
-                    <strong>{{ formatPromotionTargetLabel(selectedTaskReviewItemResolved.predictedPromotionTarget) }}</strong>
-                  </div>
-                  <div>
-                    <small>回答精华判断</small>
-                    <strong>{{ selectedTaskReviewItemResolved.isAnswerEssence ? '是' : '否' }}</strong>
-                  </div>
-                  <div>
-                    <small>项目归属</small>
+                    <small>项目</small>
                     <strong>{{ selectedTaskReviewItemResolved.project || '待补充' }}</strong>
                   </div>
                   <div>
-                    <small>任务段消息数</small>
-                    <strong>{{ selectedTaskReviewItemResolved.messageCount }}</strong>
-                  </div>
-                  <div>
-                    <small>会话总消息数</small>
-                    <strong>{{ selectedTaskReviewItemResolved.sessionMessageCount }}</strong>
+                    <small>消息</small>
+                    <strong>{{ selectedTaskReviewItemResolved.messageCount }} / {{ selectedTaskReviewItemResolved.sessionMessageCount }}</strong>
                   </div>
                 </div>
               </article>
@@ -1473,26 +1544,68 @@ function focusTaskReviewBySummary(cardId: string) {
                   <IconClock3 :size="16" />
                   <strong>任务信号</strong>
                 </div>
-                <div class="knowledge-task-signal-list">
-                  <div
-                    v-for="signal in selectedTaskSignalsResolved"
-                    :key="signal.id"
-                    class="knowledge-task-signal-item"
-                    :data-accent="signal.accent"
-                    :data-tone="scoreTone(signal.visualScore)"
-                  >
-                    <div class="knowledge-task-signal-head">
-                      <div class="knowledge-task-signal-copy">
-                        <strong>{{ signal.label }}</strong>
-                        <small>{{ signal.caption }}</small>
-                      </div>
-                      <div class="knowledge-task-signal-score">
-                        <span>{{ signalDirectionLabel(signal.direction) }}</span>
-                        <strong>{{ signal.value }}</strong>
-                      </div>
+                <div class="knowledge-task-radar-board">
+                  <div class="knowledge-task-radar-visual" :data-tone="selectedTaskSignalSummaryResolved.tone">
+                    <svg viewBox="0 0 160 160" role="img" aria-label="任务五维信号盘">
+                      <polygon
+                        v-for="grid in selectedTaskSignalRadarResolved.gridPolygons"
+                        :key="grid.level"
+                        class="knowledge-task-radar-grid"
+                        :points="grid.points"
+                      />
+                      <line
+                        v-for="axis in selectedTaskSignalRadarResolved.axes"
+                        :key="`${axis.id}-axis`"
+                        class="knowledge-task-radar-axis"
+                        x1="80"
+                        y1="80"
+                        :x2="axis.axisX"
+                        :y2="axis.axisY"
+                      />
+                      <polygon
+                        class="knowledge-task-radar-area"
+                        :points="selectedTaskSignalRadarResolved.areaPoints"
+                      />
+                      <circle
+                        v-for="axis in selectedTaskSignalRadarResolved.axes"
+                        :key="`${axis.id}-point`"
+                        class="knowledge-task-radar-point"
+                        :data-accent="axis.accent"
+                        :cx="axis.x"
+                        :cy="axis.y"
+                        r="3.2"
+                      />
+                      <text
+                        v-for="axis in selectedTaskSignalRadarResolved.axes"
+                        :key="`${axis.id}-label`"
+                        class="knowledge-task-radar-label"
+                        :x="axis.labelX"
+                        :y="axis.labelY"
+                        text-anchor="middle"
+                        dominant-baseline="middle"
+                      >
+                        {{ axis.shortLabel }}
+                      </text>
+                    </svg>
+                    <div class="knowledge-task-radar-center">
+                      <strong>{{ selectedTaskSignalSummaryResolved.score }}</strong>
+                      <span>{{ selectedTaskSignalSummaryResolved.label }}</span>
                     </div>
-                    <div class="knowledge-task-signal-meter" aria-hidden="true">
-                      <span :style="{ width: `${Math.max(0, Math.min(100, signal.visualScore))}%` }" />
+                  </div>
+                  <div class="knowledge-task-radar-legend">
+                    <div
+                      v-for="signal in selectedTaskSignalRadarResolved.axes"
+                      :key="signal.id"
+                      class="knowledge-task-radar-row"
+                      :data-accent="signal.accent"
+                      :data-tone="scoreTone(signal.score)"
+                    >
+                      <span>{{ signal.shortLabel }}</span>
+                      <i aria-hidden="true">
+                        <b :style="{ width: `${signal.score}%` }" />
+                      </i>
+                      <strong>{{ signal.legendValue }}</strong>
+                      <small>{{ signal.legendMeta }}</small>
                     </div>
                   </div>
                 </div>
@@ -1693,19 +1806,21 @@ function focusTaskReviewBySummary(cardId: string) {
                   {{ item.sourceLabel || (activePromotionSourceSection === 'approved' ? '人工确认' : '自动候选') }}
                 </span>
               </div>
-              <span
-                v-if="activePromotionSourceSection === 'auto'"
-                class="knowledge-score-pill knowledge-review-confidence-pill"
-                :data-tone="scoreTone(Number(item.confidence || 0) * 100)"
-              >
-                置信 {{ confidencePercent(item.confidence) }}
-              </span>
-              <span
-                v-else-if="item.updatedAt"
-                class="knowledge-review-updated-at"
-              >
-                {{ formatDateTime(item.updatedAt) }}
-              </span>
+              <div class="knowledge-review-card-indicator">
+                <span
+                  v-if="activePromotionSourceSection === 'auto'"
+                  class="knowledge-score-pill knowledge-review-confidence-pill"
+                  :data-tone="scoreTone(Number(item.confidence || 0) * 100)"
+                >
+                  置信 {{ confidencePercent(item.confidence) }}
+                </span>
+                <span
+                  v-else-if="item.updatedAt"
+                  class="knowledge-review-updated-at"
+                >
+                  {{ formatDateTime(item.updatedAt) }}
+                </span>
+              </div>
             </div>
 
             <div class="knowledge-review-card-copy">
@@ -1743,7 +1858,10 @@ function focusTaskReviewBySummary(cardId: string) {
               <span class="knowledge-review-path">{{ resolvePromotionPath(item) }}</span>
             </div>
 
-            <div class="knowledge-review-actions">
+            <div class="knowledge-review-actions knowledge-review-actions--queue">
+              <small class="knowledge-review-actions-label">
+                {{ activePromotionSourceSection === 'auto' ? '审核动作' : '已确认条目' }}
+              </small>
               <template v-if="activePromotionSourceSection === 'auto'">
                 <button
                   type="button"
