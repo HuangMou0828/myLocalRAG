@@ -352,7 +352,7 @@ function parseQuickCaptureBatchEntries(value: unknown) {
   if (!normalized) return []
 
   const chunks = normalized
-    .split(/\n\s*(?:---+|={3,})\s*\n|\n{2,}/u)
+    .split(/\n{2,}/u)
     .map((chunk) => chunk.trim())
     .filter(Boolean)
 
@@ -1636,7 +1636,7 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   const quickCaptureSummary = computed(() => {
     if (quickCaptureMode.value === 'batch') {
       const count = quickCaptureBatchEntries.value.length
-      return count ? `将拆成 ${count} 条采集项` : '用空行或 --- 分隔多条片段'
+      return count ? `将拆成 ${count} 条采集项` : '用空行分隔多条片段'
     }
     return quickCapturePreview.value
   })

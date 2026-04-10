@@ -42,7 +42,6 @@ const {
   subtypeSuggestions,
   editorIntakeStageOption,
   editorConfidenceOption,
-  editorIntakeSummary,
   editorId,
   editorSourceType,
   editorSourceSubtype,
@@ -58,7 +57,6 @@ const {
   editorConfidence,
   editorKeyQuestion,
   editorDecisionNote,
-  editorPreview,
   editorDuplicateCandidates,
   taskReviewLoading,
   taskReviewUpdatingId,
@@ -157,7 +155,6 @@ const confidenceOptionsResolved = computed(() => {
 })
 const editorIntakeStageOptionResolved = computed(() => unref(editorIntakeStageOption) || { label: 'Inbox', description: '' })
 const editorConfidenceOptionResolved = computed(() => unref(editorConfidenceOption) || { label: '中', description: '' })
-const editorIntakeSummaryResolved = computed(() => String(unref(editorIntakeSummary) || ''))
 const editorDuplicateCandidatesResolved = computed(() => {
   const list = unref(editorDuplicateCandidates)
   return Array.isArray(list) ? list : []
@@ -402,6 +399,10 @@ const healthActionQueuesResolved = computed(() => {
 const selectedHealthFindingResolved = computed(() => unref(selectedHealthFinding) || null)
 const healthDetailRef = ref<HTMLElement | null>(null)
 const knowledgeEditorDialogOpen = ref(false)
+const knowledgeEditorIntakeOpen = ref(true)
+const knowledgeEditorSourceOpen = ref(true)
+const knowledgeEditorContentMode = ref<'edit' | 'preview'>('edit')
+const knowledgeSourceFileInputRef = ref<HTMLInputElement | null>(null)
 const healthSuggestionDialogOpen = ref(false)
 const healthSuggestionStateResolved = computed(() => unref(healthSuggestionState) || {
   loading: false,
@@ -516,11 +517,17 @@ function formatConfidenceLabel(value: string) {
 
 function openKnowledgeItemEditor(item: Record<string, any>) {
   selectKnowledgeItem(item)
+  knowledgeEditorIntakeOpen.value = true
+  knowledgeEditorSourceOpen.value = true
+  knowledgeEditorContentMode.value = 'edit'
   knowledgeEditorDialogOpen.value = true
 }
 
 function openNewKnowledgeItemEditor(sourceType: 'capture' | 'note' | 'document' = 'capture') {
   startNewKnowledgeItem(sourceType)
+  knowledgeEditorIntakeOpen.value = false
+  knowledgeEditorSourceOpen.value = false
+  knowledgeEditorContentMode.value = 'edit'
   knowledgeEditorDialogOpen.value = true
 }
 
@@ -537,6 +544,33 @@ function setEditorSourceType(sourceType: 'capture' | 'note' | 'document') {
 function closeKnowledgeEditorDialog() {
   if (unref(knowledgeSaving)) return
   knowledgeEditorDialogOpen.value = false
+}
+
+function toggleKnowledgeEditorIntake() {
+  knowledgeEditorIntakeOpen.value = !knowledgeEditorIntakeOpen.value
+}
+
+function toggleKnowledgeEditorSource() {
+  knowledgeEditorSourceOpen.value = !knowledgeEditorSourceOpen.value
+}
+
+function setKnowledgeEditorContentMode(mode: 'edit' | 'preview') {
+  knowledgeEditorContentMode.value = mode
+}
+
+function triggerKnowledgeSourceFileSelect() {
+  knowledgeSourceFileInputRef.value?.click()
+}
+
+function onKnowledgeSourceFilePicked(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0] as (File & { path?: string, webkitRelativePath?: string }) | undefined
+  const fallbackName = target.value.split(/[/\\]/).filter(Boolean).pop() || ''
+  const selectedPath = file?.path || file?.webkitRelativePath || file?.name || fallbackName
+  if (!selectedPath) return
+
+  editorSourceFile.value = selectedPath
+  target.value = ''
 }
 
 async function saveKnowledgeItemAndClose() {
@@ -925,6 +959,31 @@ function renderTaskMarkdown(content: string) {
   return `<pre>${escapeHtml(fallback)}</pre>`
 }
 
+function renderKnowledgeMarkdown(content: string) {
+  const source = String(content || '').trim()
+  if (!source) return '<p>还没有内容，适合先把 Markdown、网页摘录、聊天片段或终端输出粘进来。</p>'
+  if (typeof renderMarkdown === 'function') {
+    return String(renderMarkdown(source) || '')
+  }
+  return `<pre>${escapeHtml(source)}</pre>`
+}
+
+function compactMarkdownPreview(value: unknown, limit = 420) {
+  const normalized = String(value || '')
+    .replace(/```[\s\S]*?```/g, ' 代码块 ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*>\s?/gm, '')
+    .replace(/[*_~]{1,3}/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!normalized) return '暂无内容'
+  return normalized.slice(0, limit)
+}
+
 const taskReviewConfirmTitleResolved = computed(() => {
   if (taskReviewConfirmAction.value === 'keep-search') return '确认保留主检索？'
   if (taskReviewConfirmAction.value === 'promote-candidate') return '确认标记升格？'
@@ -1200,7 +1259,7 @@ function focusTaskReviewBySummary(cardId: string) {
                 </span>
               </div>
               <strong>{{ item.title || '未命名条目' }}</strong>
-              <p>{{ String(item.content || '').replace(/\s+/g, ' ').trim().slice(0, 420) || '暂无内容' }}</p>
+              <p>{{ compactMarkdownPreview(item.content) }}</p>
               <div v-if="getKnowledgeMetaValue(item, 'keyQuestion')" class="knowledge-raw-card-question">
                 <span>问题</span>
                 <small>{{ getKnowledgeMetaValue(item, 'keyQuestion') }}</small>
@@ -1266,14 +1325,42 @@ function focusTaskReviewBySummary(cardId: string) {
                   <input v-model="editorTitle" class="app-input" type="text" placeholder="一句话标记这条内容的主题" />
                 </label>
 
-                <label class="knowledge-editor-field knowledge-editor-field--content">
-                  <small>内容</small>
+                <div class="knowledge-editor-field knowledge-editor-field--content">
+                  <div class="knowledge-editor-content-head">
+                    <small>内容，支持 Markdown</small>
+                    <div class="knowledge-editor-content-tabs" role="tablist" aria-label="内容编辑模式">
+                      <button
+                        type="button"
+                        class="app-btn-ghost"
+                        :class="{ active: knowledgeEditorContentMode === 'edit' }"
+                        :aria-selected="knowledgeEditorContentMode === 'edit'"
+                        @click="setKnowledgeEditorContentMode('edit')"
+                      >
+                        编辑
+                      </button>
+                      <button
+                        type="button"
+                        class="app-btn-ghost"
+                        :class="{ active: knowledgeEditorContentMode === 'preview' }"
+                        :aria-selected="knowledgeEditorContentMode === 'preview'"
+                        @click="setKnowledgeEditorContentMode('preview')"
+                      >
+                        预览
+                      </button>
+                    </div>
+                  </div>
                   <textarea
+                    v-if="knowledgeEditorContentMode === 'edit'"
                     v-model="editorContent"
                     class="app-textarea knowledge-editor-textarea"
-                    placeholder="把网页摘录、聊天片段、命令输出或自己的想法先收进来"
+                    placeholder="支持 Markdown。可以粘贴网页摘录、聊天片段、命令输出或自己的想法"
                   />
-                </label>
+                  <div
+                    v-else
+                    class="knowledge-editor-markdown-preview md-content compact-md"
+                    v-html="renderKnowledgeMarkdown(editorContent)"
+                  />
+                </div>
               </div>
 
               <section v-if="editorDuplicateCandidatesResolved.length" class="knowledge-duplicate-panel">
@@ -1299,133 +1386,162 @@ function focusTaskReviewBySummary(cardId: string) {
             </section>
 
             <aside class="knowledge-editor-side-column">
-              <section class="knowledge-editor-section">
-                <header class="knowledge-editor-section-head">
+              <section class="knowledge-editor-section knowledge-editor-disclosure">
+                <button
+                  type="button"
+                  class="knowledge-editor-section-head knowledge-editor-disclosure-head"
+                  :aria-expanded="knowledgeEditorIntakeOpen"
+                  @click="toggleKnowledgeEditorIntake"
+                >
                   <div>
                     <strong>采集判断</strong>
                     <small>这组信息决定后续进入哪条处理队列。</small>
                   </div>
-                  <span class="knowledge-chip route" :data-route="editorIntakeStage">
-                    {{ editorIntakeStageOptionResolved.label }}
+                  <span class="knowledge-editor-disclosure-meta">
+                    <span class="knowledge-chip route" :data-route="editorIntakeStage">
+                      {{ editorIntakeStageOptionResolved.label }}
+                    </span>
+                    <span class="knowledge-editor-disclosure-indicator">
+                      {{ knowledgeEditorIntakeOpen ? '收起' : '展开' }}
+                    </span>
                   </span>
-                </header>
+                </button>
 
-                <div class="knowledge-editor-grid knowledge-editor-grid--compact">
-                  <label>
-                    <small>项目 / 工作流</small>
-                    <input v-model="editorProject" class="app-input" type="text" placeholder="myLocalRAG / srs-h5" />
+                <div v-show="knowledgeEditorIntakeOpen" class="knowledge-editor-disclosure-body">
+                  <div class="knowledge-editor-grid knowledge-editor-grid--compact">
+                    <label>
+                      <small>项目 / 工作流</small>
+                      <input v-model="editorProject" class="app-input" type="text" placeholder="myLocalRAG / srs-h5" />
+                    </label>
+
+                    <label>
+                      <small>主题</small>
+                      <input v-model="editorTopic" class="app-input" type="text" placeholder="采集流程 / embedding" />
+                    </label>
+
+                    <label>
+                      <small>下一步去向</small>
+                      <select v-model="editorIntakeStage" class="app-select">
+                        <option v-for="option in intakeStageOptionsResolved" :key="option.value" :value="option.value">
+                          {{ option.label }}
+                        </option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <small>可信度</small>
+                      <select v-model="editorConfidence" class="app-select">
+                        <option v-for="option in confidenceOptionsResolved" :key="option.value" :value="option.value">
+                          {{ option.label }}
+                        </option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label class="knowledge-editor-field knowledge-editor-field--question">
+                    <small>核心问题</small>
+                    <input v-model="editorKeyQuestion" class="app-input" type="text" placeholder="这条原料主要回答什么问题？" />
                   </label>
 
-                  <label>
-                    <small>主题</small>
-                    <input v-model="editorTopic" class="app-input" type="text" placeholder="采集流程 / embedding" />
-                  </label>
-
-                  <label>
-                    <small>下一步去向</small>
-                    <select v-model="editorIntakeStage" class="app-select">
-                      <option v-for="option in intakeStageOptionsResolved" :key="option.value" :value="option.value">
-                        {{ option.label }}
-                      </option>
-                    </select>
-                  </label>
-
-                  <label>
-                    <small>可信度</small>
-                    <select v-model="editorConfidence" class="app-select">
-                      <option v-for="option in confidenceOptionsResolved" :key="option.value" :value="option.value">
-                        {{ option.label }}
-                      </option>
-                    </select>
+                  <label class="knowledge-editor-field knowledge-editor-field--decision-note">
+                    <small>处理备注</small>
+                    <textarea
+                      v-model="editorDecisionNote"
+                      class="app-textarea knowledge-editor-note-textarea"
+                      placeholder="还缺什么上下文、为什么值得保留、后续应该怎么处理"
+                    />
                   </label>
                 </div>
-
-                <label class="knowledge-editor-field knowledge-editor-field--question">
-                  <small>核心问题</small>
-                  <input v-model="editorKeyQuestion" class="app-input" type="text" placeholder="这条原料主要回答什么问题？" />
-                </label>
-
-                <label class="knowledge-editor-field knowledge-editor-field--decision-note">
-                  <small>处理备注</small>
-                  <textarea
-                    v-model="editorDecisionNote"
-                    class="app-textarea knowledge-editor-note-textarea"
-                    placeholder="还缺什么上下文、为什么值得保留、后续应该怎么处理"
-                  />
-                </label>
               </section>
 
-              <section class="knowledge-editor-section">
-                <header class="knowledge-editor-section-head">
+              <section class="knowledge-editor-section knowledge-editor-disclosure">
+                <button
+                  type="button"
+                  class="knowledge-editor-section-head knowledge-editor-disclosure-head"
+                  :aria-expanded="knowledgeEditorSourceOpen"
+                  @click="toggleKnowledgeEditorSource"
+                >
                   <div>
                     <strong>来源信息</strong>
                     <small>用于回源、检索和后续编译。</small>
                   </div>
-                </header>
+                  <span class="knowledge-editor-disclosure-indicator">
+                    {{ knowledgeEditorSourceOpen ? '收起' : '展开' }}
+                  </span>
+                </button>
 
-                <div class="knowledge-editor-grid knowledge-editor-grid--compact">
-                  <label>
-                    <small>来源层</small>
-                    <select v-model="editorSourceType" class="app-select">
-                      <option v-for="option in sourceTypeOptions" :key="option.value" :value="option.value">
-                        {{ option.label }}
-                      </option>
-                    </select>
+                <div v-show="knowledgeEditorSourceOpen" class="knowledge-editor-disclosure-body">
+                  <div class="knowledge-editor-grid knowledge-editor-grid--compact">
+                    <label>
+                      <small>来源层</small>
+                      <select v-model="editorSourceType" class="app-select">
+                        <option v-for="option in sourceTypeOptions" :key="option.value" :value="option.value">
+                          {{ option.label }}
+                        </option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <small>状态</small>
+                      <select v-model="editorStatus" class="app-select">
+                        <option v-for="option in statusOptions" :key="option.value" :value="option.value">
+                          {{ option.label }}
+                        </option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <small>子类型</small>
+                      <input
+                        v-model="editorSourceSubtype"
+                        class="app-input"
+                        list="knowledge-subtype-suggestions"
+                        placeholder="manual / article..."
+                      />
+                      <datalist id="knowledge-subtype-suggestions">
+                        <option v-for="item in subtypeSuggestions" :key="item" :value="item" />
+                      </datalist>
+                    </label>
+
+                    <label>
+                      <small>标签</small>
+                      <input v-model="editorTagsInput" class="app-input" type="text" placeholder="rag, obsidian" />
+                    </label>
+                  </div>
+
+                  <label class="knowledge-editor-field">
+                    <small>来源链接</small>
+                    <div class="knowledge-input-with-icon">
+                      <IconLink2 :size="16" />
+                      <input v-model="editorSourceUrl" class="app-input" type="text" placeholder="https://..." />
+                    </div>
                   </label>
 
-                  <label>
-                    <small>状态</small>
-                    <select v-model="editorStatus" class="app-select">
-                      <option v-for="option in statusOptions" :key="option.value" :value="option.value">
-                        {{ option.label }}
-                      </option>
-                    </select>
-                  </label>
-
-                  <label>
-                    <small>子类型</small>
+                  <div class="knowledge-editor-field">
+                    <small>来源文件</small>
                     <input
-                      v-model="editorSourceSubtype"
-                      class="app-input"
-                      list="knowledge-subtype-suggestions"
-                      placeholder="manual / article..."
+                      ref="knowledgeSourceFileInputRef"
+                      type="file"
+                      hidden
+                      @change="onKnowledgeSourceFilePicked"
                     />
-                    <datalist id="knowledge-subtype-suggestions">
-                      <option v-for="item in subtypeSuggestions" :key="item" :value="item" />
-                    </datalist>
-                  </label>
-
-                  <label>
-                    <small>标签</small>
-                    <input v-model="editorTagsInput" class="app-input" type="text" placeholder="rag, obsidian" />
-                  </label>
+                    <div class="knowledge-source-file-picker">
+                      <div class="knowledge-input-with-icon">
+                        <IconFileText :size="16" />
+                        <input v-model="editorSourceFile" class="app-input" type="text" placeholder="/path/to/file.md" />
+                      </div>
+                      <button
+                        type="button"
+                        class="app-btn-ghost knowledge-source-file-picker-btn"
+                        @click="triggerKnowledgeSourceFileSelect"
+                      >
+                        选择文件
+                      </button>
+                    </div>
+                  </div>
                 </div>
-
-                <label class="knowledge-editor-field">
-                  <small>来源链接</small>
-                  <div class="knowledge-input-with-icon">
-                    <IconLink2 :size="16" />
-                    <input v-model="editorSourceUrl" class="app-input" type="text" placeholder="https://..." />
-                  </div>
-                </label>
-
-                <label class="knowledge-editor-field">
-                  <small>来源文件</small>
-                  <div class="knowledge-input-with-icon">
-                    <IconFileText :size="16" />
-                    <input v-model="editorSourceFile" class="app-input" type="text" placeholder="/path/to/file.md" />
-                  </div>
-                </label>
               </section>
 
-              <article class="knowledge-hint-card knowledge-hint-card--preview">
-                <div class="knowledge-hint-head">
-                  <IconClock3 :size="16" />
-                  <strong>实时预览</strong>
-                </div>
-                <p>{{ editorPreview }}</p>
-                <small>{{ editorIntakeSummaryResolved }}</small>
-              </article>
             </aside>
           </div>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, unref, watch } from 'vue'
 import CodeSyntaxBlock from '@/components/CodeSyntaxBlock.vue'
 import { IconBug, IconCopy, IconLink2, IconSparkles } from '@/components/icons/app-icons'
 import { Badge } from '@/components/ui/badge'
@@ -41,7 +41,6 @@ const {
   quickCaptureConfidence,
   quickCaptureDecisionNote,
   quickCapturePreview,
-  quickCaptureBatchEntries,
   quickCaptureCanSave,
   quickCaptureSummary,
   saveQuickCapture,
@@ -189,6 +188,39 @@ const {
   bugInboxDetailFields,
   copyBugDetailField,
 } = props.ctx
+
+const quickCaptureDetailsOpen = ref(false)
+
+watch(
+  () => Boolean(unref(quickCaptureOpen)),
+  (open) => {
+    if (open) quickCaptureDetailsOpen.value = false
+  },
+)
+
+function toggleQuickCaptureDetails() {
+  quickCaptureDetailsOpen.value = !quickCaptureDetailsOpen.value
+}
+
+function formatQuickCaptureSourceMark(value: string) {
+  if (value === 'note') return '记'
+  if (value === 'document') return '文'
+  return '采'
+}
+
+function formatQuickCaptureIntakeStage(value: string) {
+  if (value === 'needs-context') return '补上下文'
+  if (value === 'search-candidate') return '进主检索'
+  if (value === 'wiki-candidate') return '进 Wiki'
+  if (value === 'reference-only') return '仅参考'
+  return 'Inbox'
+}
+
+function formatQuickCaptureConfidence(value: string) {
+  if (value === 'low') return '低'
+  if (value === 'high') return '高'
+  return '中'
+}
 
 function isLikelyJson(text: string): boolean {
   const value = String(text || '').trim()
@@ -485,8 +517,11 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
             :class="{ active: quickCaptureSourceType === 'capture' }"
             @click="quickCaptureSourceType = 'capture'"
           >
-            <strong>Capture</strong>
-            <small>原始片段</small>
+            <span class="quick-capture-type-icon" data-type="capture">{{ formatQuickCaptureSourceMark('capture') }}</span>
+            <span class="quick-capture-type-copy">
+              <strong>Capture</strong>
+              <small>原始片段</small>
+            </span>
           </button>
           <button
             type="button"
@@ -494,8 +529,11 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
             :class="{ active: quickCaptureSourceType === 'note' }"
             @click="quickCaptureSourceType = 'note'"
           >
-            <strong>Note</strong>
-            <small>人工判断</small>
+            <span class="quick-capture-type-icon" data-type="note">{{ formatQuickCaptureSourceMark('note') }}</span>
+            <span class="quick-capture-type-copy">
+              <strong>Note</strong>
+              <small>人工判断</small>
+            </span>
           </button>
           <button
             type="button"
@@ -503,27 +541,25 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
             :class="{ active: quickCaptureSourceType === 'document' }"
             @click="quickCaptureSourceType = 'document'"
           >
-            <strong>Document</strong>
-            <small>长文素材</small>
+            <span class="quick-capture-type-icon" data-type="document">{{ formatQuickCaptureSourceMark('document') }}</span>
+            <span class="quick-capture-type-copy">
+              <strong>Document</strong>
+              <small>长文素材</small>
+            </span>
           </button>
         </div>
 
-        <div class="quick-capture-mode-options">
+        <div class="quick-capture-mode-row">
+          <div>
+            <strong>{{ quickCaptureMode === 'batch' ? '批量采集' : '单条采集' }}</strong>
+            <small>{{ quickCaptureMode === 'batch' ? '用空行分隔多条内容' : '一次保存一条原始材料' }}</small>
+          </div>
           <button
             type="button"
-            class="app-btn-ghost quick-capture-mode-btn"
-            :class="{ active: quickCaptureMode === 'single' }"
-            @click="quickCaptureMode = 'single'"
+            class="app-btn-ghost quick-capture-mode-switch"
+            @click="quickCaptureMode = quickCaptureMode === 'batch' ? 'single' : 'batch'"
           >
-            单条采集
-          </button>
-          <button
-            type="button"
-            class="app-btn-ghost quick-capture-mode-btn"
-            :class="{ active: quickCaptureMode === 'batch' }"
-            @click="quickCaptureMode = 'batch'"
-          >
-            批量采集
+            {{ quickCaptureMode === 'batch' ? '切回单条' : '批量粘贴' }}
           </button>
         </div>
 
@@ -540,81 +576,95 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
                 class="app-textarea quick-capture-textarea"
                 v-model="quickCaptureContent"
                 rows="8"
-                :placeholder="quickCaptureMode === 'batch' ? '每条片段之间空一行，或用 --- 分隔' : '直接粘贴网页摘录、聊天片段、终端输出或你自己的想法'"
+                :placeholder="quickCaptureMode === 'batch' ? '每条片段之间空一行；Markdown 里的 --- 会按正文保留' : '直接粘贴网页摘录、聊天片段、终端输出或你自己的想法'"
               />
             </label>
           </section>
 
           <aside class="quick-capture-aside">
-            <div class="quick-capture-grid">
-              <label class="form-modal-field">
-                <small>来源链接，可选</small>
-                <div class="knowledge-input-with-icon">
-                  <IconLink2 :size="16" />
-                  <input class="app-input" v-model="quickCaptureSourceUrl" type="text" placeholder="https://..." />
-                </div>
-              </label>
-
-              <label class="form-modal-field">
-                <small>标签，可选</small>
-                <input class="app-input" v-model="quickCaptureTagsInput" type="text" placeholder="karpathy, wiki, workflow" />
-              </label>
-
-              <label class="form-modal-field">
-                <small>项目 / 工作流</small>
-                <input class="app-input" v-model="quickCaptureProject" type="text" placeholder="myLocalRAG / srs-h5" />
-              </label>
-
-              <label class="form-modal-field">
-                <small>主题</small>
-                <input class="app-input" v-model="quickCaptureTopic" type="text" placeholder="采集流程 / obsidian" />
-              </label>
-
-              <label class="form-modal-field">
-                <small>下一步去向</small>
-                <select class="app-select" v-model="quickCaptureIntakeStage">
-                  <option value="inbox">Inbox</option>
-                  <option value="needs-context">补上下文</option>
-                  <option value="search-candidate">进主检索</option>
-                  <option value="wiki-candidate">进 Wiki 编译</option>
-                  <option value="reference-only">仅参考</option>
-                </select>
-              </label>
-
-              <label class="form-modal-field">
-                <small>可信度</small>
-                <select class="app-select" v-model="quickCaptureConfidence">
-                  <option value="low">低</option>
-                  <option value="medium">中</option>
-                  <option value="high">高</option>
-                </select>
-              </label>
-            </div>
-
-            <label class="quick-capture-checkbox">
-              <input type="checkbox" v-model="quickCaptureMarkActive" />
-              <span>保存后直接标为 Active，作为后续 wiki 编译候选</span>
-            </label>
-
-            <label class="form-modal-field">
-              <small>处理备注，可选</small>
-              <textarea
-                class="app-textarea quick-capture-note-textarea"
-                v-model="quickCaptureDecisionNote"
-                placeholder="为什么值得保留，或者还缺什么上下文"
-              />
-            </label>
-
-            <article class="quick-capture-preview-card">
+            <article v-if="quickCaptureMode === 'batch'" class="quick-capture-preview-card">
               <div class="quick-capture-preview-head">
                 <IconSparkles :size="16" />
-                <strong>预览</strong>
+                <strong>解析预览</strong>
               </div>
               <p>{{ quickCaptureSummary || quickCapturePreview }}</p>
-              <small v-if="quickCaptureMode === 'batch' && quickCaptureBatchEntries.length">
-                第一条：{{ quickCaptureBatchEntries[0]?.title }}
-              </small>
+              <small>按空行分隔，每段会保存为独立条目。</small>
             </article>
+
+            <section class="quick-capture-details">
+              <button
+                type="button"
+                class="quick-capture-details-head"
+                :aria-expanded="quickCaptureDetailsOpen"
+                @click="toggleQuickCaptureDetails"
+              >
+                <span>
+                  <strong>补充信息</strong>
+                  <small>{{ formatQuickCaptureIntakeStage(quickCaptureIntakeStage) }} · 可信度 {{ formatQuickCaptureConfidence(quickCaptureConfidence) }}</small>
+                </span>
+                <span class="quick-capture-details-indicator">
+                  {{ quickCaptureDetailsOpen ? '收起' : '展开' }}
+                </span>
+              </button>
+
+              <div v-show="quickCaptureDetailsOpen" class="quick-capture-details-body">
+                <div class="quick-capture-grid">
+                  <label class="form-modal-field">
+                    <small>来源链接，可选</small>
+                    <input class="app-input" v-model="quickCaptureSourceUrl" type="text" placeholder="https://..." />
+                  </label>
+
+                  <label class="form-modal-field">
+                    <small>标签，可选</small>
+                    <input class="app-input" v-model="quickCaptureTagsInput" type="text" placeholder="karpathy, wiki, workflow" />
+                  </label>
+
+                  <label class="form-modal-field">
+                    <small>项目 / 工作流</small>
+                    <input class="app-input" v-model="quickCaptureProject" type="text" placeholder="myLocalRAG / srs-h5" />
+                  </label>
+
+                  <label class="form-modal-field">
+                    <small>主题</small>
+                    <input class="app-input" v-model="quickCaptureTopic" type="text" placeholder="采集流程 / obsidian" />
+                  </label>
+
+                  <label class="form-modal-field">
+                    <small>下一步去向</small>
+                    <select class="app-select" v-model="quickCaptureIntakeStage">
+                      <option value="inbox">Inbox</option>
+                      <option value="needs-context">补上下文</option>
+                      <option value="search-candidate">进主检索</option>
+                      <option value="wiki-candidate">进 Wiki 编译</option>
+                      <option value="reference-only">仅参考</option>
+                    </select>
+                  </label>
+
+                  <label class="form-modal-field">
+                    <small>可信度</small>
+                    <select class="app-select" v-model="quickCaptureConfidence">
+                      <option value="low">低</option>
+                      <option value="medium">中</option>
+                      <option value="high">高</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label class="quick-capture-checkbox">
+                  <input type="checkbox" v-model="quickCaptureMarkActive" />
+                  <span>保存后直接标为 Active，作为后续 wiki 编译候选</span>
+                </label>
+
+                <label class="form-modal-field">
+                  <small>处理备注，可选</small>
+                  <textarea
+                    class="app-textarea quick-capture-note-textarea"
+                    v-model="quickCaptureDecisionNote"
+                    placeholder="为什么值得保留，或者还缺什么上下文"
+                  />
+                </label>
+              </div>
+            </section>
           </aside>
         </div>
       </div>
@@ -622,7 +672,7 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
       <footer class="component-modal-actions form-modal-actions">
         <button type="button" class="app-btn-ghost" @click="closeQuickCapture" :disabled="quickCaptureSaving">取消</button>
         <button type="button" class="app-btn" @click="saveQuickCapture" :disabled="quickCaptureSaving || !quickCaptureCanSave">
-          {{ quickCaptureSaving ? '保存中...' : '保存并进入知识采集' }}
+          {{ quickCaptureSaving ? '保存中...' : quickCaptureMode === 'batch' ? '批量保存到知识采集' : '保存到知识采集' }}
         </button>
       </footer>
     </DialogContent>
