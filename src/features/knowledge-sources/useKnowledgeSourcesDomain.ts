@@ -25,6 +25,7 @@ type TaskReviewAction = 'keep-search' | 'promote-candidate' | 'archive-only' | '
 type TaskReviewStatusFilter = 'all' | SessionReviewStatus
 type TaskReviewTypeFilter = 'all' | TaskReviewType
 type PromotionTargetKind = 'issue-review' | 'pattern-candidate' | 'synthesis-candidate'
+type TaskReviewActionFilter = 'all' | TaskReviewAction
 type TaskReviewAnswerFilter = 'all' | 'essence' | 'non-essence'
 type TaskReviewPromotionTargetFilter = 'all' | PromotionTargetKind
 
@@ -62,8 +63,10 @@ interface TaskReviewItem {
   answerValue: number
   noiseRisk: number
   isAnswerEssence: boolean
+  answerEssenceReasons: string[]
   recommendedAction: TaskReviewAction
   predictedPromotionTarget: PromotionTargetKind
+  promotionRouteHint: string
   reasoning: string
   messageCount: number
   sessionMessageCount: number
@@ -667,6 +670,41 @@ function scoreAnswerEssence(options: {
   return clampScore(score)
 }
 
+function buildAnswerEssenceReasons(options: {
+  taskType: TaskReviewType
+  firstUserIntent: string
+  bestAssistantAnswer: string
+  project: string
+  answerScore: number
+  codeSignals: number
+  messageCount: number
+}) {
+  const reasons: string[] = []
+  const intent = String(options.firstUserIntent || '')
+  const bestAnswer = String(options.bestAssistantAnswer || '')
+
+  if (options.answerScore >= 64) reasons.push('回答精华分已过阈值')
+  else if (options.answerScore >= 56) reasons.push('回答有沉淀潜力')
+  if (ANSWER_QUESTION_PATTERNS.some((pattern) => pattern.test(intent))) reasons.push('起始问题是明确问答')
+  if (ANSWER_STRUCTURE_PATTERNS.some((pattern) => pattern.test(bestAnswer))) reasons.push('回答结构清晰')
+  if (bestAnswer.length >= 220) reasons.push('答案信息量较足')
+  else if (bestAnswer.length >= 120) reasons.push('答案长度适合复核')
+  if (['general-knowledge', 'architecture-discussion', 'prompt-design'].includes(options.taskType)) reasons.push('任务类型偏长期知识')
+  if (options.project) reasons.push('项目归属可定位')
+  if (options.messageCount >= 4) reasons.push('上下文轮次足够')
+  if (options.codeSignals >= 4) reasons.push('代码过程信号偏重，升格前需复核')
+  if (ANSWER_NEGATIVE_PATTERNS.some((pattern) => pattern.test(bestAnswer))) reasons.push('包含过程性回复，建议人工扫一眼')
+
+  return dedupeStrings(reasons, 5)
+}
+
+function buildPromotionRouteHint(target: PromotionTargetKind, isAnswerEssence: boolean) {
+  if (target === 'issue-review') return '送审后进入 Issue Review，先确认问题、原因和修复路径是否稳定。'
+  if (target === 'pattern-candidate') return '送审后进入 Pattern Candidate，重点看复用形状和适用边界。'
+  if (target === 'synthesis-candidate' && isAnswerEssence) return '送审后进入 Synthesis Candidate，优先沉淀成 reader-first 问答结论页。'
+  return '送审后进入 Synthesis Candidate，先判断这段回答是否足够长期可读。'
+}
+
 function inferTaskType(session: SessionItem, firstUserIntent: string, latestAssistantReply: string, segmentCorpus = ''): TaskReviewType {
   const corpus = [session.title, firstUserIntent, latestAssistantReply, segmentCorpus, ...(session.tags || [])].join('\n')
   const normalized = String(corpus || '')
@@ -757,6 +795,7 @@ function buildTaskReviewItemFromSegment(session: SessionItem, segment: TaskSegme
     codeSignals,
     messageCount,
   })
+  const isAnswerEssence = answerScore >= 64
 
   let promotionValue = 8
   if (taskType === 'bug-investigation') promotionValue += 34
@@ -782,6 +821,16 @@ function buildTaskReviewItemFromSegment(session: SessionItem, segment: TaskSegme
     answerScore,
     bestAssistantAnswer,
   )
+  const answerEssenceReasons = buildAnswerEssenceReasons({
+    taskType,
+    firstUserIntent,
+    bestAssistantAnswer,
+    project,
+    answerScore,
+    codeSignals,
+    messageCount,
+  })
+  const promotionRouteHint = buildPromotionRouteHint(predictedPromotionTarget, isAnswerEssence)
 
   let noiseRisk = 16
   if (taskType === 'context-fragment') noiseRisk += 42
@@ -834,9 +883,11 @@ function buildTaskReviewItemFromSegment(session: SessionItem, segment: TaskSegme
     promotionValue: promotionScore,
     answerValue: answerScore,
     noiseRisk: noiseScore,
-    isAnswerEssence: answerScore >= 64,
+    isAnswerEssence,
+    answerEssenceReasons,
     recommendedAction,
     predictedPromotionTarget,
+    promotionRouteHint,
     reasoning: reasoningParts.join(' · '),
     messageCount,
     sessionMessageCount,
@@ -983,6 +1034,7 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   const taskReviewProviderFilter = ref('all')
   const taskReviewStatusFilter = ref<TaskReviewStatusFilter>('pending')
   const taskReviewTypeFilter = ref<TaskReviewTypeFilter>('all')
+  const taskReviewActionFilter = ref<TaskReviewActionFilter>('all')
   const taskReviewAnswerFilter = ref<TaskReviewAnswerFilter>('all')
   const taskReviewPromotionTargetFilter = ref<TaskReviewPromotionTargetFilter>('all')
   const taskReviewSessionsRaw = ref<SessionItem[]>([])
@@ -1078,6 +1130,7 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
         const visibleSegments = session.segments.filter((segment) => {
           if (taskReviewStatusFilter.value !== 'all' && segment.reviewStatus !== taskReviewStatusFilter.value) return false
           if (taskReviewTypeFilter.value !== 'all' && segment.taskType !== taskReviewTypeFilter.value) return false
+          if (taskReviewActionFilter.value !== 'all' && segment.recommendedAction !== taskReviewActionFilter.value) return false
           if (taskReviewAnswerFilter.value === 'essence' && !segment.isAnswerEssence) return false
           if (taskReviewAnswerFilter.value === 'non-essence' && segment.isAnswerEssence) return false
           if (taskReviewPromotionTargetFilter.value !== 'all' && segment.predictedPromotionTarget !== taskReviewPromotionTargetFilter.value) return false
@@ -1126,6 +1179,15 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     { value: 'kept', label: '已保留' },
     { value: 'downgraded', label: '已降级' },
     { value: 'hidden', label: '已隐藏' },
+  ] as const
+
+  const taskReviewActionFilterOptions = [
+    { value: 'all', label: '全部动作' },
+    { value: 'promote-candidate', label: '标记升格' },
+    { value: 'keep-search', label: '保留主检索' },
+    { value: 'archive-only', label: '仅归档' },
+    { value: 'ignore-noise', label: '忽略噪声' },
+    { value: 'needs-context', label: '等待补上下文' },
   ] as const
 
   const taskReviewAnswerFilterOptions = [
@@ -2215,11 +2277,13 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     taskReviewProviderFilter,
     taskReviewStatusFilter,
     taskReviewTypeFilter,
+    taskReviewActionFilter,
     taskReviewAnswerFilter,
     taskReviewPromotionTargetFilter,
     taskReviewProviderOptions,
     taskReviewStatusOptions,
     taskReviewTypeOptions,
+    taskReviewActionFilterOptions,
     taskReviewAnswerFilterOptions,
     taskReviewPromotionTargetOptions,
     taskReviewSessions: filteredTaskReviewSessions,

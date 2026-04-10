@@ -50,11 +50,13 @@ const {
   taskReviewProviderFilter,
   taskReviewStatusFilter,
   taskReviewTypeFilter,
+  taskReviewActionFilter,
   taskReviewAnswerFilter,
   taskReviewPromotionTargetFilter,
   taskReviewProviderOptions,
   taskReviewStatusOptions,
   taskReviewTypeOptions,
+  taskReviewActionFilterOptions,
   taskReviewAnswerFilterOptions,
   taskReviewPromotionTargetOptions,
   taskReviewSessions,
@@ -142,9 +144,11 @@ const heroCanExpandResolved = computed(() =>
 const heroCompactResolved = computed(() =>
   !isRawWorkbenchTabResolved.value || !heroExpanded.value,
 )
-const visibleSummaryCardsResolved = computed(() =>
-  heroCanExpandResolved.value && heroExpanded.value ? summaryCardsResolved.value : [],
-)
+const visibleSummaryCardsResolved = computed(() => {
+  if (!isRawWorkbenchTabResolved.value) return summaryCardsResolved.value
+  if (!heroCanExpandResolved.value || !heroExpanded.value) return []
+  return summaryCardsResolved.value
+})
 const taskReviewSessionsResolved = computed(() => {
   const list = unref(taskReviewSessions)
   return Array.isArray(list) ? list : []
@@ -857,6 +861,33 @@ function goToAdjacentTaskSegment(direction: -1 | 1) {
   if (!nextSegment?.id) return
   selectTaskReviewSegment(nextSegment.id)
 }
+
+function isSummaryCardActionable(cardId: string) {
+  return workbenchTabResolved.value === 'task-review'
+    && ['total', 'retrieval', 'promotion', 'answer', 'noise'].includes(String(cardId || ''))
+}
+
+function focusTaskReviewBySummary(cardId: string) {
+  if (!isSummaryCardActionable(cardId)) return
+  taskReviewKeyword.value = ''
+  taskReviewTypeFilter.value = 'all'
+  taskReviewAnswerFilter.value = 'all'
+  taskReviewPromotionTargetFilter.value = 'all'
+  taskReviewActionFilter.value = 'all'
+
+  if (cardId === 'total') {
+    taskReviewStatusFilter.value = 'all'
+    return
+  }
+  taskReviewStatusFilter.value = 'pending'
+  if (cardId === 'retrieval') taskReviewActionFilter.value = 'keep-search'
+  if (cardId === 'promotion') taskReviewActionFilter.value = 'promote-candidate'
+  if (cardId === 'answer') {
+    taskReviewStatusFilter.value = 'all'
+    taskReviewAnswerFilter.value = 'essence'
+  }
+  if (cardId === 'noise') taskReviewActionFilter.value = 'ignore-noise'
+}
 </script>
 
 <template>
@@ -885,11 +916,18 @@ function goToAdjacentTaskSegment(direction: -1 | 1) {
       </div>
 
       <div v-if="visibleSummaryCardsResolved.length" class="knowledge-sources-summary-grid">
-        <article v-for="card in visibleSummaryCardsResolved" :key="card.id" class="knowledge-summary-card">
+        <button
+          v-for="card in visibleSummaryCardsResolved"
+          :key="card.id"
+          type="button"
+          class="knowledge-summary-card"
+          :class="{ 'knowledge-summary-card--actionable': isSummaryCardActionable(card.id) }"
+          @click="focusTaskReviewBySummary(card.id)"
+        >
           <small>{{ card.title }}</small>
           <strong>{{ card.count }}</strong>
           <p>{{ card.description }}</p>
-        </article>
+        </button>
       </div>
     </section>
 
@@ -1151,6 +1189,15 @@ function goToAdjacentTaskSegment(direction: -1 | 1) {
             <small>任务类型</small>
             <select v-model="taskReviewTypeFilter" class="app-select">
               <option v-for="option in taskReviewTypeOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <small>推荐动作</small>
+            <select v-model="taskReviewActionFilter" class="app-select">
+              <option v-for="option in taskReviewActionFilterOptions" :key="option.value" :value="option.value">
                 {{ option.label }}
               </option>
             </select>
@@ -1449,6 +1496,39 @@ function goToAdjacentTaskSegment(direction: -1 | 1) {
                     </div>
                   </div>
                 </div>
+              </article>
+
+              <article class="knowledge-hint-card knowledge-hint-card--answer-route knowledge-hint-card--span-full">
+                <div class="knowledge-hint-head">
+                  <IconSparkles :size="16" />
+                  <strong>回答精华去向</strong>
+                </div>
+                <div class="knowledge-answer-route-head">
+                  <span
+                    class="knowledge-chip"
+                    :data-type="selectedTaskReviewItemResolved.isAnswerEssence ? 'answer' : 'capture'"
+                  >
+                    {{ selectedTaskReviewItemResolved.isAnswerEssence ? '回答精华' : '待复核回答' }}
+                  </span>
+                  <span
+                    class="knowledge-chip"
+                    :data-type="getPromotionTargetChipType(selectedTaskReviewItemResolved.predictedPromotionTarget)"
+                  >
+                    {{ formatPromotionTargetLabel(selectedTaskReviewItemResolved.predictedPromotionTarget) }}
+                  </span>
+                  <span class="knowledge-score-pill" :data-tone="scoreTone(selectedTaskReviewItemResolved.answerValue)">
+                    回答 {{ selectedTaskReviewItemResolved.answerValue }}
+                  </span>
+                </div>
+                <p>{{ selectedTaskReviewItemResolved.promotionRouteHint }}</p>
+                <ul class="knowledge-answer-route-list">
+                  <li
+                    v-for="reason in selectedTaskReviewItemResolved.answerEssenceReasons"
+                    :key="reason"
+                  >
+                    {{ reason }}
+                  </li>
+                </ul>
               </article>
             </section>
 

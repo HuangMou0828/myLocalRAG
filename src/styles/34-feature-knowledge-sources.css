@@ -155,6 +155,7 @@
 }
 
 .knowledge-workbench-tab:focus-visible,
+.knowledge-summary-card:focus-visible,
 .knowledge-list-item:focus-visible,
 .knowledge-review-tab:focus-visible,
 .knowledge-task-segment-icon-btn:focus-visible,
@@ -172,10 +173,26 @@
 
 .knowledge-summary-card {
   min-width: 0;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: default;
   border-radius: 13px;
   padding: 12px 13px;
   border: 1px solid rgba(148, 163, 184, 0.14);
   background: rgba(255, 255, 255, 0.022);
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.knowledge-summary-card--actionable {
+  cursor: pointer;
+}
+
+.knowledge-summary-card--actionable:hover {
+  transform: translateY(-1px);
+  border-color: rgba(244, 114, 182, 0.24);
+  background: rgba(244, 114, 182, 0.055);
 }
 
 .knowledge-summary-card small,
@@ -703,6 +720,12 @@
 .knowledge-hint-card--signals {
   background:
     linear-gradient(180deg, rgba(245, 158, 11, 0.06), transparent 48%),
+    rgba(255, 255, 255, 0.028);
+}
+
+.knowledge-hint-card--answer-route {
+  background:
+    linear-gradient(180deg, rgba(244, 114, 182, 0.07), transparent 48%),
     rgba(255, 255, 255, 0.028);
 }
 
@@ -1326,6 +1349,24 @@
 
 .knowledge-task-signal-item[data-accent='noise'] .knowledge-task-signal-meter > span {
   background: linear-gradient(90deg, rgba(248, 113, 113, 0.38), rgba(251, 191, 36, 0.9));
+}
+
+.knowledge-answer-route-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.knowledge-answer-route-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #bfd1e8;
+  line-height: 1.6;
+}
+
+.knowledge-answer-route-list li::marker {
+  color: #f9a8d4;
 }
 
 .knowledge-score-card {
