@@ -12,6 +12,8 @@ type KnowledgeSourceType = 'capture' | 'note' | 'document'
 type KnowledgeStatus = 'draft' | 'active' | 'archived'
 type KnowledgeSourceTypeFilter = 'all' | KnowledgeSourceType
 type KnowledgeStatusFilter = 'all' | KnowledgeStatus
+type KnowledgeIntakeStage = 'inbox' | 'needs-context' | 'search-candidate' | 'wiki-candidate' | 'reference-only'
+type KnowledgeConfidence = 'low' | 'medium' | 'high'
 type KnowledgeWorkbenchTab = 'raw' | 'task-review' | 'promotion' | 'health'
 type TaskReviewType =
   | 'bug-investigation'
@@ -165,6 +167,20 @@ const SUBTYPE_SUGGESTIONS: Record<KnowledgeSourceType, string[]> = {
   document: ['article', 'pdf', 'readme', 'spec', 'meeting-notes'],
 }
 
+const INTAKE_STAGE_OPTIONS: Array<{ value: KnowledgeIntakeStage; label: string; description: string }> = [
+  { value: 'inbox', label: 'Inbox', description: '刚收进来，还没有判断后续用途。' },
+  { value: 'needs-context', label: '补上下文', description: '缺项目、来源、问题背景或证据范围。' },
+  { value: 'search-candidate', label: '进主检索', description: '适合作为问答检索材料，但还不急着写 wiki。' },
+  { value: 'wiki-candidate', label: '进 Wiki 编译', description: '已经接近 issue / pattern / synthesis 的原料。' },
+  { value: 'reference-only', label: '仅参考', description: '保留出处，默认不进入主流程。' },
+]
+
+const CONFIDENCE_OPTIONS: Array<{ value: KnowledgeConfidence; label: string; description: string }> = [
+  { value: 'low', label: '低', description: '只是一条线索，需要回源确认。' },
+  { value: 'medium', label: '中', description: '基本可用，但还缺少独立补证。' },
+  { value: 'high', label: '高', description: '来源清楚，内容稳定，可以进入后续流程。' },
+]
+
 const TASK_REVIEW_TAB_OPTIONS: Array<{ value: KnowledgeWorkbenchTab; label: string; description: string }> = [
   { value: 'raw', label: 'Raw Inbox', description: '先接住原始材料，做最粗的一轮分流。' },
   { value: 'task-review', label: '任务筛选', description: '先按会话分流，再参考会话内任务段决定是否进入主检索。' },
@@ -270,6 +286,41 @@ function parseTagsInput(value: string) {
 
 function inferDefaultSubtype(sourceType: KnowledgeSourceType) {
   return SUBTYPE_SUGGESTIONS[sourceType]?.[0] || 'manual'
+}
+
+function normalizeIntakeStage(value: unknown): KnowledgeIntakeStage {
+  const normalized = String(value || '').trim()
+  return INTAKE_STAGE_OPTIONS.some((item) => item.value === normalized) ? normalized as KnowledgeIntakeStage : 'inbox'
+}
+
+function normalizeConfidence(value: unknown): KnowledgeConfidence {
+  const normalized = String(value || '').trim()
+  return CONFIDENCE_OPTIONS.some((item) => item.value === normalized) ? normalized as KnowledgeConfidence : 'medium'
+}
+
+function getKnowledgeMetaString(item: KnowledgeItemDto | null | undefined, key: string) {
+  const value = item?.meta?.[key]
+  return String(value || '').trim()
+}
+
+function buildKnowledgeItemMeta(base: unknown, payload: {
+  project: string
+  topic: string
+  intakeStage: KnowledgeIntakeStage
+  confidence: KnowledgeConfidence
+  keyQuestion: string
+  decisionNote: string
+}) {
+  const previous = base && typeof base === 'object' && !Array.isArray(base) ? base as Record<string, unknown> : {}
+  return {
+    ...previous,
+    project: payload.project,
+    topic: payload.topic,
+    intakeStage: payload.intakeStage,
+    confidence: payload.confidence,
+    keyQuestion: payload.keyQuestion,
+    decisionNote: payload.decisionNote,
+  }
 }
 
 function extractContentPreview(text: string) {
@@ -1019,6 +1070,12 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   const editorSourceUrl = ref('')
   const editorSourceFile = ref('')
   const editorTagsInput = ref('')
+  const editorProject = ref('')
+  const editorTopic = ref('')
+  const editorIntakeStage = ref<KnowledgeIntakeStage>('inbox')
+  const editorConfidence = ref<KnowledgeConfidence>('medium')
+  const editorKeyQuestion = ref('')
+  const editorDecisionNote = ref('')
   const quickCaptureOpen = ref(false)
   const quickCaptureSaving = ref(false)
   const quickCaptureSourceType = ref<KnowledgeSourceType>('capture')
@@ -1084,11 +1141,32 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     { value: 'active' as const, label: 'Active' },
     { value: 'archived' as const, label: 'Archived' },
   ]
+  const intakeStageOptions = INTAKE_STAGE_OPTIONS
+  const confidenceOptions = CONFIDENCE_OPTIONS
 
   const subtypeSuggestions = computed(() => SUBTYPE_SUGGESTIONS[editorSourceType.value] || [])
   const selectedKnowledgeItem = computed(() =>
     knowledgeItems.value.find((item) => item.id === selectedKnowledgeItemId.value) || null,
   )
+  const editorIntakeStageOption = computed(() =>
+    intakeStageOptions.find((item) => item.value === editorIntakeStage.value) || intakeStageOptions[0],
+  )
+  const editorConfidenceOption = computed(() =>
+    confidenceOptions.find((item) => item.value === editorConfidence.value) || confidenceOptions[1],
+  )
+  const editorIntakeSummary = computed(() => {
+    const project = String(editorProject.value || '').trim()
+    const topic = String(editorTopic.value || '').trim()
+    const question = String(editorKeyQuestion.value || '').trim()
+    const parts = [
+      editorIntakeStageOption.value?.label ? `去向：${editorIntakeStageOption.value.label}` : '',
+      editorConfidenceOption.value?.label ? `可信度：${editorConfidenceOption.value.label}` : '',
+      project ? `项目：${project}` : '项目待确认',
+      topic ? `主题：${topic}` : '',
+      question ? `问题：${clipText(question, 72)}` : '',
+    ].filter(Boolean)
+    return parts.join(' · ')
+  })
 
   const rawSummaryCards = computed(() => ([
     {
@@ -1114,6 +1192,18 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
       title: '活跃条目',
       count: knowledgeStats.value.active,
       description: '后续最适合被编译进 wiki 的候选',
+    },
+    {
+      id: 'needs-context',
+      title: '待补上下文',
+      count: knowledgeItems.value.filter((item) => normalizeIntakeStage(item?.meta?.intakeStage) === 'needs-context').length,
+      description: '先补项目、来源和核心问题',
+    },
+    {
+      id: 'wiki-candidate',
+      title: 'Wiki 原料',
+      count: knowledgeItems.value.filter((item) => normalizeIntakeStage(item?.meta?.intakeStage) === 'wiki-candidate').length,
+      description: '下一步可进入编译和升格',
     },
   ]))
 
@@ -1492,6 +1582,12 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     editorSourceUrl.value = ''
     editorSourceFile.value = ''
     editorTagsInput.value = ''
+    editorProject.value = ''
+    editorTopic.value = ''
+    editorIntakeStage.value = 'inbox'
+    editorConfidence.value = 'medium'
+    editorKeyQuestion.value = ''
+    editorDecisionNote.value = ''
     selectedKnowledgeItemId.value = ''
   }
 
@@ -1530,6 +1626,12 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     editorSourceUrl.value = String(item.sourceUrl || '')
     editorSourceFile.value = String(item.sourceFile || '')
     editorTagsInput.value = toTagsInput(item.tags || [])
+    editorProject.value = getKnowledgeMetaString(item, 'project')
+    editorTopic.value = getKnowledgeMetaString(item, 'topic')
+    editorIntakeStage.value = normalizeIntakeStage(item.meta?.intakeStage)
+    editorConfidence.value = normalizeConfidence(item.meta?.confidence)
+    editorKeyQuestion.value = getKnowledgeMetaString(item, 'keyQuestion')
+    editorDecisionNote.value = getKnowledgeMetaString(item, 'decisionNote')
   }
 
   async function loadKnowledgeItems() {
@@ -1678,6 +1780,14 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
         sourceUrl: editorSourceUrl.value,
         sourceFile: editorSourceFile.value,
         tags: parseTagsInput(editorTagsInput.value),
+        meta: buildKnowledgeItemMeta(selectedKnowledgeItem.value?.meta, {
+          project: editorProject.value.trim(),
+          topic: editorTopic.value.trim(),
+          intakeStage: editorIntakeStage.value,
+          confidence: editorConfidence.value,
+          keyQuestion: editorKeyQuestion.value.trim(),
+          decisionNote: editorDecisionNote.value.trim(),
+        }),
       }
       const result = await options.service.saveItem(payload)
       const item = result?.item || null
@@ -2250,7 +2360,12 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     summaryCards: rawSummaryCards,
     sourceTypeOptions,
     statusOptions,
+    intakeStageOptions,
+    confidenceOptions,
     subtypeSuggestions,
+    editorIntakeStageOption,
+    editorConfidenceOption,
+    editorIntakeSummary,
     editorId,
     editorSourceType,
     editorSourceSubtype,
@@ -2260,6 +2375,12 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     editorSourceUrl,
     editorSourceFile,
     editorTagsInput,
+    editorProject,
+    editorTopic,
+    editorIntakeStage,
+    editorConfidence,
+    editorKeyQuestion,
+    editorDecisionNote,
     editorPreview,
     quickCaptureOpen,
     quickCaptureSaving,

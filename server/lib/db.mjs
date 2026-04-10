@@ -2177,9 +2177,9 @@ export async function listKnowledgeItemsInDb({ limit = 200, sourceType = 'all', 
   }
 
   if (keyword) {
-    where.push('(LOWER(title) LIKE ? OR LOWER(content) LIKE ? OR LOWER(source_subtype) LIKE ? OR LOWER(tags_json) LIKE ?)')
+    where.push('(LOWER(title) LIKE ? OR LOWER(content) LIKE ? OR LOWER(source_subtype) LIKE ? OR LOWER(tags_json) LIKE ? OR LOWER(meta_json) LIKE ?)')
     const likeKeyword = `%${keyword}%`
-    params.push(likeKeyword, likeKeyword, likeKeyword, likeKeyword)
+    params.push(likeKeyword, likeKeyword, likeKeyword, likeKeyword, likeKeyword)
   }
 
   const rows = database

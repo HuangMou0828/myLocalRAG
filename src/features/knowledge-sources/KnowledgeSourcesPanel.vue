@@ -33,7 +33,12 @@ const {
   knowledgeKeyword,
   sourceTypeOptions,
   statusOptions,
+  intakeStageOptions,
+  confidenceOptions,
   subtypeSuggestions,
+  editorIntakeStageOption,
+  editorConfidenceOption,
+  editorIntakeSummary,
   editorId,
   editorSourceType,
   editorSourceSubtype,
@@ -43,6 +48,12 @@ const {
   editorSourceUrl,
   editorSourceFile,
   editorTagsInput,
+  editorProject,
+  editorTopic,
+  editorIntakeStage,
+  editorConfidence,
+  editorKeyQuestion,
+  editorDecisionNote,
   editorPreview,
   taskReviewLoading,
   taskReviewUpdatingId,
@@ -132,6 +143,17 @@ const itemsResolved = computed(() => {
   return Array.isArray(list) ? list : []
 })
 const statsResolved = computed(() => unref(knowledgeStats) || {})
+const intakeStageOptionsResolved = computed(() => {
+  const list = unref(intakeStageOptions)
+  return Array.isArray(list) ? list : []
+})
+const confidenceOptionsResolved = computed(() => {
+  const list = unref(confidenceOptions)
+  return Array.isArray(list) ? list : []
+})
+const editorIntakeStageOptionResolved = computed(() => unref(editorIntakeStageOption) || { label: 'Inbox', description: '' })
+const editorConfidenceOptionResolved = computed(() => unref(editorConfidenceOption) || { label: '中', description: '' })
+const editorIntakeSummaryResolved = computed(() => String(unref(editorIntakeSummary) || ''))
 const summaryCardsResolved = computed(() => {
   const list = workbenchHeroResolved.value.cards
   return Array.isArray(list) ? list : []
@@ -463,6 +485,18 @@ function formatStatusLabel(value: string) {
   if (value === 'active') return 'Active'
   if (value === 'archived') return 'Archived'
   return 'Draft'
+}
+
+function getKnowledgeMetaValue(item: Record<string, any>, key: string) {
+  return String(item?.meta?.[key] || '').trim()
+}
+
+function formatIntakeStageLabel(value: string) {
+  return intakeStageOptionsResolved.value.find((item) => item.value === value)?.label || 'Inbox'
+}
+
+function formatConfidenceLabel(value: string) {
+  return confidenceOptionsResolved.value.find((item) => item.value === value)?.label || '中'
 }
 
 function formatDateTime(value: unknown) {
@@ -1084,10 +1118,19 @@ function focusTaskReviewBySummary(cardId: string) {
               <span class="knowledge-chip" :data-type="item.sourceType">{{ formatSourceTypeLabel(item.sourceType) }}</span>
               <span class="knowledge-chip status" :data-status="item.status">{{ formatStatusLabel(item.status) }}</span>
             </div>
+            <div class="knowledge-list-item-route">
+              <span class="knowledge-chip route" :data-route="getKnowledgeMetaValue(item, 'intakeStage') || 'inbox'">
+                {{ formatIntakeStageLabel(getKnowledgeMetaValue(item, 'intakeStage')) }}
+              </span>
+              <span class="knowledge-chip confidence" :data-confidence="getKnowledgeMetaValue(item, 'confidence') || 'medium'">
+                可信度 {{ formatConfidenceLabel(getKnowledgeMetaValue(item, 'confidence')) }}
+              </span>
+            </div>
             <strong>{{ item.title || '未命名条目' }}</strong>
             <p>{{ String(item.content || '').replace(/\s+/g, ' ').trim().slice(0, 110) || '暂无内容' }}</p>
             <div class="knowledge-list-item-meta">
-              <span v-if="item.sourceSubtype">{{ item.sourceSubtype }}</span>
+              <span v-if="getKnowledgeMetaValue(item, 'project')">{{ getKnowledgeMetaValue(item, 'project') }}</span>
+              <span v-else-if="item.sourceSubtype">{{ item.sourceSubtype }}</span>
               <span>{{ formatDateTime(item.updatedAt) }}</span>
             </div>
             <small v-if="formatTagList(item.tags)" class="knowledge-list-item-note">{{ formatTagList(item.tags) }}</small>
@@ -1139,6 +1182,62 @@ function focusTaskReviewBySummary(cardId: string) {
               <input v-model="editorTagsInput" class="app-input" type="text" placeholder="rag, obsidian, workflow" />
             </label>
           </div>
+
+          <section class="knowledge-intake-panel">
+            <header class="knowledge-intake-panel-head">
+              <div>
+                <strong>采集判断</strong>
+                <small>先把原料归位，稳定后再进入检索或 wiki 编译。</small>
+              </div>
+              <span class="knowledge-chip route" :data-route="editorIntakeStage">
+                {{ editorIntakeStageOptionResolved.label }}
+              </span>
+            </header>
+
+            <div class="knowledge-editor-grid knowledge-editor-grid--intake">
+              <label>
+                <small>项目 / 工作流</small>
+                <input v-model="editorProject" class="app-input" type="text" placeholder="myLocalRAG / srs-h5 / 通用" />
+              </label>
+
+              <label>
+                <small>主题</small>
+                <input v-model="editorTopic" class="app-input" type="text" placeholder="embedding / prompt / 采集流程" />
+              </label>
+
+              <label>
+                <small>下一步去向</small>
+                <select v-model="editorIntakeStage" class="app-select">
+                  <option v-for="option in intakeStageOptionsResolved" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                <small>可信度</small>
+                <select v-model="editorConfidence" class="app-select">
+                  <option v-for="option in confidenceOptionsResolved" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                  </option>
+                </select>
+              </label>
+            </div>
+
+            <label class="knowledge-editor-field knowledge-editor-field--question">
+              <small>核心问题</small>
+              <input v-model="editorKeyQuestion" class="app-input" type="text" placeholder="这条原料主要回答什么问题？" />
+            </label>
+
+            <label class="knowledge-editor-field knowledge-editor-field--decision-note">
+              <small>处理备注</small>
+              <textarea
+                v-model="editorDecisionNote"
+                class="app-textarea knowledge-editor-note-textarea"
+                placeholder="还缺什么上下文、为什么值得保留、后续应该怎么处理"
+              />
+            </label>
+          </section>
 
           <label class="knowledge-editor-field knowledge-editor-field--title">
             <small>标题</small>
@@ -1192,7 +1291,16 @@ function focusTaskReviewBySummary(cardId: string) {
                 <strong>实时预览</strong>
               </div>
               <p>{{ editorPreview }}</p>
-              <small>保存后它会成为后续概念页、实体页和 Obsidian 发布的原料。</small>
+              <small>{{ editorIntakeSummaryResolved }}</small>
+            </article>
+
+            <article class="knowledge-hint-card knowledge-hint-card--intake">
+              <div class="knowledge-hint-head">
+                <IconListFilter :size="16" />
+                <strong>{{ editorIntakeStageOptionResolved.label }}</strong>
+              </div>
+              <p>{{ editorIntakeStageOptionResolved.description }}</p>
+              <small>可信度 {{ editorConfidenceOptionResolved.label }}：{{ editorConfidenceOptionResolved.description }}</small>
             </article>
           </section>
 
