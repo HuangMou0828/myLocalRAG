@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, unref } from 'vue'
 import CodeSyntaxBlock from '@/components/CodeSyntaxBlock.vue'
+import { AppDrawer } from '@/components/ui/drawer'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogScrollContent, DialogTitle } from '@/components/ui/dialog'
 import {
   IconCheck,
@@ -117,7 +118,6 @@ const {
   selectTaskReviewSegment,
   selectHealthFinding,
   startNewKnowledgeItem,
-  openQuickCapture,
   saveKnowledgeItem,
   updateKnowledgeItemStatus,
   deleteKnowledgeItem,
@@ -401,6 +401,7 @@ const healthActionQueuesResolved = computed(() => {
 })
 const selectedHealthFindingResolved = computed(() => unref(selectedHealthFinding) || null)
 const healthDetailRef = ref<HTMLElement | null>(null)
+const knowledgeEditorDialogOpen = ref(false)
 const healthSuggestionDialogOpen = ref(false)
 const healthSuggestionStateResolved = computed(() => unref(healthSuggestionState) || {
   loading: false,
@@ -505,6 +506,45 @@ function formatIntakeStageLabel(value: string) {
 
 function formatConfidenceLabel(value: string) {
   return confidenceOptionsResolved.value.find((item) => item.value === value)?.label || '中'
+}
+
+function openKnowledgeItemEditor(item: Record<string, any>) {
+  selectKnowledgeItem(item)
+  knowledgeEditorDialogOpen.value = true
+}
+
+function openNewKnowledgeItemEditor(sourceType: 'capture' | 'note' | 'document' = 'capture') {
+  startNewKnowledgeItem(sourceType)
+  knowledgeEditorDialogOpen.value = true
+}
+
+function setEditorSourceType(sourceType: 'capture' | 'note' | 'document') {
+  editorSourceType.value = sourceType
+  const defaultSubtypeBySourceType = {
+    capture: 'manual',
+    note: 'daily-note',
+    document: 'article',
+  }
+  editorSourceSubtype.value = defaultSubtypeBySourceType[sourceType]
+}
+
+function closeKnowledgeEditorDialog() {
+  if (unref(knowledgeSaving)) return
+  knowledgeEditorDialogOpen.value = false
+}
+
+async function saveKnowledgeItemAndClose() {
+  const saved = await saveKnowledgeItem()
+  if (saved) {
+    knowledgeEditorDialogOpen.value = false
+  }
+}
+
+async function deleteKnowledgeItemAndClose() {
+  const deleted = await deleteKnowledgeItem()
+  if (deleted) {
+    knowledgeEditorDialogOpen.value = false
+  }
 }
 
 function formatDateTime(value: unknown) {
@@ -1109,283 +1149,304 @@ function focusTaskReviewBySummary(cardId: string) {
           </button>
         </div>
 
-        <div class="knowledge-quick-actions">
-          <button type="button" class="app-btn" @click="openQuickCapture('capture')">快速采集</button>
-          <div class="knowledge-quick-create-group">
-            <button type="button" class="app-btn-ghost" @click="startNewKnowledgeItem('capture')">新建 Capture</button>
-            <button type="button" class="app-btn-ghost" @click="startNewKnowledgeItem('note')">新建 Note</button>
-            <button type="button" class="app-btn-ghost" @click="startNewKnowledgeItem('document')">新建 Document</button>
-          </div>
-        </div>
       </section>
 
-      <section class="knowledge-sources-layout">
+      <section class="knowledge-sources-layout knowledge-sources-layout--raw-list">
         <aside class="knowledge-sources-list">
           <header class="knowledge-list-head">
             <div>
               <strong>原始条目</strong>
               <small>共 {{ statsResolved.total || 0 }} 条，可作为后续 wiki 编译的原料</small>
             </div>
-            <span class="knowledge-list-badge">{{ itemsResolved.length }}</span>
+            <div class="knowledge-list-head-actions">
+              <span class="knowledge-list-badge">{{ itemsResolved.length }}</span>
+              <button type="button" class="app-btn" @click="openNewKnowledgeItemEditor('capture')">新建条目</button>
+            </div>
           </header>
 
           <div v-if="!itemsResolved.length" class="knowledge-list-empty">
             <IconSparkles :size="20" />
             <p>还没有条目，先从一个零散片段开始最合适。</p>
+            <button type="button" class="app-btn" @click="openNewKnowledgeItemEditor('capture')">新建条目</button>
           </div>
 
-          <button
-            v-for="item in itemsResolved"
-            :key="item.id"
-            type="button"
-            class="knowledge-list-item"
-            :class="{ active: selectedKnowledgeItemId === item.id }"
-            @click="selectKnowledgeItem(item)"
-          >
-            <div class="knowledge-list-item-top">
-              <span class="knowledge-chip" :data-type="item.sourceType">{{ formatSourceTypeLabel(item.sourceType) }}</span>
-              <span class="knowledge-chip status" :data-status="item.status">{{ formatStatusLabel(item.status) }}</span>
-            </div>
-            <div class="knowledge-list-item-route">
-              <span class="knowledge-chip route" :data-route="getKnowledgeMetaValue(item, 'intakeStage') || 'inbox'">
-                {{ formatIntakeStageLabel(getKnowledgeMetaValue(item, 'intakeStage')) }}
-              </span>
-              <span class="knowledge-chip confidence" :data-confidence="getKnowledgeMetaValue(item, 'confidence') || 'medium'">
-                可信度 {{ formatConfidenceLabel(getKnowledgeMetaValue(item, 'confidence')) }}
-              </span>
-            </div>
-            <strong>{{ item.title || '未命名条目' }}</strong>
-            <p>{{ String(item.content || '').replace(/\s+/g, ' ').trim().slice(0, 110) || '暂无内容' }}</p>
-            <div class="knowledge-list-item-meta">
-              <span v-if="getKnowledgeMetaValue(item, 'project')">{{ getKnowledgeMetaValue(item, 'project') }}</span>
-              <span v-else-if="item.sourceSubtype">{{ item.sourceSubtype }}</span>
-              <span>{{ formatDateTime(item.updatedAt) }}</span>
-            </div>
-            <small v-if="formatTagList(item.tags)" class="knowledge-list-item-note">{{ formatTagList(item.tags) }}</small>
-          </button>
+          <div v-else class="knowledge-raw-card-grid">
+            <button
+              v-for="item in itemsResolved"
+              :key="item.id"
+              type="button"
+              class="knowledge-list-item knowledge-raw-card"
+              :class="{ active: selectedKnowledgeItemId === item.id }"
+              @click="openKnowledgeItemEditor(item)"
+            >
+              <div class="knowledge-list-item-top">
+                <span class="knowledge-chip" :data-type="item.sourceType">{{ formatSourceTypeLabel(item.sourceType) }}</span>
+                <span class="knowledge-chip status" :data-status="item.status">{{ formatStatusLabel(item.status) }}</span>
+              </div>
+              <div class="knowledge-list-item-route">
+                <span class="knowledge-chip route" :data-route="getKnowledgeMetaValue(item, 'intakeStage') || 'inbox'">
+                  {{ formatIntakeStageLabel(getKnowledgeMetaValue(item, 'intakeStage')) }}
+                </span>
+                <span class="knowledge-chip confidence" :data-confidence="getKnowledgeMetaValue(item, 'confidence') || 'medium'">
+                  可信度 {{ formatConfidenceLabel(getKnowledgeMetaValue(item, 'confidence')) }}
+                </span>
+              </div>
+              <strong>{{ item.title || '未命名条目' }}</strong>
+              <p>{{ String(item.content || '').replace(/\s+/g, ' ').trim().slice(0, 420) || '暂无内容' }}</p>
+              <div v-if="getKnowledgeMetaValue(item, 'keyQuestion')" class="knowledge-raw-card-question">
+                <span>问题</span>
+                <small>{{ getKnowledgeMetaValue(item, 'keyQuestion') }}</small>
+              </div>
+              <div class="knowledge-list-item-meta">
+                <span v-if="getKnowledgeMetaValue(item, 'project')">{{ getKnowledgeMetaValue(item, 'project') }}</span>
+                <span v-if="getKnowledgeMetaValue(item, 'topic')">{{ getKnowledgeMetaValue(item, 'topic') }}</span>
+                <span v-else-if="item.sourceSubtype">{{ item.sourceSubtype }}</span>
+                <span>{{ formatDateTime(item.updatedAt) }}</span>
+              </div>
+              <small v-if="formatTagList(item.tags)" class="knowledge-list-item-note">{{ formatTagList(item.tags) }}</small>
+            </button>
+          </div>
         </aside>
 
-        <section class="knowledge-sources-editor">
-          <header class="knowledge-editor-head knowledge-editor-head--hero">
-            <div>
-              <strong>{{ editorId ? '编辑条目' : '新建条目' }}</strong>
-              <small>建议先把原始内容录进来，再在后续流程里做归纳和汇总。</small>
-            </div>
-          </header>
+        <AppDrawer
+          :open="knowledgeEditorDialogOpen"
+          :title="editorId ? '编辑条目' : '新建条目'"
+          description="先把原始内容录进来，再补齐去向、可信度和来源信息。"
+          size="xl"
+          @close="closeKnowledgeEditorDialog"
+        >
+          <template #eyebrow>
+            Knowledge Intake Drawer
+          </template>
 
-          <div class="knowledge-editor-grid knowledge-editor-grid--meta">
-            <label>
-              <small>来源层</small>
-              <select v-model="editorSourceType" class="app-select">
-                <option v-for="option in sourceTypeOptions" :key="option.value" :value="option.value">
-                  {{ option.label }}
-                </option>
-              </select>
-            </label>
-
-            <label>
-              <small>状态</small>
-              <select v-model="editorStatus" class="app-select">
-                <option v-for="option in statusOptions" :key="option.value" :value="option.value">
-                  {{ option.label }}
-                </option>
-              </select>
-            </label>
-
-            <label>
-              <small>子类型</small>
-              <input
-                v-model="editorSourceSubtype"
-                class="app-input"
-                list="knowledge-subtype-suggestions"
-                placeholder="manual / web-clip / terminal / article..."
-              />
-              <datalist id="knowledge-subtype-suggestions">
-                <option v-for="item in subtypeSuggestions" :key="item" :value="item" />
-              </datalist>
-            </label>
-
-            <label>
-              <small>标签</small>
-              <input v-model="editorTagsInput" class="app-input" type="text" placeholder="rag, obsidian, workflow" />
-            </label>
-          </div>
-
-          <section class="knowledge-intake-panel">
-            <header class="knowledge-intake-panel-head">
-              <div>
-                <strong>采集判断</strong>
-                <small>先把原料归位，稳定后再进入检索或 wiki 编译。</small>
-              </div>
-              <span class="knowledge-chip route" :data-route="editorIntakeStage">
-                {{ editorIntakeStageOptionResolved.label }}
-              </span>
-            </header>
-
-            <div class="knowledge-editor-grid knowledge-editor-grid--intake">
-              <label>
-                <small>项目 / 工作流</small>
-                <input v-model="editorProject" class="app-input" type="text" placeholder="myLocalRAG / srs-h5 / 通用" />
-              </label>
-
-              <label>
-                <small>主题</small>
-                <input v-model="editorTopic" class="app-input" type="text" placeholder="embedding / prompt / 采集流程" />
-              </label>
-
-              <label>
-                <small>下一步去向</small>
-                <select v-model="editorIntakeStage" class="app-select">
-                  <option v-for="option in intakeStageOptionsResolved" :key="option.value" :value="option.value">
-                    {{ option.label }}
-                  </option>
-                </select>
-              </label>
-
-              <label>
-                <small>可信度</small>
-                <select v-model="editorConfidence" class="app-select">
-                  <option v-for="option in confidenceOptionsResolved" :key="option.value" :value="option.value">
-                    {{ option.label }}
-                  </option>
-                </select>
-              </label>
-            </div>
-
-            <label class="knowledge-editor-field knowledge-editor-field--question">
-              <small>核心问题</small>
-              <input v-model="editorKeyQuestion" class="app-input" type="text" placeholder="这条原料主要回答什么问题？" />
-            </label>
-
-            <label class="knowledge-editor-field knowledge-editor-field--decision-note">
-              <small>处理备注</small>
-              <textarea
-                v-model="editorDecisionNote"
-                class="app-textarea knowledge-editor-note-textarea"
-                placeholder="还缺什么上下文、为什么值得保留、后续应该怎么处理"
-              />
-            </label>
-          </section>
-
-          <section v-if="editorDuplicateCandidatesResolved.length" class="knowledge-duplicate-panel">
-            <header class="knowledge-duplicate-panel-head">
-              <IconTriangleAlert :size="16" />
-              <div>
-                <strong>可能重复</strong>
-                <small>保存前先确认是否已经采过，避免 Raw Inbox 继续堆冗余项。</small>
-              </div>
-            </header>
+          <div class="knowledge-editor-drawer-body">
+            <section v-if="!editorId" class="knowledge-editor-create-type">
+              <header class="knowledge-editor-section-head">
+                <div>
+                  <strong>选择条目类型</strong>
+                  <small>类型会影响默认子类型和后续分流口径。</small>
+                </div>
+              </header>
             <button
-              v-for="candidate in editorDuplicateCandidatesResolved"
-              :key="candidate.item.id"
+              v-for="option in sourceTypeOptions"
+              :key="option.value"
               type="button"
-              class="knowledge-duplicate-item"
-              @click="selectKnowledgeItem(candidate.item)"
+              class="app-btn-ghost knowledge-editor-create-type-btn"
+              :class="{ active: editorSourceType === option.value }"
+              @click="setEditorSourceType(option.value)"
             >
-              <span>{{ candidate.reason || '内容相近' }}</span>
-              <strong>{{ candidate.item.title || '未命名条目' }}</strong>
-              <small>{{ formatDateTime(candidate.item.updatedAt) }}</small>
+              <strong>{{ option.label }}</strong>
+              <small>{{ option.description }}</small>
             </button>
-          </section>
+            </section>
 
-          <label class="knowledge-editor-field knowledge-editor-field--title">
-            <small>标题</small>
-            <input v-model="editorTitle" class="app-input" type="text" placeholder="一句话标记这条内容的主题" />
-          </label>
+            <section class="knowledge-editor-main-column">
+              <div class="knowledge-editor-section">
+                <header class="knowledge-editor-section-head">
+                  <div>
+                    <strong>原始内容</strong>
+                    <small>先保留事实材料本身，后续判断放到右侧。</small>
+                  </div>
+                </header>
+                <label class="knowledge-editor-field knowledge-editor-field--title">
+                  <small>标题</small>
+                  <input v-model="editorTitle" class="app-input" type="text" placeholder="一句话标记这条内容的主题" />
+                </label>
 
-          <label class="knowledge-editor-field knowledge-editor-field--content">
-            <small>内容</small>
-            <textarea
-              v-model="editorContent"
-              class="app-textarea knowledge-editor-textarea"
-              placeholder="把网页摘录、聊天片段、命令输出或自己的想法先收进来"
-            />
-          </label>
-
-          <div class="knowledge-editor-grid knowledge-editor-grid--source">
-            <label>
-              <small>来源链接</small>
-              <div class="knowledge-input-with-icon">
-                <IconLink2 :size="16" />
-                <input v-model="editorSourceUrl" class="app-input" type="text" placeholder="https://..." />
+                <label class="knowledge-editor-field knowledge-editor-field--content">
+                  <small>内容</small>
+                  <textarea
+                    v-model="editorContent"
+                    class="app-textarea knowledge-editor-textarea"
+                    placeholder="把网页摘录、聊天片段、命令输出或自己的想法先收进来"
+                  />
+                </label>
               </div>
-            </label>
 
-            <label>
-              <small>来源文件</small>
-              <div class="knowledge-input-with-icon">
-                <IconFileText :size="16" />
-                <input v-model="editorSourceFile" class="app-input" type="text" placeholder="/path/to/file.md" />
-              </div>
-            </label>
+              <section v-if="editorDuplicateCandidatesResolved.length" class="knowledge-duplicate-panel">
+                <header class="knowledge-duplicate-panel-head">
+                  <IconTriangleAlert :size="16" />
+                  <div>
+                    <strong>可能重复</strong>
+                    <small>保存前先确认是否已经采过，避免 Raw Inbox 继续堆冗余项。</small>
+                  </div>
+                </header>
+                <button
+                  v-for="candidate in editorDuplicateCandidatesResolved"
+                  :key="candidate.item.id"
+                  type="button"
+                  class="knowledge-duplicate-item"
+                  @click="selectKnowledgeItem(candidate.item)"
+                >
+                  <span>{{ candidate.reason || '内容相近' }}</span>
+                  <strong>{{ candidate.item.title || '未命名条目' }}</strong>
+                  <small>{{ formatDateTime(candidate.item.updatedAt) }}</small>
+                </button>
+              </section>
+            </section>
+
+            <aside class="knowledge-editor-side-column">
+              <section class="knowledge-editor-section">
+                <header class="knowledge-editor-section-head">
+                  <div>
+                    <strong>采集判断</strong>
+                    <small>这组信息决定后续进入哪条处理队列。</small>
+                  </div>
+                  <span class="knowledge-chip route" :data-route="editorIntakeStage">
+                    {{ editorIntakeStageOptionResolved.label }}
+                  </span>
+                </header>
+
+                <div class="knowledge-editor-grid knowledge-editor-grid--compact">
+                  <label>
+                    <small>项目 / 工作流</small>
+                    <input v-model="editorProject" class="app-input" type="text" placeholder="myLocalRAG / srs-h5" />
+                  </label>
+
+                  <label>
+                    <small>主题</small>
+                    <input v-model="editorTopic" class="app-input" type="text" placeholder="采集流程 / embedding" />
+                  </label>
+
+                  <label>
+                    <small>下一步去向</small>
+                    <select v-model="editorIntakeStage" class="app-select">
+                      <option v-for="option in intakeStageOptionsResolved" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <small>可信度</small>
+                    <select v-model="editorConfidence" class="app-select">
+                      <option v-for="option in confidenceOptionsResolved" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </option>
+                    </select>
+                  </label>
+                </div>
+
+                <label class="knowledge-editor-field knowledge-editor-field--question">
+                  <small>核心问题</small>
+                  <input v-model="editorKeyQuestion" class="app-input" type="text" placeholder="这条原料主要回答什么问题？" />
+                </label>
+
+                <label class="knowledge-editor-field knowledge-editor-field--decision-note">
+                  <small>处理备注</small>
+                  <textarea
+                    v-model="editorDecisionNote"
+                    class="app-textarea knowledge-editor-note-textarea"
+                    placeholder="还缺什么上下文、为什么值得保留、后续应该怎么处理"
+                  />
+                </label>
+              </section>
+
+              <section class="knowledge-editor-section">
+                <header class="knowledge-editor-section-head">
+                  <div>
+                    <strong>来源信息</strong>
+                    <small>用于回源、检索和后续编译。</small>
+                  </div>
+                </header>
+
+                <div class="knowledge-editor-grid knowledge-editor-grid--compact">
+                  <label>
+                    <small>来源层</small>
+                    <select v-model="editorSourceType" class="app-select">
+                      <option v-for="option in sourceTypeOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <small>状态</small>
+                    <select v-model="editorStatus" class="app-select">
+                      <option v-for="option in statusOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <small>子类型</small>
+                    <input
+                      v-model="editorSourceSubtype"
+                      class="app-input"
+                      list="knowledge-subtype-suggestions"
+                      placeholder="manual / article..."
+                    />
+                    <datalist id="knowledge-subtype-suggestions">
+                      <option v-for="item in subtypeSuggestions" :key="item" :value="item" />
+                    </datalist>
+                  </label>
+
+                  <label>
+                    <small>标签</small>
+                    <input v-model="editorTagsInput" class="app-input" type="text" placeholder="rag, obsidian" />
+                  </label>
+                </div>
+
+                <label class="knowledge-editor-field">
+                  <small>来源链接</small>
+                  <div class="knowledge-input-with-icon">
+                    <IconLink2 :size="16" />
+                    <input v-model="editorSourceUrl" class="app-input" type="text" placeholder="https://..." />
+                  </div>
+                </label>
+
+                <label class="knowledge-editor-field">
+                  <small>来源文件</small>
+                  <div class="knowledge-input-with-icon">
+                    <IconFileText :size="16" />
+                    <input v-model="editorSourceFile" class="app-input" type="text" placeholder="/path/to/file.md" />
+                  </div>
+                </label>
+              </section>
+
+              <article class="knowledge-hint-card knowledge-hint-card--preview">
+                <div class="knowledge-hint-head">
+                  <IconClock3 :size="16" />
+                  <strong>实时预览</strong>
+                </div>
+                <p>{{ editorPreview }}</p>
+                <small>{{ editorIntakeSummaryResolved }}</small>
+              </article>
+            </aside>
           </div>
 
-          <section class="knowledge-editor-hints knowledge-editor-hints--compact">
-            <article class="knowledge-hint-card knowledge-hint-card--guide">
-              <div class="knowledge-hint-head">
-                <IconSparkles :size="16" />
-                <strong>当前推荐的录入场景</strong>
-              </div>
-              <ul>
-                <li v-for="option in sourceTypeOptions" :key="option.value">
-                  <span>{{ option.label }}</span>
-                  <small>{{ option.description }}</small>
-                </li>
-              </ul>
-            </article>
-
-            <article class="knowledge-hint-card knowledge-hint-card--preview">
-              <div class="knowledge-hint-head">
-                <IconClock3 :size="16" />
-                <strong>实时预览</strong>
-              </div>
-              <p>{{ editorPreview }}</p>
-              <small>{{ editorIntakeSummaryResolved }}</small>
-            </article>
-
-            <article class="knowledge-hint-card knowledge-hint-card--intake">
-              <div class="knowledge-hint-head">
-                <IconListFilter :size="16" />
-                <strong>{{ editorIntakeStageOptionResolved.label }}</strong>
-              </div>
-              <p>{{ editorIntakeStageOptionResolved.description }}</p>
-              <small>可信度 {{ editorConfidenceOptionResolved.label }}：{{ editorConfidenceOptionResolved.description }}</small>
-            </article>
-          </section>
-
-          <footer class="knowledge-editor-actions knowledge-editor-actions--footer">
-            <div class="knowledge-editor-action-zone knowledge-editor-action-zone--status">
-              <small>状态流转</small>
-              <div class="knowledge-editor-status-group">
-                <button type="button" class="app-btn-ghost" @click="updateKnowledgeItemStatus('draft')" :disabled="!editorId || knowledgeSaving">
-                  转为 Draft
+          <template #footer>
+            <div class="knowledge-drawer-footer">
+              <details class="knowledge-drawer-more-actions">
+                <summary>更多操作</summary>
+                <div class="knowledge-drawer-more-menu">
+                  <small v-if="!editorId" class="knowledge-drawer-more-hint">保存后可进行状态流转和删除。</small>
+                  <button type="button" class="app-btn-ghost" @click="updateKnowledgeItemStatus('draft')" :disabled="!editorId || knowledgeSaving">
+                    转为 Draft
+                  </button>
+                  <button type="button" class="app-btn-ghost" @click="updateKnowledgeItemStatus('active')" :disabled="!editorId || knowledgeSaving">
+                    标为 Active
+                  </button>
+                  <button type="button" class="app-btn-ghost knowledge-editor-danger-btn" @click="updateKnowledgeItemStatus('archived')" :disabled="!editorId || knowledgeSaving">
+                    归档
+                  </button>
+                  <button type="button" class="app-btn-ghost knowledge-editor-danger-btn" @click="deleteKnowledgeItemAndClose" :disabled="!editorId || knowledgeSaving">
+                    删除
+                  </button>
+                </div>
+              </details>
+              <div class="knowledge-drawer-primary-actions">
+                <button type="button" class="app-btn-ghost" @click="closeKnowledgeEditorDialog" :disabled="knowledgeSaving">
+                  取消
                 </button>
-                <button type="button" class="app-btn-ghost" @click="updateKnowledgeItemStatus('active')" :disabled="!editorId || knowledgeSaving">
-                  标为 Active
+                <button type="button" class="app-btn" @click="saveKnowledgeItemAndClose" :disabled="knowledgeSaving">
+                  {{ knowledgeSaving ? '保存中...' : editorId ? '保存条目' : '创建条目' }}
                 </button>
               </div>
             </div>
-
-            <div class="knowledge-editor-action-zone knowledge-editor-action-zone--danger">
-              <small>危险操作</small>
-              <div class="knowledge-editor-danger-group">
-                <button type="button" class="app-btn-ghost knowledge-editor-danger-btn" @click="updateKnowledgeItemStatus('archived')" :disabled="!editorId || knowledgeSaving">
-                  归档
-                </button>
-                <button type="button" class="app-btn-ghost knowledge-editor-danger-btn" @click="deleteKnowledgeItem" :disabled="!editorId || knowledgeSaving">
-                  删除
-                </button>
-              </div>
-            </div>
-
-            <div class="knowledge-editor-action-zone knowledge-editor-action-zone--primary">
-              <small>{{ editorId ? '保存当前条目' : '创建新条目' }}</small>
-              <button type="button" class="app-btn" @click="saveKnowledgeItem" :disabled="knowledgeSaving">
-                {{ knowledgeSaving ? '保存中...' : '保存条目' }}
-              </button>
-            </div>
-          </footer>
-        </section>
+          </template>
+        </AppDrawer>
       </section>
     </template>
 

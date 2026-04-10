@@ -1888,7 +1888,7 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   }
 
   async function saveKnowledgeItem() {
-    if (knowledgeSaving.value) return
+    if (knowledgeSaving.value) return false
     knowledgeSaving.value = true
     try {
       const payload = {
@@ -1917,8 +1917,10 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
       }
       options.notify(item?.id ? '知识条目已保存' : '知识条目已创建', 'success')
       await loadKnowledgeItems()
+      return true
     } catch (error) {
       options.notify(String(error instanceof Error ? error.message : error || '保存失败'), 'danger')
+      return false
     } finally {
       knowledgeSaving.value = false
     }
@@ -1947,15 +1949,17 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
 
   async function deleteKnowledgeItem() {
     const targetId = editorId.value || selectedKnowledgeItemId.value
-    if (!targetId || knowledgeSaving.value) return
+    if (!targetId || knowledgeSaving.value) return false
     knowledgeSaving.value = true
     try {
       await options.service.deleteItem(targetId)
       options.notify('条目已删除', 'success')
       resetEditor(editorSourceType.value)
       await loadKnowledgeItems()
+      return true
     } catch (error) {
       options.notify(String(error instanceof Error ? error.message : error || '删除失败'), 'danger')
+      return false
     } finally {
       knowledgeSaving.value = false
     }
