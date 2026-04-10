@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+
+message_file="$1"
+subject="$(sed -n '1p' "$message_file")"
+
+case "$subject" in
+  Merge\ *|Revert\ *|fixup!\ *|squash!\ *)
+    exit 0
+    ;;
+esac
+
+if ! printf '%s\n' "$subject" | grep -Eq '^(feat|fix|refactor|chore|docs|test|style|perf|build|ci|revert)(\([a-zA-Z0-9._/-]+\))?: .+'; then
+  cat >&2 <<'EOF'
+Invalid commit message.
+
+Use Conventional Commit style:
+  feat: add wiki promotion queue
+  fix(feishu): guard empty todo payload
+  refactor(app-shell): collapse toolbar config
+  chore(snapshot): work in progress
+EOF
+  exit 1
+fi

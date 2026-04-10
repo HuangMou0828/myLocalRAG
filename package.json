@@ -16,6 +16,12 @@
         "docs:api:check": "node scripts/check-api-docs.mjs",
         "docs:api:check:public": "node scripts/check-api-public-docs.mjs",
         "quality:check": "npm run arch:check && npm run typecheck && npm run build && npm run test --if-present",
+        "git:hooks:install": "node scripts/install-git-hooks.mjs",
+        "git:task": "node scripts/git-task.mjs",
+        "git:task:start": "node scripts/git-task.mjs start",
+        "git:task:commit": "node scripts/git-task.mjs commit",
+        "git:task:snapshot": "node scripts/git-task.mjs snapshot",
+        "git:task:finish": "node scripts/git-task.mjs finish",
         "adapt:exports": "node scripts/adapt-exports.mjs",
         "score:prompt": "node scripts/score-prompts.mjs",
         "optimize:prompt": "node scripts/optimize-prompt.mjs"
