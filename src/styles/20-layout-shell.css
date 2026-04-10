@@ -99,8 +99,13 @@
 
 .accordion-body {
   display: grid;
+  grid-template-rows: 1fr;
   gap: 0.45rem;
   padding: 0.08rem 0.68rem 0.62rem;
+}
+
+.accordion-body > * {
+  min-height: 0;
 }
 
 .provider-list {
@@ -633,6 +638,7 @@
 
 .sidebar-nav-scroll {
   contain: paint;
+  overflow-anchor: none;
 }
 
 .sidebar-group-label {
@@ -658,19 +664,30 @@
 
 .accordion-enter-active,
 .accordion-leave-active {
-  transition: max-height 0.22s ease, opacity 0.22s ease;
+  transition:
+    grid-template-rows 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.18s ease,
+    padding-top 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    padding-bottom 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow: hidden;
+}
+
+.accordion-enter-active > *,
+.accordion-leave-active > * {
   overflow: hidden;
 }
 
 .accordion-enter-from,
 .accordion-leave-to {
-  max-height: 0;
+  grid-template-rows: 0fr;
   opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .accordion-enter-to,
 .accordion-leave-from {
-  max-height: 28rem;
+  grid-template-rows: 1fr;
   opacity: 1;
 }
 
