@@ -17,10 +17,10 @@
 ## UI 演练步骤
 
 1. 打开知识工作台，进入「Raw Inbox」。
-2. 点击「新建条目」。
-3. 从 mock JSON 里选一条数据，把 `title`、`content`、`summary`、`tags`、`project`、`topic`、`keyQuestion`、`decisionNote` 填入编辑抽屉。
-4. 把收集阶段设为「进 Wiki 编译」，可信度设为「高」。
-5. 点击「保存并送升格审核」。
+2. 点击「批量导入」。
+3. 把 `docs/mock-data/knowledge-workbench-raw-inbox-items.json` 的完整内容粘进去。
+4. 查看右侧预检：确认识别到 3 条，疑似重复项会标为「将合并」或「将跳过」。
+5. 保持默认的「合并已有，跳过批内重复」，点击「处理」。
 6. 页面会跳到「升格审核」，点击刷新。
 7. 在候选卡片里确认来源是否为「知识采集」。
 8. 点击「查看证据」，确认能看到 `inbox/knowledge__*.md` 证据页。
@@ -29,6 +29,10 @@
 11. 回到「Raw Inbox」，找到这条采集，确认卡片显示「已升格」。
 12. 回到「升格审核」的「已确认」区域，确认能看到刚才升格的条目。
 13. 如需回滚，点击「撤销人工确认」，再回到 Raw Inbox，确认状态变成「已撤销」，阶段回到「进 Wiki 编译」。
+
+## 单条手动演练
+
+如果只想演练一条，可以点「新建条目」，从 mock JSON 里选第一条，把 `title`、`content`、`summary`、`tags`、`project`、`topic`、`keyQuestion`、`decisionNote` 填入编辑抽屉，然后点击「保存并送升格审核」。
 
 ## API 快速导入
 
@@ -58,8 +62,8 @@ node -e "const fs=require('node:fs'); const data=JSON.parse(fs.readFileSync('doc
 
 ## 下一步建议
 
-全流程已经能跑通，下一步最值得推进的是批量导入和去重合并：
+批量导入已经能跑通，下一步最值得推进的是候选改道和合并：
 
-- 支持从 JSON/Markdown 一次导入多条 Raw Inbox。
-- 导入时基于 URL、标题指纹、正文指纹做重复提示。
+- 支持把候选从 Synthesis 改送 Issue 或 Pattern。
+- 支持把多个相似 Raw Inbox 合并成一个升格候选。
 - Promotion Review 卡片显示“同源/相似采集”，避免多个候选重复升格。
