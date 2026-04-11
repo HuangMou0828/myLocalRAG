@@ -761,6 +761,24 @@
   color: #86efac;
 }
 
+.knowledge-chip.promotion[data-promotion='approved'] {
+  border-color: rgba(45, 212, 191, 0.24);
+  background: rgba(20, 184, 166, 0.12);
+  color: #b9fff5;
+}
+
+.knowledge-chip.promotion[data-promotion='dismissed'] {
+  border-color: rgba(248, 113, 113, 0.24);
+  background: rgba(244, 63, 94, 0.12);
+  color: #ffd7df;
+}
+
+.knowledge-chip.promotion[data-promotion='revoked'] {
+  border-color: rgba(250, 204, 21, 0.24);
+  background: rgba(234, 179, 8, 0.12);
+  color: #fef3c7;
+}
+
 .knowledge-chip[data-head-tone='status-strong'] {
   background: rgba(59, 130, 246, 0.14);
   border-color: rgba(96, 165, 250, 0.24);

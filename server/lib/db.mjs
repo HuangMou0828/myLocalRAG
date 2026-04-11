@@ -2293,6 +2293,31 @@ export async function updateKnowledgeItemStatusInDb({ id = '', status = 'draft' 
   return getKnowledgeItemByIdInDb(knowledgeId)
 }
 
+export async function patchKnowledgeItemMetaInDb({ id = '', status, metaPatch = {} } = {}) {
+  await ensureReady()
+  const knowledgeId = String(id || '').trim()
+  if (!knowledgeId) throw new Error('id 必填')
+  const current = await getKnowledgeItemByIdInDb(knowledgeId)
+  if (!current) throw new Error('条目不存在')
+  const patch = metaPatch && typeof metaPatch === 'object' && !Array.isArray(metaPatch) ? metaPatch : {}
+  const nextMeta = {
+    ...(current.meta && typeof current.meta === 'object' ? current.meta : {}),
+    ...patch,
+  }
+  const nextStatus = typeof status === 'string' && status.trim()
+    ? normalizeKnowledgeStatus(status)
+    : current.status
+  const database = getDb()
+  database
+    .prepare(
+      `UPDATE knowledge_items
+       SET status = ?, meta_json = ?, updated_at = ?
+       WHERE id = ?`,
+    )
+    .run(nextStatus, JSON.stringify(nextMeta), nowIso(), knowledgeId)
+  return getKnowledgeItemByIdInDb(knowledgeId)
+}
+
 export async function deleteKnowledgeItemInDb(id) {
   await ensureReady()
   const knowledgeId = String(id || '').trim()

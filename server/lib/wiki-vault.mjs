@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises'
 import { createTwoFilesPatch } from 'diff'
 import { askModel } from './ask-model.mjs'
-import { listKnowledgeItemsInDb, loadModelSettingsInDb } from './db.mjs'
+import { listKnowledgeItemsInDb, loadModelSettingsInDb, patchKnowledgeItemMetaInDb } from './db.mjs'
 import { loadIndex } from './scanner.mjs'
 
 function normalizeText(input) {
@@ -2281,8 +2281,15 @@ function isKnowledgeItemPromotionCandidate(item = {}) {
   const title = String(item?.title || '').trim()
   const content = String(item?.content || '').trim()
   if (!title && !content) return false
+  const promotionDecision = getKnowledgeMetaString(item, 'promotionDecision')
+  if (promotionDecision === 'approved' || promotionDecision === 'dismissed') return true
   const stage = normalizeKnowledgeIntakeStage(getKnowledgeMetaString(item, 'intakeStage'))
   return stage === 'wiki-candidate' || status === 'active'
+}
+
+function isKnowledgePromotionQueueCandidate(evidence = {}) {
+  const decision = String(evidence?.promotionDecision || '').trim()
+  return decision !== 'approved' && decision !== 'dismissed'
 }
 
 function buildKnowledgeItemRelativePath(item = {}) {
@@ -2358,6 +2365,10 @@ function buildKnowledgeItemEvidence(item = {}) {
     intakeStage: normalizeKnowledgeIntakeStage(getKnowledgeMetaString(item, 'intakeStage')),
     confidence: normalizeKnowledgeConfidence(getKnowledgeMetaString(item, 'confidence')),
     decisionNote: getKnowledgeMetaString(item, 'decisionNote'),
+    promotionDecision: getKnowledgeMetaString(item, 'promotionDecision'),
+    promotionKind: getKnowledgeMetaString(item, 'promotionKind'),
+    promotionTargetPath: normalizeVaultRelativePath(getKnowledgeMetaString(item, 'promotionTargetPath')),
+    promotionDecidedAt: getKnowledgeMetaString(item, 'promotionDecidedAt'),
     summary,
     content,
   }
@@ -2395,6 +2406,8 @@ function renderKnowledgeItemEvidenceMarkdown(evidence = {}) {
   if (evidence.sourceUrl) lines.push(`- Source URL: ${escapeMarkdownText(evidence.sourceUrl)}`)
   if (evidence.sourceFile) lines.push(`- Source file: \`${escapeMarkdownText(evidence.sourceFile)}\``)
   if (tags.length) lines.push(`- Tags: ${tags.map((tag) => `\`${escapeMarkdownText(tag)}\``).join(', ')}`)
+  if (evidence.promotionDecision) lines.push(`- Promotion decision: \`${escapeMarkdownText(evidence.promotionDecision)}\``)
+  if (evidence.promotionTargetPath) lines.push(`- Promotion target: ${toWikiLink(evidence.promotionTargetPath)}`)
 
   lines.push('')
   lines.push('## Extracted Signals')
@@ -3695,7 +3708,7 @@ export async function rebuildVaultIndex(options = {}) {
   await rebuildProviderPages(entries)
   const sourceEvidences = await buildSourceEntryEvidenceList(entries)
   const issueStats = await rebuildIssuePages(sourceEvidences)
-  const patternStats = await rebuildPatternPages(rebuildSourceEvidences, {
+  const patternStats = await rebuildPatternPages(sourceEvidences, {
     issues: issueStats.issues,
   })
   const projectStats = await rebuildProjectPages(sourceEvidences, {
@@ -5189,6 +5202,7 @@ function buildKnowledgePromotionQueueEntries(knowledgeEvidences = [], promotionS
   const synthesisCandidates = []
 
   for (const evidence of Array.isArray(knowledgeEvidences) ? knowledgeEvidences : []) {
+    if (!isKnowledgePromotionQueueCandidate(evidence)) continue
     const evidenceItems = [String(evidence?.relativePath || '')].filter(Boolean)
     if (!evidenceItems.length) continue
     const preferredKind = inferKnowledgePromotionKind(evidence)
@@ -5290,6 +5304,58 @@ function collectApprovedPromotionEvidencePaths(promotionState = {}) {
       .map((item) => normalizeVaultRelativePath(item))
       .filter(Boolean),
   )
+}
+
+async function patchKnowledgePromotionLifecycle(payload = {}) {
+  const decision = String(payload?.decision || '').trim()
+  const kind = String(payload?.kind || '').trim()
+  const relativePath = normalizeVaultRelativePath(payload?.relativePath || '')
+  const evidenceItems = dedupeList(Array.isArray(payload?.evidenceItems) ? payload.evidenceItems : [], 12)
+    .map((item) => normalizeVaultRelativePath(item))
+    .filter(Boolean)
+  const ids = new Set()
+  const directId = String(payload?.knowledgeItemId || '').trim()
+  const segmentId = String(payload?.segmentId || '').trim()
+  if (directId) ids.add(directId)
+  if (String(payload?.sourceKind || '').trim() === 'knowledge-item' && segmentId) ids.add(segmentId)
+
+  if (evidenceItems.some((item) => item.startsWith('inbox/knowledge__'))) {
+    const evidences = await loadKnowledgePromotionEvidences({ writeEvidence: false })
+    const evidencePathSet = new Set(evidenceItems)
+    for (const evidence of evidences) {
+      if (evidencePathSet.has(normalizeVaultRelativePath(evidence?.relativePath || '')) && evidence?.knowledgeItemId) {
+        ids.add(String(evidence.knowledgeItemId || '').trim())
+      }
+    }
+  }
+
+  if (!ids.size) return []
+
+  const promotionDecision = decision === 'approve'
+    ? 'approved'
+    : decision === 'dismiss'
+      ? 'dismissed'
+      : 'revoked'
+  const updated = []
+  for (const id of ids) {
+    const item = await patchKnowledgeItemMetaInDb({
+      id,
+      status: 'active',
+      metaPatch: {
+        promotionDecision,
+        promotionKind: kind,
+        promotionTargetPath: relativePath,
+        promotionTitle: String(payload?.title || '').trim(),
+        promotionProject: String(payload?.project || '').trim(),
+        promotionSummary: String(payload?.summary || '').trim(),
+        promotionDecidedAt: String(payload?.decidedAt || new Date().toISOString()),
+        intakeStage: promotionDecision === 'revoked' ? 'wiki-candidate' : 'reference-only',
+      },
+    }).catch(() => null)
+    if (item) updated.push(item)
+  }
+
+  return updated
 }
 
 export async function buildPromotionQueue(options = {}) {
@@ -5678,7 +5744,7 @@ async function refreshPromotionArtifacts(options = {}) {
   })
 
   return {
-    sourceEvidences,
+    sourceEvidences: rebuildSourceEvidences,
     issueStats,
     patternStats,
     projectStats,
@@ -5774,6 +5840,18 @@ export async function decidePromotionCandidate(payload = {}) {
     }
   }
 
+  const knowledgeItems = await patchKnowledgePromotionLifecycle({
+    ...payload,
+    decision,
+    kind,
+    title,
+    project,
+    summary,
+    relativePath,
+    evidenceItems,
+    decidedAt: now,
+  })
+
   await savePromotionState(state)
   const refreshed = await refreshPromotionArtifacts({
     writePromotionQueue: true,
@@ -5790,6 +5868,7 @@ export async function decidePromotionCandidate(payload = {}) {
     issueStats: refreshed.issueStats,
     patternStats: refreshed.patternStats,
     synthesisStats: refreshed.synthesisStats,
+    knowledgeItems,
   }
 }
 

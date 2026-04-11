@@ -515,6 +515,13 @@ function formatConfidenceLabel(value: string) {
   return confidenceOptionsResolved.value.find((item) => item.value === value)?.label || '中'
 }
 
+function formatKnowledgePromotionDecision(value: string) {
+  if (value === 'approved') return '已升格'
+  if (value === 'dismissed') return '已驳回'
+  if (value === 'revoked') return '已撤销'
+  return ''
+}
+
 function openKnowledgeItemEditor(item: Record<string, any>) {
   selectKnowledgeItem(item)
   knowledgeEditorIntakeOpen.value = true
@@ -1268,6 +1275,13 @@ function focusTaskReviewBySummary(cardId: string) {
                 </span>
                 <span class="knowledge-chip confidence" :data-confidence="getKnowledgeMetaValue(item, 'confidence') || 'medium'">
                   可信度 {{ formatConfidenceLabel(getKnowledgeMetaValue(item, 'confidence')) }}
+                </span>
+                <span
+                  v-if="formatKnowledgePromotionDecision(getKnowledgeMetaValue(item, 'promotionDecision'))"
+                  class="knowledge-chip promotion"
+                  :data-promotion="getKnowledgeMetaValue(item, 'promotionDecision')"
+                >
+                  {{ formatKnowledgePromotionDecision(getKnowledgeMetaValue(item, 'promotionDecision')) }}
                 </span>
               </div>
               <strong>{{ item.title || '未命名条目' }}</strong>

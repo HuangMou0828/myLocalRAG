@@ -2107,6 +2107,9 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
         title: item.title,
         currentPath: item.currentPath,
         targetPath: item.targetPath,
+        segmentId: item.segmentId,
+        sourceKind: item.sourceKind,
+        sourceLabel: item.sourceLabel,
         project: item.project,
         summary: item.summary,
         evidenceItems: Array.isArray(item.evidenceItems) ? item.evidenceItems : [],
@@ -2114,6 +2117,7 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
       await Promise.all([
         loadPromotionQueue(true),
         loadWikiHealth(true),
+        loadKnowledgeItems(),
       ])
       if (decision === 'approve') {
         options.notify('已升格到 reader-first wiki', 'success')

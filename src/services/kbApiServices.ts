@@ -645,6 +645,9 @@ export interface WikiVaultApi {
     title: string
     currentPath?: string
     targetPath?: string
+    segmentId?: string
+    sourceKind?: string
+    sourceLabel?: string
     question?: string
     project?: string
     summary?: string
@@ -673,6 +676,9 @@ export interface WikiVaultApi {
     title: string
     currentPath?: string
     targetPath?: string
+    segmentId?: string
+    sourceKind?: string
+    sourceLabel?: string
     question?: string
     project?: string
     summary?: string
