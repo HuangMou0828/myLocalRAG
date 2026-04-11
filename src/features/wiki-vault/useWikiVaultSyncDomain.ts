@@ -129,7 +129,7 @@ export function useWikiVaultSyncDomain(options: UseWikiVaultSyncDomainOptions) {
         syncMode: normalizeSyncMode(String(stats?.syncMode || wikiVaultSyncMode.value)),
       }
     } catch (error) {
-      options.notify(`读取 Obsidian 同步统计失败：${String(error instanceof Error ? error.message : error || '未知错误')}`, 'danger')
+      options.notify(`读取 Obsidian 发布统计失败：${String(error instanceof Error ? error.message : error || '未知错误')}`, 'danger')
     } finally {
       wikiVaultSyncStatsLoading.value = false
     }
@@ -150,7 +150,7 @@ export function useWikiVaultSyncDomain(options: UseWikiVaultSyncDomainOptions) {
       }
     } catch (error) {
       wikiVaultSyncPreview.value = null
-      options.notify(`读取 Obsidian 同步预估失败：${String(error instanceof Error ? error.message : error || '未知错误')}`, 'danger')
+      options.notify(`读取 Obsidian 发布预估失败：${String(error instanceof Error ? error.message : error || '未知错误')}`, 'danger')
     } finally {
       wikiVaultSyncPreviewLoading.value = false
     }
@@ -184,13 +184,13 @@ export function useWikiVaultSyncDomain(options: UseWikiVaultSyncDomainOptions) {
     if (job.status === 'completed') {
       const modeLabel = job.syncMode === 'publish-with-summary' ? '深度汇总' : '快速发布'
       options.notify(
-        `Obsidian 同步完成：${modeLabel}，发布 ${Number(job.publishedCount || 0)} 条 source，LLM 汇总 ${Number(job.llmConceptCount || 0)} 个 concept`,
+        `Obsidian 发布完成：${modeLabel}，写入 ${Number(job.publishedCount || 0)} 条 source，LLM 汇总 ${Number(job.llmConceptCount || 0)} 个 concept`,
         'success',
       )
       return
     }
 
-    options.notify(`Obsidian 同步失败：${String(job.error || job.statusText || '未知错误')}`, 'danger')
+    options.notify(`Obsidian 发布失败：${String(job.error || job.statusText || '未知错误')}`, 'danger')
   }
 
   async function startWikiVaultSync() {
@@ -213,13 +213,13 @@ export function useWikiVaultSyncDomain(options: UseWikiVaultSyncDomainOptions) {
       const jobId = String(result?.job?.id || '')
       if (!jobId) {
         syncingWikiVault.value = false
-        options.notify('未拿到有效的同步任务 ID', 'danger')
+        options.notify('未拿到有效的发布任务 ID', 'danger')
         return
       }
       await pollWikiVaultSyncJob(jobId)
     } catch (error) {
       syncingWikiVault.value = false
-      options.notify(`启动 Obsidian 同步失败：${String(error instanceof Error ? error.message : error || '未知错误')}`, 'danger')
+      options.notify(`启动 Obsidian 发布失败：${String(error instanceof Error ? error.message : error || '未知错误')}`, 'danger')
     }
   }
 

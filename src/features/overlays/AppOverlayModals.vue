@@ -1175,13 +1175,14 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
   </Dialog>
 
   <Dialog :open="wikiVaultSyncModalOpen" @update:open="(open) => { if (!open) closeWikiVaultSyncModal() }">
-    <DialogContent class="component-modal-dialog component-modal-dialog--tone-info embedding-build-dialog wiki-vault-sync-dialog" :show-close="false">
-      <DialogHeader class="component-modal-dialog-header embedding-build-dialog-header">
+    <DialogContent class="component-modal-dialog component-modal-dialog--tone-info wiki-vault-publish-dialog" :show-close="false">
+      <DialogHeader class="component-modal-dialog-header wiki-vault-publish-header">
         <div class="component-modal-dialog-title-row">
-          <div class="embedding-build-dialog-title-wrap">
-            <DialogTitle class="embedding-build-dialog-title">同步到 Obsidian</DialogTitle>
-            <DialogDescription class="embedding-build-dialog-desc">
-              先确认同步方式、工作量和预计模型消耗，再把 source / concept 页面发布到 Vault。
+          <div class="wiki-vault-publish-title-wrap">
+            <p class="wiki-vault-publish-eyebrow">可选阅读层</p>
+            <DialogTitle class="wiki-vault-publish-title">发布到 Obsidian Vault</DialogTitle>
+            <DialogDescription class="wiki-vault-publish-desc">
+              myLocalRAG 继续作为主知识库，Vault 只承接可阅读、可携带的 Markdown 输出。
             </DialogDescription>
           </div>
           <DialogClose as-child>
@@ -1194,127 +1195,119 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
           </DialogClose>
         </div>
       </DialogHeader>
-      <Separator class="embedding-build-dialog-separator" />
+      <Separator class="wiki-vault-publish-separator" />
 
-      <div class="component-modal-dialog-body embedding-build-body">
-        <div class="embedding-build-stats bug-detail-field-list">
-          <small v-if="wikiVaultSyncStatsLoading">统计加载中...</small>
+      <div class="component-modal-dialog-body wiki-vault-publish-body">
+        <section class="wiki-vault-publish-flow" aria-label="发布路径">
+          <span>Raw Inbox</span>
+          <span>任务筛选</span>
+          <span>升格审核</span>
+          <strong>Vault 发布</strong>
+        </section>
+
+        <section class="wiki-vault-publish-metrics" aria-label="发布统计">
+          <small v-if="wikiVaultSyncStatsLoading">正在读取发布统计...</small>
           <template v-else>
-            <article class="bug-detail-field-item">
-              <div class="bug-detail-field-label-row">
-                <p class="bug-detail-field-label">同步范围</p>
-              </div>
-              <div class="bug-detail-field-box">
-                <p class="bug-detail-value-text">{{ wikiVaultProviderLabel }}</p>
-              </div>
+            <article class="wiki-vault-publish-metric">
+              <span>发布范围</span>
+              <strong>{{ wikiVaultProviderLabel }}</strong>
             </article>
-            <article class="bug-detail-field-item">
-              <div class="bug-detail-field-label-row">
-                <p class="bug-detail-field-label">当前 source 总数</p>
-              </div>
-              <div class="bug-detail-field-box">
-                <p class="bug-detail-value-text">{{ Number(wikiVaultSyncStats?.currentSessions || 0) }}</p>
-              </div>
+            <article class="wiki-vault-publish-metric">
+              <span>Source</span>
+              <strong>{{ Number(wikiVaultSyncStats?.currentSessions || 0) }}</strong>
             </article>
-            <article class="bug-detail-field-item">
-              <div class="bug-detail-field-label-row">
-                <p class="bug-detail-field-label">当前 concept 总数</p>
-              </div>
-              <div class="bug-detail-field-box">
-                <p class="bug-detail-value-text">{{ Number(wikiVaultSyncStats?.currentConcepts || 0) }}</p>
-              </div>
+            <article class="wiki-vault-publish-metric">
+              <span>Concept</span>
+              <strong>{{ Number(wikiVaultSyncStats?.currentConcepts || 0) }}</strong>
             </article>
-            <article class="bug-detail-field-item">
-              <div class="bug-detail-field-label-row">
-                <p class="bug-detail-field-label">上次同步时间</p>
-              </div>
-              <div class="bug-detail-field-box">
-                <p class="bug-detail-value-datetime">{{ wikiVaultSyncStats?.generatedAt ? formatTime(wikiVaultSyncStats.generatedAt) : '暂无' }}</p>
-              </div>
+            <article class="wiki-vault-publish-metric">
+              <span>上次发布</span>
+              <strong>{{ wikiVaultSyncStats?.generatedAt ? formatTime(wikiVaultSyncStats.generatedAt) : '暂无' }}</strong>
             </article>
           </template>
-        </div>
+        </section>
 
-        <article class="embedding-build-form embedding-build-form--expanded bug-detail-field-item">
-          <div class="bug-detail-field-label-row">
-            <p class="bug-detail-field-label">同步方式</p>
-          </div>
-          <div class="bug-detail-field-box embedding-build-plan-box wiki-vault-mode-box">
+        <section class="wiki-vault-publish-panel">
+          <div class="wiki-vault-publish-panel-head">
+            <div>
+              <p>发布方式</p>
+              <small>{{ wikiVaultSyncMode === 'publish-with-summary' ? '为跨来源 concept 生成可追溯摘要。' : '刷新 source 与规则 concept，不调用模型。' }}</small>
+            </div>
             <select class="app-select" v-model="wikiVaultSyncMode" :disabled="syncingWikiVault" @change="loadWikiVaultSyncPreview">
-              <option value="publish-only">快速发布（仅发布 source / fallback concept）</option>
-              <option value="publish-with-summary">深度汇总（允许调用模型生成 concept 摘要）</option>
+              <option value="publish-only">快速发布</option>
+              <option value="publish-with-summary">深度汇总</option>
             </select>
-            <div class="embedding-build-plan-chips">
-              <span>上次模式 {{ wikiVaultSyncStats?.syncMode === 'publish-with-summary' ? '深度汇总' : '快速发布' }}</span>
-              <span>上次发布 {{ Number(wikiVaultSyncStats?.publishedCount || 0) }} 条</span>
-              <span>上次 LLM 汇总 {{ Number(wikiVaultSyncStats?.llmConceptCount || 0) }} 个</span>
-            </div>
-            <small v-if="wikiVaultSyncMode === 'publish-with-summary'">
-              会尝试调用当前 Assistant 模型，为多来源 concept 生成可追溯的汇总页，可能产生 token 成本。
-            </small>
-            <small v-else>
-              只做本地发布和规则兜底，不调用模型，适合日常快速同步。
-            </small>
           </div>
-        </article>
+          <div class="wiki-vault-publish-chips">
+            <span>上次模式 {{ wikiVaultSyncStats?.syncMode === 'publish-with-summary' ? '深度汇总' : '快速发布' }}</span>
+            <span>上次写入 {{ Number(wikiVaultSyncStats?.publishedCount || 0) }} 条</span>
+            <span>上次 LLM 汇总 {{ Number(wikiVaultSyncStats?.llmConceptCount || 0) }} 个</span>
+          </div>
+        </section>
 
-        <article class="embedding-build-form embedding-build-form--expanded bug-detail-field-item">
-          <div class="bug-detail-field-label-row">
-            <p class="bug-detail-field-label">本次预估</p>
-          </div>
-          <div class="bug-detail-field-box embedding-build-plan-box">
-            <small v-if="wikiVaultSyncPreviewLoading">正在计算同步规模...</small>
-            <template v-else-if="wikiVaultSyncPreview">
-              <div class="embedding-build-plan-summary">
-                <strong>即将发布 {{ Number(wikiVaultSyncPreview.totalSessions || 0) }} 条 source，实际刷新 {{ Number(wikiVaultSyncPreview.targetConcepts || 0) }} 个 concept</strong>
-                <span>{{ wikiVaultSyncMode === 'publish-with-summary' ? '深度汇总' : '快速发布' }}</span>
-              </div>
-              <div class="embedding-build-plan-chips">
-                <span>总步骤 {{ Number(wikiVaultSyncPreview.estimatedSteps || 0) }}</span>
-                <span>具备跨来源条件 {{ Number(wikiVaultSyncPreview.llmEligibleConcepts || 0) }}</span>
-                <span>预计模型调用 {{ Number(wikiVaultSyncPreview.estimatedModelCalls || 0) }}</span>
-                <span v-if="Number(wikiVaultSyncPreview.reusableLlmConcepts || 0) > 0">复用已有 LLM {{ Number(wikiVaultSyncPreview.reusableLlmConcepts || 0) }}</span>
-              </div>
-              <small>
-                <template v-if="wikiVaultSyncMode === 'publish-with-summary'">
-                  只有跨 2 条及以上来源、且本次内容有变化的 concept 才会真正调用模型；已有 LLM 汇总且输入未变的页面会直接复用。
-                </template>
-                <template v-else>
-                  本次只刷新 source 页和 concept 结构，不做模型摘要。
-                </template>
+        <section class="wiki-vault-publish-panel">
+          <div class="wiki-vault-publish-panel-head">
+            <div>
+              <p>本次发布计划</p>
+              <small v-if="wikiVaultSyncPreviewLoading">正在计算发布规模...</small>
+              <small v-else-if="wikiVaultSyncPreview && wikiVaultSyncMode === 'publish-with-summary'">
+                只有跨 2 条及以上来源、且输入有变化的 concept 才会调用模型。
               </small>
-            </template>
-            <small v-else>暂无预估数据</small>
+              <small v-else-if="wikiVaultSyncPreview">本次不会调用模型。</small>
+              <small v-else>暂无预估数据。</small>
+            </div>
+            <strong v-if="wikiVaultSyncPreview">{{ Number(wikiVaultSyncPreview.estimatedSteps || 0) }} 步</strong>
           </div>
-        </article>
+          <template v-if="wikiVaultSyncPreview">
+            <div class="wiki-vault-publish-plan">
+              <span>
+                <strong>{{ Number(wikiVaultSyncPreview.totalSessions || 0) }}</strong>
+                source
+              </span>
+              <span>
+                <strong>{{ Number(wikiVaultSyncPreview.targetConcepts || 0) }}</strong>
+                待刷新 concept
+              </span>
+              <span>
+                <strong>{{ Number(wikiVaultSyncPreview.llmEligibleConcepts || 0) }}</strong>
+                跨来源 concept
+              </span>
+              <span>
+                <strong>{{ Number(wikiVaultSyncPreview.estimatedModelCalls || 0) }}</strong>
+                预计模型调用
+              </span>
+            </div>
+            <p class="wiki-vault-publish-note" v-if="Number(wikiVaultSyncPreview.reusableLlmConcepts || 0) > 0">
+              可复用 {{ Number(wikiVaultSyncPreview.reusableLlmConcepts || 0) }} 个已有 LLM 汇总。
+            </p>
+          </template>
+        </section>
 
-        <article class="embedding-build-form embedding-build-form--expanded bug-detail-field-item" v-if="wikiVaultSyncJob">
-          <div class="bug-detail-field-label-row">
-            <p class="bug-detail-field-label">同步进度</p>
+        <section class="wiki-vault-publish-panel" v-if="wikiVaultSyncJob">
+          <div class="wiki-vault-publish-panel-head">
+            <div>
+              <p>发布进度</p>
+              <small>{{ wikiVaultSyncJob.statusText || (syncingWikiVault ? '发布中...' : '等待开始') }}</small>
+            </div>
+            <strong>{{ Math.round(Number(wikiVaultSyncJob.progress || 0) * 100) }}%</strong>
           </div>
-          <div class="bug-detail-field-box embedding-build-progress-box">
-            <div class="embedding-build-progress-head">
-              <strong>{{ Math.round(Number(wikiVaultSyncJob.progress || 0) * 100) }}%</strong>
-              <span>{{ wikiVaultSyncJob.statusText || (syncingWikiVault ? '同步中...' : '等待开始') }}</span>
-            </div>
-            <div class="embedding-build-progress-track">
-              <span class="embedding-build-progress-fill" :style="{ width: `${Math.max(0, Math.min(100, Math.round(Number(wikiVaultSyncJob.progress || 0) * 100)))}%` }" />
-            </div>
-            <div class="embedding-build-plan-chips">
-              <span>已处理 {{ Number(wikiVaultSyncJob.processedSteps || 0) }}/{{ Number(wikiVaultSyncJob.totalSteps || 0) }}</span>
-              <span>已发布 {{ Number(wikiVaultSyncJob.publishedCount || 0) }}</span>
-              <span>LLM 汇总 {{ Number(wikiVaultSyncJob.llmConceptCount || 0) }}</span>
-              <span v-if="Number(wikiVaultSyncJob.reusedLlmConceptCount || 0) > 0">复用 LLM {{ Number(wikiVaultSyncJob.reusedLlmConceptCount || 0) }}</span>
-              <span v-if="Number(wikiVaultSyncJob.fallbackConceptCount || 0) > 0">fallback {{ Number(wikiVaultSyncJob.fallbackConceptCount || 0) }}</span>
-            </div>
-            <small v-if="wikiVaultSyncJob.lastRun?.generatedAt">
-              最近完成：{{ formatTime(wikiVaultSyncJob.lastRun.generatedAt) }}
-            </small>
+          <div class="wiki-vault-publish-progress-track">
+            <span class="wiki-vault-publish-progress-fill" :style="{ width: `${Math.max(0, Math.min(100, Math.round(Number(wikiVaultSyncJob.progress || 0) * 100)))}%` }" />
           </div>
-        </article>
+          <div class="wiki-vault-publish-chips">
+            <span>已处理 {{ Number(wikiVaultSyncJob.processedSteps || 0) }}/{{ Number(wikiVaultSyncJob.totalSteps || 0) }}</span>
+            <span>已写入 {{ Number(wikiVaultSyncJob.publishedCount || 0) }}</span>
+            <span>LLM 汇总 {{ Number(wikiVaultSyncJob.llmConceptCount || 0) }}</span>
+            <span v-if="Number(wikiVaultSyncJob.reusedLlmConceptCount || 0) > 0">复用 LLM {{ Number(wikiVaultSyncJob.reusedLlmConceptCount || 0) }}</span>
+            <span v-if="Number(wikiVaultSyncJob.fallbackConceptCount || 0) > 0">fallback {{ Number(wikiVaultSyncJob.fallbackConceptCount || 0) }}</span>
+          </div>
+          <p class="wiki-vault-publish-note" v-if="wikiVaultSyncJob.lastRun?.generatedAt">
+            最近完成：{{ formatTime(wikiVaultSyncJob.lastRun.generatedAt) }}
+          </p>
+        </section>
       </div>
 
-      <footer class="component-modal-actions embedding-build-actions">
+      <footer class="component-modal-actions wiki-vault-publish-actions">
         <button type="button" class="app-btn-ghost" @click="closeWikiVaultSyncModal" :disabled="syncingWikiVault">取消</button>
         <button
           type="button"
@@ -1322,7 +1315,7 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
           @click="startWikiVaultSync"
           :disabled="!wikiVaultCanStart"
         >
-          {{ syncingWikiVault ? '同步中...' : `开始同步（${Number(wikiVaultSyncPreview?.estimatedSteps || 0)} 步）` }}
+          {{ syncingWikiVault ? '发布中...' : `开始发布（${Number(wikiVaultSyncPreview?.estimatedSteps || 0)} 步）` }}
         </button>
       </footer>
     </DialogContent>

@@ -2749,15 +2749,21 @@ function toWikiVaultSyncJobPayload(job) {
   }
 }
 
+function shouldPruneWikiVaultSources({ provider = '', sessionIds = [], limit = 0 } = {}) {
+  return !normalizeString(provider || '').trim()
+    && !(Array.isArray(sessionIds) && sessionIds.length)
+    && !(Number(limit || 0) > 0)
+}
+
 async function runWikiVaultSyncJob(job, { sessions = [] } = {}) {
   job.status = 'running'
   job.startedAt = new Date().toISOString()
-  job.statusText = '开始同步到 Obsidian Vault...'
+  job.statusText = '开始发布到 Obsidian Vault...'
 
   try {
     const result = await publishSessionsToVault(sessions, {
       conceptSummaryMode: job.syncMode === 'publish-with-summary' ? 'llm' : 'fallback-only',
-      pruneMissingSources: true,
+      pruneMissingSources: job.pruneMissingSources === true,
       onSessionPublished: ({ processed, total }) => {
         job.publishedCount = processed
         job.processedSteps = processed
@@ -2799,14 +2805,14 @@ async function runWikiVaultSyncJob(job, { sessions = [] } = {}) {
     job.reusedFallbackConceptCount = Number(conceptStats.reusedFallbackConceptCount || 0)
     job.lastRun = lastRun
     job.statusText = job.syncMode === 'publish-with-summary'
-      ? `同步完成，发布 ${job.publishedCount} 条 source，LLM 汇总 ${job.llmConceptCount} 个 concept`
-      : `同步完成，发布 ${job.publishedCount} 条 source，更新 ${Number(conceptStats.totalConcepts || 0)} 个 concept`
+      ? `发布完成，写入 ${job.publishedCount} 条 source，LLM 汇总 ${job.llmConceptCount} 个 concept`
+      : `发布完成，写入 ${job.publishedCount} 条 source，更新 ${Number(conceptStats.totalConcepts || 0)} 个 concept`
     return toWikiVaultSyncJobPayload(job)
   } catch (error) {
     job.finishedAt = new Date().toISOString()
     job.status = 'failed'
     job.error = String(error)
-    job.statusText = '同步失败'
+    job.statusText = '发布失败'
     return toWikiVaultSyncJobPayload(job)
   }
 }
@@ -3320,6 +3326,7 @@ const server = http.createServer(async (req, res) => {
         statusText: '等待开始',
         error: null,
         lastRun: null,
+        pruneMissingSources: shouldPruneWikiVaultSources({ provider, sessionIds, limit }),
       }
       wikiVaultSyncJobs.set(job.id, job)
       void runWikiVaultSyncJob(job, { sessions })
@@ -3336,7 +3343,7 @@ const server = http.createServer(async (req, res) => {
       const jobId = normalizeString(url.searchParams.get('id') || '')
       if (!jobId) return send(res, 400, { error: 'id 必填' })
       const job = wikiVaultSyncJobs.get(jobId)
-      if (!job) return send(res, 404, { error: '未找到同步任务' })
+      if (!job) return send(res, 404, { error: '未找到发布任务' })
       return send(res, 200, { job: toWikiVaultSyncJobPayload(job) })
     }
 
@@ -3369,7 +3376,7 @@ const server = http.createServer(async (req, res) => {
 
       const result = await publishSessionsToVault(sessions, {
         conceptSummaryMode: syncMode === 'publish-with-summary' ? 'llm' : 'fallback-only',
-        pruneMissingSources: true,
+        pruneMissingSources: shouldPruneWikiVaultSources({ provider, sessionIds, limit }),
       })
       const conceptStats = result?.conceptStats || {}
       const generatedAt = new Date().toISOString()

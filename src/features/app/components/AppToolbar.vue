@@ -59,11 +59,7 @@ const showToolbarSecondaryActions = computed(() =>
   || showImportAction.value
   || config.value.feishuSchedule.isTodoView,
 )
-const showSyncWikiAction = computed(() =>
-  !config.value.modes.isFeishuSchedule
-  && !config.value.modes.isModelSettings
-  && !config.value.modes.isComponentLibrary,
-)
+const showSyncWikiAction = computed(() => isKnowledgeProvider.value)
 const showToolbarUtilityCluster = computed(() =>
   showSyncWikiAction.value
   || config.value.modes.isFeishuSchedule
@@ -193,8 +189,8 @@ const toolbarContext = computed(() => {
           class="icon-btn"
           @click="config.actions.syncWikiVault"
           :disabled="config.wikiVault.syncing"
-          :title="config.wikiVault.syncing ? '同步到 Obsidian 中' : '同步到 Obsidian'"
-          :aria-label="config.wikiVault.syncing ? '同步到 Obsidian 中' : '同步到 Obsidian'"
+          :title="config.wikiVault.syncing ? '发布到 Obsidian Vault 中' : '发布到 Obsidian Vault'"
+          :aria-label="config.wikiVault.syncing ? '发布到 Obsidian Vault 中' : '发布到 Obsidian Vault'"
         >
           <IconRefreshCw v-if="config.wikiVault.syncing" :size="18" class="animate-spin" />
           <IconUpload v-else :size="18" />

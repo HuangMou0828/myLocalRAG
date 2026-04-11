@@ -1,11 +1,12 @@
-# Obsidian + Syncthing MVP
+# Obsidian Vault Publication Layer
 
-This document describes the first MVP shape for using myLocalRAG as an admin/backend layer and Obsidian as the user-facing reading layer.
+This document describes the optional publication layer that compiles myLocalRAG knowledge into an Obsidian-readable Markdown vault.
 
 ## Architecture
 
 - `myLocalRAG` stays responsible for scanning, indexing, retrieval, and future ingest orchestration.
-- `vault/` is the Obsidian-facing publication layer.
+- Knowledge Workbench is the primary place for capture, task review, promotion review, and health checks.
+- `vault/` is the Obsidian-facing reading/export layer, not the source of truth.
 - Syncthing should sync `vault/` only.
 
 Recommended split:
@@ -76,17 +77,24 @@ node scripts/wiki-vault.mjs refresh-published
 - Avoid editing the same note on two devices at the same time.
 - Sync `vault/` only. Do not sync `server/data/`, SQLite files, or the whole repo.
 
-## Current MVP Shape
+## Current Shape
 
 - `sources/*.md` is the evidence layer and may stay somewhat machine-oriented.
 - `projects/`, `patterns/`, `issues/`, and `syntheses/` are the preferred human-reading layer.
+- `concepts/` groups recurring topics and modules across sources.
+- `inbox/promotion-queue.md` and `inbox/wiki-lint-report.md` mirror the review and health queues for Obsidian reading.
 - Human edits are only preserved inside the `## My Notes` section on republish.
 - Image hosting is not wired in yet. The current vault is text-first.
 
+## Product Role
+
+- Use Knowledge Workbench for intake and decisions.
+- Use Vault publishing when the current knowledge state is worth reading outside the app.
+- Prefer full-scope publishing for routine runs. Partial provider/session publishing must not prune unrelated source pages.
+- Use fast publish for daily updates.
+- Use deep summary when cross-source concept pages are worth model cost.
+
 ## Next Step Ideas
 
-- Add LLM-assisted summary generation for session pages.
-- Generate concept/entity pages from multiple sessions.
-- Add a server API and admin UI action for publish jobs.
 - Add asset publishing or external image-host URL rewriting.
-- Add promotion from `sources/` into `projects/`, `patterns/`, `issues/`, and `syntheses/` using the rules in `docs/wiki-promotion-pipeline.md`.
+- Add explicit publish history and diff preview for Vault runs.
