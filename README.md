@@ -49,8 +49,10 @@ npm run docs:api:check:public
 
 ## 工程治理（防止结构回退）
 
+- 文档入口：`docs/README.md`
+- LLM/Agent 入口：`docs/llm-entry.md`
 - 架构约束：`ARCHITECTURE.md`
-- 评审清单：`docs/review-checklist.md`
+- 评审清单：`docs/workflow/review-checklist.md`
 - ADR 机制：`docs/adr/README.md` + `docs/adr/0000-template.md`
 
 本地提测前执行：
@@ -208,7 +210,7 @@ curl -X POST http://127.0.0.1:3030/api/review \
 
 完整的 OpenClaw 系统提示词与任务模板见：
 
-- `docs/openclaw-prompts.md`
+- `docs/openclaw/prompts.md`
 
 ## Prompt 规则评分（非 LLM）
 

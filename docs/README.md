@@ -8,13 +8,14 @@
 
 | 目标 | 建议入口 |
 | --- | --- |
-| 理解项目定位 | [项目介绍](./项目介绍.md) |
-| 理解 Git 与协作规则 | [Git Workflow](./git-workflow.md) |
-| 做代码审查 | [Review Checklist](./review-checklist.md) |
+| LLM/Agent 接手任务 | [LLM Entry](./llm-entry.md) |
+| 理解项目定位 | [项目介绍](./project/intro.md) |
+| 理解 Git 与协作规则 | [Git Workflow](./workflow/git-workflow.md) |
+| 做代码审查 | [Review Checklist](./workflow/review-checklist.md) |
 | 调用或维护 API | [API 文档维护说明](./api/README.md) |
-| 理解 Knowledge Workbench | [知识工作台 Mock 演练](./knowledge-workbench-mock-runbook.md) |
-| 理解 Wiki / Obsidian / Vault | [Wiki Promotion Pipeline](./wiki-promotion-pipeline.md) |
-| 接入 OpenClaw L5 记忆 | [OpenClaw L5 Memory Backend Rules](./openclaw-l5-memory-backend-rules.md) |
+| 理解 Knowledge Workbench | [知识工作台 Mock 演练](./knowledge-workbench/mock-runbook.md) |
+| 理解 Wiki / Obsidian / Vault | [Wiki Promotion Pipeline](./wiki-vault/promotion-pipeline.md) |
+| 接入 OpenClaw L5 记忆 | [OpenClaw L5 Memory Backend Rules](./openclaw/l5-memory-backend-rules.md) |
 
 ## 按任务找文档
 
@@ -22,9 +23,9 @@
 
 先读：
 
-- [项目介绍](./项目介绍.md)
-- [会话同步与人工筛选规则](./session-sync-review-rules.md)
-- [Obsidian Vault Publication Layer](./obsidian-syncthing-mvp.md)
+- [项目介绍](./project/intro.md)
+- [会话同步与人工筛选规则](./workflow/session-sync-review-rules.md)
+- [Obsidian Vault Publication Layer](./wiki-vault/obsidian-syncthing-mvp.md)
 
 适合建立整体心智模型：数据从多 AI 会话进入系统，经过人工筛选、知识工作台、Wiki/Vault，最后沉淀成长线记忆。
 
@@ -32,15 +33,15 @@
 
 先读：
 
-- [Git Workflow](./git-workflow.md)
-- [Review Checklist](./review-checklist.md)
+- [Git Workflow](./workflow/git-workflow.md)
+- [Review Checklist](./workflow/review-checklist.md)
 - [API 文档维护说明](./api/README.md)
 
 如果改到知识工作台或 Wiki 升格，再读：
 
-- [知识工作台 Mock 演练](./knowledge-workbench-mock-runbook.md)
-- [Wiki Promotion Pipeline](./wiki-promotion-pipeline.md)
-- [Wiki Page Contract](./wiki-page-contract.md)
+- [知识工作台 Mock 演练](./knowledge-workbench/mock-runbook.md)
+- [Wiki Promotion Pipeline](./wiki-vault/promotion-pipeline.md)
+- [Wiki Page Contract](./wiki-vault/page-contract.md)
 
 ### 我要调 API
 
@@ -56,9 +57,9 @@
 
 先读：
 
-- [OpenClaw L5 Memory Backend Rules](./openclaw-l5-memory-backend-rules.md)
-- [OpenClaw Knowledge Ingestion Proposal](./openclaw-knowledge-ingestion.md)
-- [OpenClaw Prompt & Tool Template](./openclaw-prompts.md)
+- [OpenClaw L5 Memory Backend Rules](./openclaw/l5-memory-backend-rules.md)
+- [OpenClaw Knowledge Ingestion Proposal](./openclaw/knowledge-ingestion.md)
+- [OpenClaw Prompt & Tool Template](./openclaw/prompts.md)
 
 当前推荐链路是：
 
@@ -72,9 +73,9 @@ OpenClaw inbox -> myLocalRAG Raw Inbox -> Promotion Review -> Vault / Obsidian
 
 先读：
 
-- [Wiki Promotion Pipeline](./wiki-promotion-pipeline.md)
-- [Wiki Page Contract](./wiki-page-contract.md)
-- [Obsidian Vault Publication Layer](./obsidian-syncthing-mvp.md)
+- [Wiki Promotion Pipeline](./wiki-vault/promotion-pipeline.md)
+- [Wiki Page Contract](./wiki-vault/page-contract.md)
+- [Obsidian Vault Publication Layer](./wiki-vault/obsidian-syncthing-mvp.md)
 
 这些文档定义了证据如何升格、页面如何写、Vault 如何发布给 Obsidian。
 
@@ -82,8 +83,8 @@ OpenClaw inbox -> myLocalRAG Raw Inbox -> Promotion Review -> Vault / Obsidian
 
 先读：
 
-- [知识工作台 Mock 演练](./knowledge-workbench-mock-runbook.md)
-- [Mock 数据](./mock-data/knowledge-workbench-raw-inbox-items.json)
+- [知识工作台 Mock 演练](./knowledge-workbench/mock-runbook.md)
+- [Mock 数据](./knowledge-workbench/mock-data/knowledge-workbench-raw-inbox-items.json)
 
 演练重点是 Raw Inbox 批量导入、去重合并、升格审核和回滚。
 
@@ -91,13 +92,13 @@ OpenClaw inbox -> myLocalRAG Raw Inbox -> Promotion Review -> Vault / Obsidian
 
 ### Core
 
-- [项目介绍](./项目介绍.md)
-- [会话同步与人工筛选规则](./session-sync-review-rules.md)
+- [项目介绍](./project/intro.md)
+- [会话同步与人工筛选规则](./workflow/session-sync-review-rules.md)
 
 ### Workflow
 
-- [Git Workflow](./git-workflow.md)
-- [Review Checklist](./review-checklist.md)
+- [Git Workflow](./workflow/git-workflow.md)
+- [Review Checklist](./workflow/review-checklist.md)
 - [ADR 使用说明](./adr/README.md)
 - [ADR 模板](./adr/0000-template.md)
 
@@ -109,28 +110,29 @@ OpenClaw inbox -> myLocalRAG Raw Inbox -> Promotion Review -> Vault / Obsidian
 
 ### Knowledge Workbench
 
-- [知识工作台 Mock 演练](./knowledge-workbench-mock-runbook.md)
-- [Mock 数据](./mock-data/knowledge-workbench-raw-inbox-items.json)
+- [知识工作台 Mock 演练](./knowledge-workbench/mock-runbook.md)
+- [Mock 数据](./knowledge-workbench/mock-data/knowledge-workbench-raw-inbox-items.json)
 
 ### Wiki Vault / Obsidian
 
-- [Wiki Promotion Pipeline](./wiki-promotion-pipeline.md)
-- [Wiki Page Contract](./wiki-page-contract.md)
-- [Obsidian Vault Publication Layer](./obsidian-syncthing-mvp.md)
+- [Wiki Promotion Pipeline](./wiki-vault/promotion-pipeline.md)
+- [Wiki Page Contract](./wiki-vault/page-contract.md)
+- [Obsidian Vault Publication Layer](./wiki-vault/obsidian-syncthing-mvp.md)
 
 ### OpenClaw
 
-- [OpenClaw L5 Memory Backend Rules](./openclaw-l5-memory-backend-rules.md)
-- [OpenClaw Knowledge Ingestion Proposal](./openclaw-knowledge-ingestion.md)
-- [OpenClaw Prompt & Tool Template](./openclaw-prompts.md)
+- [OpenClaw L5 Memory Backend Rules](./openclaw/l5-memory-backend-rules.md)
+- [OpenClaw Knowledge Ingestion Proposal](./openclaw/knowledge-ingestion.md)
+- [OpenClaw Prompt & Tool Template](./openclaw/prompts.md)
 
 ## 给 LLM / Agent 的读取建议
 
 默认先读：
 
-1. [项目介绍](./项目介绍.md)
-2. [Git Workflow](./git-workflow.md)
-3. 和当前任务最相关的一组文档
+1. [LLM Entry](./llm-entry.md)
+2. [项目介绍](./project/intro.md)
+3. [Git Workflow](./workflow/git-workflow.md)
+4. 和当前任务最相关的一组文档
 
 任务相关读取规则：
 
@@ -144,10 +146,12 @@ OpenClaw inbox -> myLocalRAG Raw Inbox -> Promotion Review -> Vault / Obsidian
 
 ## 后续整理方向
 
-当前先保持文件位置稳定。后续如果需要进一步整理，可以把文档迁移为：
+当前文档已按主题归档：
 
 ```text
 docs/
+├── README.md
+├── llm-entry.md
 ├── project/
 ├── workflow/
 ├── api/
@@ -157,4 +161,4 @@ docs/
 └── adr/
 ```
 
-搬目录时需要同步修正文档链接、OpenClaw prompt 里的引用、以及任何脚本中的固定路径。
+后续如果继续整理，需要同步修正文档链接、OpenClaw prompt 里的引用、以及任何脚本中的固定路径。

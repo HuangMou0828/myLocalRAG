@@ -51,7 +51,7 @@
       "content": "讨论结论：原来的“同步到 Obsidian”容易让用户以为它是主流程同步能力；当前系统里它更适合叫“发布到 Obsidian Vault”。\n\n原因：知识库本身已经可以采集录入，也可以通过任务筛选做候选判断；Obsidian 的职责是把已经审核过的 reader-first 知识发布成外部可阅读 Vault，而不是承担采集和筛选。\n\n待补充：\n- 是否需要在发布弹窗里显示最近一次发布的范围？\n- 是否需要增加只发布已确认条目的模式？\n- 是否要把 Raw Inbox evidence note 默认隐藏在 Obsidian 侧边栏？",
       "summary": "Obsidian 功能应定位为发布层，而不是知识采集主流程。",
       "sourceUrl": "",
-      "sourceFile": "docs/obsidian-syncthing-mvp.md",
+      "sourceFile": "docs/wiki-vault/obsidian-syncthing-mvp.md",
       "tags": ["obsidian", "publish", "naming"],
       "meta": {
         "project": "myLocalRAG",

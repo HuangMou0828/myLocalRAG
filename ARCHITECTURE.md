@@ -67,5 +67,5 @@
 
 1. 开发前：先确认是否会引入新的跨 feature 依赖。
 2. 提交前：本地执行 `npm run quality:check`。
-3. 评审时：按 `docs/review-checklist.md` 逐项过。
+3. 评审时：按 `docs/workflow/review-checklist.md` 逐项过。
 4. 每两周：做一次代码健康巡检（复杂度、耦合、测试缺口、技术债处理率）。

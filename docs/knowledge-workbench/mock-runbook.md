@@ -4,7 +4,7 @@
 
 ## Mock 数据
 
-数据文件：`docs/mock-data/knowledge-workbench-raw-inbox-items.json`
+数据文件：`docs/knowledge-workbench/mock-data/knowledge-workbench-raw-inbox-items.json`
 
 建议优先使用第一条：
 
@@ -18,7 +18,7 @@
 
 1. 打开知识工作台，进入「Raw Inbox」。
 2. 点击「批量导入」。
-3. 把 `docs/mock-data/knowledge-workbench-raw-inbox-items.json` 的完整内容粘进去。
+3. 把 `docs/knowledge-workbench/mock-data/knowledge-workbench-raw-inbox-items.json` 的完整内容粘进去。
 4. 查看右侧预检：确认识别到 3 条，疑似重复项会标为「将合并」或「将跳过」。
 5. 保持默认的「合并已有，跳过批内重复」，点击「处理」。
 6. 页面会跳到「升格审核」，点击刷新。
@@ -45,7 +45,7 @@ PORT=3030 npm run dev:server
 另开一个终端，选第一条 mock 数据发送：
 
 ```bash
-node -e "const fs=require('node:fs'); const data=JSON.parse(fs.readFileSync('docs/mock-data/knowledge-workbench-raw-inbox-items.json','utf8')); const item=data.items[0]; fetch('http://127.0.0.1:3030/api/knowledge-items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(item)}).then(r=>r.json()).then(console.log)"
+node -e "const fs=require('node:fs'); const data=JSON.parse(fs.readFileSync('docs/knowledge-workbench/mock-data/knowledge-workbench-raw-inbox-items.json','utf8')); const item=data.items[0]; fetch('http://127.0.0.1:3030/api/knowledge-items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(item)}).then(r=>r.json()).then(console.log)"
 ```
 
 然后打开前端，进入「Raw Inbox」查看条目，再按 UI 演练步骤从第 5 步开始。

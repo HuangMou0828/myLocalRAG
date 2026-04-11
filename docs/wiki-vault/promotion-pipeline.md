@@ -7,7 +7,7 @@ This document defines how myLocalRAG should promote existing `vault/sources/*.md
 - `vault/issues/`
 - `vault/syntheses/`
 
-The concrete page schema and merge contract for these note families lives in [wiki-page-contract.md](./wiki-page-contract.md).
+The concrete page schema and merge contract for these note families lives in [page-contract.md](./page-contract.md).
 
 The design is tailored to the current data shape:
 

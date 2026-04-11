@@ -21,7 +21,7 @@ These rules keep repository history useful while allowing fast iteration.
 - Use `npm run git:task:snapshot -- "note"` only for local WIP preservation.
 - Recommend a commit when a coherent behavior, refactor, or documentation slice is complete and checks pass.
 - Recommend a snapshot before risky broad refactors, long pauses, or context handoff.
-- Commit messages should use the project Chinese format in `docs/git-workflow.md`.
+- Commit messages should use the project Chinese format in `docs/workflow/git-workflow.md`.
 
 ## Semi-Automatic Approval
 
@@ -49,4 +49,4 @@ Worker agents may edit assigned files, but should not run Git state-changing com
 - Run `npm run build` before broad refactors, merges, or pushes.
 - Report any skipped check with the reason.
 
-See `docs/git-workflow.md` for the full workflow.
+See `docs/workflow/git-workflow.md` for the full workflow.
