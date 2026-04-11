@@ -23,7 +23,7 @@ import { useProviderNavigationDomain } from '@/features/provider-navigation/useP
 import { useDisplayFormatDomain } from '@/features/display-format/useDisplayFormatDomain'
 import { useComponentLibraryDomain } from '@/features/component-library/useComponentLibraryDomain'
 import { useWikiVaultSyncDomain } from '@/features/wiki-vault/useWikiVaultSyncDomain'
-import { providerCatalog, providerLogoMap } from '@/features/navigation/providerCatalog'
+import { providerCatalog, providerLogoMap, type ProviderId } from '@/features/navigation/providerCatalog'
 import type { AppSidebarConfig, AppSidebarMenuKey, AppToolbarConfig } from '@/features/app/appShellComponentConfigs'
 import { requestJson } from '@/services/httpClient'
 
@@ -274,6 +274,14 @@ export function useAppShell() {
     if (providerId === 'knowledge-promotion-review') return 'promotion'
     if (providerId === 'knowledge-health') return 'health'
     if (providerId === 'knowledge-sources') return 'raw'
+    return ''
+  }
+
+  function resolveKnowledgeProviderFromWorkbenchTab(tab: string): ProviderId | '' {
+    if (tab === 'task-review') return 'knowledge-task-review'
+    if (tab === 'promotion') return 'knowledge-promotion-review'
+    if (tab === 'health') return 'knowledge-health'
+    if (tab === 'raw') return 'knowledge-sources'
     return ''
   }
 
@@ -817,6 +825,16 @@ export function useAppShell() {
       void knowledgeSourcesDomain.setWorkbenchTab(nextTab)
     },
     { immediate: true },
+  )
+
+  watch(
+    () => knowledgeSourcesDomain.workbenchTab.value,
+    (tab) => {
+      const nextProvider = resolveKnowledgeProviderFromWorkbenchTab(String(tab || ''))
+      if (!nextProvider || uiState.activeProvider.value === nextProvider) return
+      uiState.activeProvider.value = nextProvider
+      uiState.knowledgeMenuOpen.value = true
+    },
   )
 
   watch(

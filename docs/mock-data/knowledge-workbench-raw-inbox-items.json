@@ -1,0 +1,66 @@
+{
+  "scenario": "knowledge-workbench-raw-inbox-to-promotion",
+  "description": "Mock Raw Inbox items for simulating knowledge collection, promotion review, and lifecycle writeback.",
+  "items": [
+    {
+      "id": "mock_kw_embedding_empty_search_001",
+      "sourceType": "note",
+      "sourceSubtype": "bug-investigation",
+      "status": "active",
+      "title": "Embedding 重建后知识库搜索结果为空",
+      "content": "现象：在知识工作台重建 embedding 后，搜索“升格审核”没有返回任何知识条目，但 Raw Inbox 里能看到相关采集。\n\n排查记录：\n- 服务端 rebuild 接口返回成功，但 knowledge_items 的新增条目没有进入向量索引。\n- UI 里任务筛选可以看到会话片段，说明原始数据存在。\n- Promotion Queue 能看到 source evidence，但 Raw Inbox 条目没有被纳入候选。\n\n初步判断：采集录入层和升格审核层之间缺少桥接，导致采集内容只能留在 Raw Inbox，不能成为 reader-first wiki 的候选证据。\n\n建议修复：\n1. Raw Inbox 条目增加 intakeStage=wiki-candidate 的送审状态。\n2. Promotion Queue 读取 knowledge_items，生成 inbox/knowledge__*.md 证据页。\n3. approve/dismiss/revoke 后回写 promotionDecision，避免重复送审。\n\n验证标准：保存采集条目后，升格审核里出现“知识采集”来源；确认升格后，Raw Inbox 卡片显示“已升格”。",
+      "summary": "采集录入和升格审核之间缺少桥接，导致 Raw Inbox 条目不能进入 Promotion Queue。",
+      "sourceUrl": "",
+      "sourceFile": "server/lib/wiki-vault.mjs",
+      "tags": ["knowledge-workbench", "embedding", "promotion-queue", "raw-inbox"],
+      "meta": {
+        "project": "myLocalRAG",
+        "topic": "知识采集到升格审核桥接",
+        "intakeStage": "wiki-candidate",
+        "confidence": "high",
+        "keyQuestion": "为什么知识采集条目保存后没有进入升格审核？",
+        "decisionNote": "这是一个适合升格为 Issue Review 的故障分析条目。"
+      }
+    },
+    {
+      "id": "mock_kw_promotion_gate_pattern_001",
+      "sourceType": "note",
+      "sourceSubtype": "architecture-note",
+      "status": "active",
+      "title": "Raw Inbox 到 Reader-first Wiki 的双层门禁模式",
+      "content": "模式：知识工作台需要把“采集”和“发布”拆成两层门禁。\n\n第一层是 Raw Inbox：允许快速录入网页摘要、代码片段、会议结论、故障排查记录，不要求一次写成稳定知识。\n\n第二层是 Promotion Review：只有被标记为 wiki-candidate 的条目才进入候选队列，候选需要经过预览、确认、驳回或撤销。\n\n适用场景：\n- 信息很多但质量不稳定。\n- 需要保留采集速度，同时避免 Vault 被低质量内容污染。\n- 希望 Obsidian 只承载已经确认过的 reader-first 页面。\n\n实现要点：\n- Raw Inbox 条目生成临时 evidence note，而不是直接生成正式 wiki 页面。\n- approve 后再写入 Issues、Patterns 或 Syntheses。\n- 决策结果回写到采集条目，形成可追踪生命周期。",
+      "summary": "把采集录入和正式发布拆成 Raw Inbox 与 Promotion Review 两层，可以兼顾速度和知识库质量。",
+      "sourceUrl": "",
+      "sourceFile": "src/features/knowledge-sources/useKnowledgeSourcesDomain.ts",
+      "tags": ["pattern", "reader-first", "workflow", "obsidian"],
+      "meta": {
+        "project": "myLocalRAG",
+        "topic": "知识工作台流程模式",
+        "intakeStage": "wiki-candidate",
+        "confidence": "high",
+        "keyQuestion": "知识采集为什么不应该直接发布到 Obsidian？",
+        "decisionNote": "这是一个适合升格为 Pattern 的流程设计条目。"
+      }
+    },
+    {
+      "id": "mock_kw_obsidian_publish_reference_001",
+      "sourceType": "capture",
+      "sourceSubtype": "meeting-note",
+      "status": "draft",
+      "title": "Obsidian 发布入口命名讨论记录",
+      "content": "讨论结论：原来的“同步到 Obsidian”容易让用户以为它是主流程同步能力；当前系统里它更适合叫“发布到 Obsidian Vault”。\n\n原因：知识库本身已经可以采集录入，也可以通过任务筛选做候选判断；Obsidian 的职责是把已经审核过的 reader-first 知识发布成外部可阅读 Vault，而不是承担采集和筛选。\n\n待补充：\n- 是否需要在发布弹窗里显示最近一次发布的范围？\n- 是否需要增加只发布已确认条目的模式？\n- 是否要把 Raw Inbox evidence note 默认隐藏在 Obsidian 侧边栏？",
+      "summary": "Obsidian 功能应定位为发布层，而不是知识采集主流程。",
+      "sourceUrl": "",
+      "sourceFile": "docs/obsidian-syncthing-mvp.md",
+      "tags": ["obsidian", "publish", "naming"],
+      "meta": {
+        "project": "myLocalRAG",
+        "topic": "Obsidian 发布层定位",
+        "intakeStage": "needs-context",
+        "confidence": "medium",
+        "keyQuestion": "同步到 Obsidian 在当前系统里还应该保留吗？",
+        "decisionNote": "先作为参考材料保留，补充更多上下文后再决定是否升格。"
+      }
+    }
+  ]
+}

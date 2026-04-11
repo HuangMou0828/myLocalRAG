@@ -474,6 +474,23 @@ const activePromotionItemsResolved = computed(() =>
     : activePromotionAutoItemsResolved.value,
 )
 
+function focusPromotionCandidateBySegmentId(segmentId: string) {
+  const normalized = String(segmentId || '').trim()
+  if (!normalized) return false
+  const sections = [
+    { id: 'issues' as const, items: promotionQueueResolved.value.issueReviews },
+    { id: 'patterns' as const, items: promotionQueueResolved.value.patternCandidates },
+    { id: 'syntheses' as const, items: promotionQueueResolved.value.synthesisCandidates },
+  ]
+  const matched = sections.find((section) =>
+    section.items.some((item: Record<string, unknown>) => String(item.segmentId || '').trim() === normalized),
+  )
+  if (!matched) return false
+  activePromotionSection.value = matched.id
+  activePromotionSourceSection.value = 'auto'
+  return true
+}
+
 function promotionItemKey(item: Record<string, unknown>) {
   return [item.kind, item.currentPath || item.targetPath || '', item.title || '']
     .map((value) => String(value || '').trim())
@@ -592,9 +609,11 @@ async function saveKnowledgeItemToPromotion() {
   editorIntakeStage.value = 'wiki-candidate'
   const saved = await saveKnowledgeItem()
   if (!saved) return
+  const savedId = String(editorId.value || selectedKnowledgeItemId.value || '').trim()
   knowledgeEditorDialogOpen.value = false
   await setWorkbenchTab('promotion')
   await loadPromotionQueue(true)
+  focusPromotionCandidateBySegmentId(savedId)
 }
 
 async function deleteKnowledgeItemAndClose() {
@@ -1087,6 +1106,12 @@ async function confirmPromotionDecision() {
   if (action === 'approve') await applyPromotionCandidate(item)
   if (action === 'dismiss') await dismissPromotionCandidate(item)
   if (action === 'revoke') await revokePromotionCandidate(item)
+  if (action === 'approve') {
+    activePromotionSourceSection.value = 'approved'
+  } else if (action === 'revoke') {
+    activePromotionSourceSection.value = 'auto'
+  }
+  await setWorkbenchTab('promotion')
   closePromotionDecisionConfirm()
 }
 
