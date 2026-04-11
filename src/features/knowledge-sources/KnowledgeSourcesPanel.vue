@@ -580,6 +580,16 @@ async function saveKnowledgeItemAndClose() {
   }
 }
 
+async function saveKnowledgeItemToPromotion() {
+  editorStatus.value = 'active'
+  editorIntakeStage.value = 'wiki-candidate'
+  const saved = await saveKnowledgeItem()
+  if (!saved) return
+  knowledgeEditorDialogOpen.value = false
+  await setWorkbenchTab('promotion')
+  await loadPromotionQueue(true)
+}
+
 async function deleteKnowledgeItemAndClose() {
   const deleted = await deleteKnowledgeItem()
   if (deleted) {
@@ -895,7 +905,9 @@ async function openHealthAnchorSuggestionDialog(item: Record<string, any> | null
 }
 
 function formatPromotionSourceTone(value: string) {
-  return value === 'manual-review' ? 'manual' : 'auto'
+  if (value === 'manual-review' || value === 'manual-submit') return 'manual'
+  if (value === 'knowledge-item') return 'knowledge'
+  return 'auto'
 }
 
 function resolvePromotionPath(item: Record<string, unknown>) {
@@ -1568,6 +1580,9 @@ function focusTaskReviewBySummary(cardId: string) {
               <div class="knowledge-drawer-primary-actions">
                 <button type="button" class="app-btn-ghost" @click="closeKnowledgeEditorDialog" :disabled="knowledgeSaving">
                   取消
+                </button>
+                <button type="button" class="app-btn-ghost" @click="saveKnowledgeItemToPromotion" :disabled="knowledgeSaving">
+                  保存并送升格审核
                 </button>
                 <button type="button" class="app-btn" @click="saveKnowledgeItemAndClose" :disabled="knowledgeSaving">
                   {{ knowledgeSaving ? '保存中...' : editorId ? '保存条目' : '创建条目' }}

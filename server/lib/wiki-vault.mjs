@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises'
 import { createTwoFilesPatch } from 'diff'
 import { askModel } from './ask-model.mjs'
-import { loadModelSettingsInDb } from './db.mjs'
+import { listKnowledgeItemsInDb, loadModelSettingsInDb } from './db.mjs'
 import { loadIndex } from './scanner.mjs'
 
 function normalizeText(input) {
@@ -2258,6 +2258,199 @@ async function loadPublishedSourceEvidences() {
   return buildSourceEntryEvidenceList(await loadPublishedSourceEntries())
 }
 
+function normalizeKnowledgeIntakeStage(value = '') {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (['inbox', 'needs-context', 'search-candidate', 'wiki-candidate', 'reference-only'].includes(normalized)) return normalized
+  return 'inbox'
+}
+
+function normalizeKnowledgeConfidence(value = '') {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (['low', 'medium', 'high'].includes(normalized)) return normalized
+  return 'medium'
+}
+
+function getKnowledgeMetaString(item = {}, key = '') {
+  const meta = item?.meta && typeof item.meta === 'object' ? item.meta : {}
+  return String(meta?.[key] || '').trim()
+}
+
+function isKnowledgeItemPromotionCandidate(item = {}) {
+  const status = String(item?.status || '').trim().toLowerCase()
+  if (status === 'archived') return false
+  const title = String(item?.title || '').trim()
+  const content = String(item?.content || '').trim()
+  if (!title && !content) return false
+  const stage = normalizeKnowledgeIntakeStage(getKnowledgeMetaString(item, 'intakeStage'))
+  return stage === 'wiki-candidate' || status === 'active'
+}
+
+function buildKnowledgeItemRelativePath(item = {}) {
+  const idPart = toFileSlug(String(item?.id || stableHash32(item?.title || item?.content || 'knowledge')).replace(/^knowledge[_-]?/u, ''), 'item')
+  const titlePart = toFileSlug(item?.title || 'knowledge', 'knowledge').slice(0, 48)
+  return `inbox/knowledge__${titlePart}__${idPart}.md`
+}
+
+function inferKnowledgePromotionKind(evidence = {}) {
+  const combined = [
+    evidence.title,
+    evidence.firstUserIntent,
+    evidence.bestAssistantAnswer,
+    evidence.latestAssistantReply,
+    ...(Array.isArray(evidence.mentionedFiles) ? evidence.mentionedFiles : []),
+  ].filter(Boolean).join('\n')
+
+  if (hasIssueSignal(combined)) return 'issue-review'
+  if (/(架构|设计|方案|tradeoff|取舍|抽象|拆分|workflow|pipeline|schema|模式|pattern|最佳实践|规范|机制|复用)/iu.test(combined)) {
+    return 'pattern-candidate'
+  }
+  return 'synthesis-candidate'
+}
+
+function getKnowledgeConfidenceScore(item = {}, floor = 0.58) {
+  const confidence = normalizeKnowledgeConfidence(item?.confidence || getKnowledgeMetaString(item, 'confidence'))
+  if (confidence === 'high') return Math.max(floor, 0.78)
+  if (confidence === 'low') return Math.max(0.5, floor - 0.08)
+  return Math.max(floor, 0.66)
+}
+
+function buildKnowledgeItemEvidence(item = {}) {
+  const title = String(item?.title || '').trim() || '未命名采集项'
+  const content = normalizeText(item?.content || '')
+  const summary = String(item?.summary || '').trim()
+    || getKnowledgeMetaString(item, 'decisionNote')
+    || buildPromotionQueueExcerpt(content, title)
+  const keyQuestion = getKnowledgeMetaString(item, 'keyQuestion')
+  const project = getKnowledgeMetaString(item, 'project')
+  const topic = getKnowledgeMetaString(item, 'topic')
+  const tags = Array.isArray(item?.tags) ? item.tags.map((entry) => String(entry || '').trim()).filter(Boolean) : []
+  const sourceFile = String(item?.sourceFile || '').trim()
+  const mentionedFiles = sourceFile ? [sourceFile] : []
+  const concepts = extractSessionConcepts({
+    title: [title, topic, tags.join(' ')].filter(Boolean).join(' · '),
+    tags,
+    messages: [
+      { role: 'user', content: keyQuestion || title },
+      { role: 'assistant', content: content || summary },
+    ],
+  })
+
+  return {
+    title,
+    provider: 'knowledge',
+    updatedAt: String(item?.updatedAt || ''),
+    messageCount: 1,
+    sessionId: String(item?.id || ''),
+    segmentId: String(item?.id || ''),
+    relativePath: buildKnowledgeItemRelativePath(item),
+    firstUserIntent: keyQuestion || title,
+    latestAssistantReply: summary || buildPromotionQueueExcerpt(content, ''),
+    bestAssistantAnswer: content || summary,
+    assistantVisibleReplies: [buildPromotionQueueExcerpt(content || summary, '')].filter(Boolean),
+    mentionedFiles,
+    concepts,
+    project,
+    knowledgeItemId: String(item?.id || ''),
+    knowledgeSourceType: String(item?.sourceType || ''),
+    sourceUrl: String(item?.sourceUrl || ''),
+    sourceFile,
+    tags,
+    intakeStage: normalizeKnowledgeIntakeStage(getKnowledgeMetaString(item, 'intakeStage')),
+    confidence: normalizeKnowledgeConfidence(getKnowledgeMetaString(item, 'confidence')),
+    decisionNote: getKnowledgeMetaString(item, 'decisionNote'),
+    summary,
+    content,
+  }
+}
+
+function renderKnowledgeItemEvidenceMarkdown(evidence = {}) {
+  const tags = Array.isArray(evidence.tags) ? evidence.tags : []
+  const lines = [
+    ...buildMarkdownFrontmatter({
+      title: evidence.title || 'Knowledge Item',
+      type: 'knowledge-evidence',
+      provider: 'knowledge',
+      source: 'knowledge-items',
+      knowledgeItemId: evidence.knowledgeItemId || '',
+      sourceType: evidence.knowledgeSourceType || '',
+      project: evidence.project || '',
+      updatedAt: evidence.updatedAt || '',
+      intakeStage: evidence.intakeStage || 'inbox',
+      confidence: evidence.confidence || 'medium',
+    }),
+    `# ${escapeMarkdownText(evidence.title || 'Knowledge Item')}`,
+    '',
+    '> [!info] Knowledge Evidence',
+    '> 这页由 Raw Inbox 采集条目生成，用作 reader-first 升格审核的可追溯证据。',
+    '',
+    '## Snapshot',
+    '',
+    `- Knowledge item: \`${escapeMarkdownText(evidence.knowledgeItemId || '')}\``,
+    `- Source type: \`${escapeMarkdownText(evidence.knowledgeSourceType || 'unknown')}\``,
+    `- Intake stage: \`${escapeMarkdownText(evidence.intakeStage || 'inbox')}\``,
+    `- Confidence: \`${escapeMarkdownText(evidence.confidence || 'medium')}\``,
+    evidence.project ? `- Project: ${toWikiLink(buildProjectRelativePath(evidence.project), evidence.project)}` : '- Project: `待确认`',
+  ]
+
+  if (evidence.sourceUrl) lines.push(`- Source URL: ${escapeMarkdownText(evidence.sourceUrl)}`)
+  if (evidence.sourceFile) lines.push(`- Source file: \`${escapeMarkdownText(evidence.sourceFile)}\``)
+  if (tags.length) lines.push(`- Tags: ${tags.map((tag) => `\`${escapeMarkdownText(tag)}\``).join(', ')}`)
+
+  lines.push('')
+  lines.push('## Extracted Signals')
+  lines.push('')
+  lines.push(`- First user intent: ${escapeMarkdownText(evidence.firstUserIntent || 'n/a')}`)
+  lines.push(`- Latest assistant reply: ${escapeMarkdownText(evidence.latestAssistantReply || 'n/a')}`)
+  if (evidence.decisionNote) lines.push(`- Decision note: ${escapeMarkdownText(evidence.decisionNote)}`)
+  lines.push('')
+  lines.push('## Content')
+  lines.push('')
+  lines.push(evidence.content || evidence.summary || '-')
+  lines.push('')
+
+  return lines.join('\n')
+}
+
+async function writeKnowledgeItemEvidenceNotes(evidences = []) {
+  const paths = await ensureVaultScaffold()
+  const expected = new Set()
+  for (const evidence of Array.isArray(evidences) ? evidences : []) {
+    const relativePath = normalizeVaultRelativePath(evidence?.relativePath || '')
+    if (!relativePath || !relativePath.startsWith('inbox/knowledge__')) continue
+    const fileName = path.basename(relativePath)
+    expected.add(fileName)
+    await writeFile(path.join(paths.inboxDir, fileName), renderKnowledgeItemEvidenceMarkdown(evidence), 'utf-8')
+  }
+
+  const existing = await readdir(paths.inboxDir, { withFileTypes: true }).catch(() => [])
+  for (const item of existing) {
+    if (!item.isFile() || !item.name.startsWith('knowledge__') || !item.name.endsWith('.md')) continue
+    if (expected.has(item.name)) continue
+    await unlink(path.join(paths.inboxDir, item.name)).catch(() => {})
+  }
+}
+
+async function loadKnowledgePromotionEvidences(options = {}) {
+  const result = await listKnowledgeItemsInDb({ limit: 500, status: 'all' }).catch(() => ({ items: [] }))
+  const evidences = (Array.isArray(result?.items) ? result.items : [])
+    .filter((item) => isKnowledgeItemPromotionCandidate(item))
+    .map((item) => buildKnowledgeItemEvidence(item))
+  if (options.writeEvidence !== false) {
+    await writeKnowledgeItemEvidenceNotes(evidences)
+  }
+  return evidences
+}
+
+async function loadPromotionQueueEvidences(options = {}) {
+  const sourceEvidences = await loadPublishedSourceEvidences()
+  const knowledgeEvidences = await loadKnowledgePromotionEvidences(options)
+  return {
+    sourceEvidences,
+    knowledgeEvidences,
+    allEvidences: [...sourceEvidences, ...knowledgeEvidences],
+  }
+}
+
 const ISSUE_SIGNAL_PATTERNS = [
   /报错|错误|异常|没反应|无响应|失败|失效|卡住|超时|搜不到|没有数据|一直是|不生效|故障/u,
   /(?:没有|缺少)\s*(?:embedding|embed|数据|结果|索引|响应)/iu,
@@ -2987,7 +3180,7 @@ export async function buildPromotionCandidatePreview(payload = {}) {
   const evidenceItems = dedupeList(Array.isArray(payload?.evidenceItems) ? payload.evidenceItems : [], 12)
     .map((item) => normalizeVaultRelativePath(item))
     .filter(Boolean)
-  const sourceEvidences = await loadPublishedSourceEvidences()
+  const { allEvidences: sourceEvidences } = await loadPromotionQueueEvidences({ writeEvidence: true })
   const state = await loadPromotionState()
   const previewState = normalizePromotionState(JSON.parse(JSON.stringify(state)))
   const paths = await ensureVaultScaffold()
@@ -3502,7 +3695,7 @@ export async function rebuildVaultIndex(options = {}) {
   await rebuildProviderPages(entries)
   const sourceEvidences = await buildSourceEntryEvidenceList(entries)
   const issueStats = await rebuildIssuePages(sourceEvidences)
-  const patternStats = await rebuildPatternPages(sourceEvidences, {
+  const patternStats = await rebuildPatternPages(rebuildSourceEvidences, {
     issues: issueStats.issues,
   })
   const projectStats = await rebuildProjectPages(sourceEvidences, {
@@ -4990,6 +5183,115 @@ async function buildManualPromotionQueueEntries(sourceEvidences = [], promotionS
   }
 }
 
+function buildKnowledgePromotionQueueEntries(knowledgeEvidences = [], promotionState = {}) {
+  const issueReviews = []
+  const patternCandidates = []
+  const synthesisCandidates = []
+
+  for (const evidence of Array.isArray(knowledgeEvidences) ? knowledgeEvidences : []) {
+    const evidenceItems = [String(evidence?.relativePath || '')].filter(Boolean)
+    if (!evidenceItems.length) continue
+    const preferredKind = inferKnowledgePromotionKind(evidence)
+    const sourceLabel = '知识采集'
+    const common = {
+      sourceKind: 'knowledge-item',
+      sourceLabel,
+      segmentId: String(evidence?.knowledgeItemId || evidence?.segmentId || ''),
+      segmentLabel: `${sourceLabel} · ${evidence?.knowledgeSourceType || 'item'}`,
+      project: String(evidence?.project || '').trim(),
+      evidenceItems,
+      updatedAt: String(evidence?.updatedAt || ''),
+    }
+
+    if (preferredKind === 'issue-review') {
+      const issueCandidate = buildIssueCandidate(evidence)
+      if (issueCandidate?.slug && !promotionState?.issues?.[issueCandidate.slug]) {
+        issueReviews.push({
+          ...common,
+          kind: 'issue-review',
+          title: String(issueCandidate.title || buildPromotionQueueTitle(evidence.firstUserIntent || evidence.title || '', 'Issue Review')),
+          currentPath: buildIssueRelativePath(issueCandidate.slug),
+          currentLabel: String(issueCandidate.title || 'Issue'),
+          confidence: getKnowledgeConfidenceScore(evidence, Math.max(0.62, Number(issueCandidate.confidence || 0))),
+          reason: 'Raw Inbox 条目已标记为 Wiki 编译原料，并带有明显问题/故障信号，适合进入 Issue Review。',
+          summary: buildIssueReaderSummary({
+            title: issueCandidate.title,
+            project: issueCandidate.project,
+            symptoms: [issueCandidate.symptom].filter(Boolean),
+            causes: issueCandidate.causes,
+            fixes: issueCandidate.fixes,
+            validation: issueCandidate.validation,
+            evidenceItems,
+            evidenceCount: evidenceItems.length,
+          }),
+          suggestedActions: [
+            '核对采集内容是否足够描述症状、原因和修复路径',
+            '确认后升格为 issue note，证据会回链到 Raw Inbox 证据页',
+          ],
+        })
+        continue
+      }
+    }
+
+    if (preferredKind === 'pattern-candidate') {
+      const patternCandidate = buildPatternCandidates(evidence)[0] || null
+      if (patternCandidate?.slug && !promotionState?.patterns?.[patternCandidate.slug]) {
+        patternCandidates.push({
+          ...common,
+          kind: 'pattern-candidate',
+          title: String(patternCandidate.title || buildPromotionQueueTitle(evidence.firstUserIntent || evidence.title || '', 'Pattern Candidate')),
+          targetPath: buildPatternRelativePath(patternCandidate.slug),
+          confidence: getKnowledgeConfidenceScore(evidence, 0.64),
+          reason: 'Raw Inbox 条目已标记为 Wiki 编译原料，并包含可复用做法或架构形状。',
+          summary: String(patternCandidate.summary || buildPromotionQueueExcerpt(evidence.bestAssistantAnswer || evidence.latestAssistantReply || evidence.firstUserIntent || '', 'Knowledge pattern candidate')),
+          suggestedActions: [
+            '检查这条采集是否已经脱离单次上下文',
+            '确认复用边界后升格为 pattern note',
+          ],
+        })
+        continue
+      }
+    }
+
+    const title = buildPromotionQueueTitle(evidence.firstUserIntent || evidence.title || '', '候选结论')
+    const targetPath = `syntheses/${toFileSlug(title, `synthesis-${stableHash32(title || evidence.relativePath || '')}`)}.md`
+    if (promotionState?.syntheses?.[targetPath]) continue
+    synthesisCandidates.push({
+      ...common,
+      kind: 'synthesis-candidate',
+      title,
+      targetPath,
+      confidence: getKnowledgeConfidenceScore(evidence, Math.max(0.6, scoreSynthesisPromotion(evidence))),
+      reason: 'Raw Inbox 条目已标记为 Wiki 编译原料，适合先作为长期结论页候选进入审核。',
+      summary: buildPromotionQueueExcerpt(evidence.bestAssistantAnswer || evidence.latestAssistantReply || evidence.firstUserIntent || '', 'Knowledge synthesis candidate'),
+      suggestedActions: [
+        '检查采集内容是否已经足够自洽',
+        '确认后升格为 synthesis note，后续可继续补证',
+      ],
+    })
+  }
+
+  return {
+    issueReviews,
+    patternCandidates,
+    synthesisCandidates,
+  }
+}
+
+function collectApprovedPromotionEvidencePaths(promotionState = {}) {
+  return new Set(
+    [
+      ...Object.values(promotionState.issues || {}),
+      ...Object.values(promotionState.patterns || {}),
+      ...Object.values(promotionState.syntheses || {}),
+    ]
+      .filter((record) => isApprovedPromotionRecord(record))
+      .flatMap((record) => (Array.isArray(record?.evidenceItems) ? record.evidenceItems : []))
+      .map((item) => normalizeVaultRelativePath(item))
+      .filter(Boolean),
+  )
+}
+
 export async function buildPromotionQueue(options = {}) {
   const paths = await ensureVaultScaffold()
   const promotionState = await loadPromotionState()
@@ -4997,11 +5299,17 @@ export async function buildPromotionQueue(options = {}) {
   const approvedPatternRecords = Object.values(promotionState.patterns || {}).filter((record) => isApprovedPromotionRecord(record))
   const approvedSynthesisRecords = Object.values(promotionState.syntheses || {}).filter((record) => isApprovedPromotionRecord(record))
   let sourceEvidences = Array.isArray(options.sourceEvidences) ? options.sourceEvidences : []
+  let knowledgeEvidences = Array.isArray(options.knowledgeEvidences) ? options.knowledgeEvidences : []
   let issues = Array.isArray(options.issues) ? options.issues : []
   let patterns = Array.isArray(options.patterns) ? options.patterns : []
 
   if (!sourceEvidences.length) {
     sourceEvidences = await loadPublishedSourceEvidences()
+  }
+  if (!knowledgeEvidences.length) {
+    knowledgeEvidences = await loadKnowledgePromotionEvidences({
+      writeEvidence: options.writeReport !== false,
+    })
   }
 
   if (!issues.length) {
@@ -5137,17 +5445,21 @@ export async function buildPromotionQueue(options = {}) {
     .slice(0, 12)
 
   const manualQueue = await buildManualPromotionQueueEntries(sourceEvidences, promotionState)
+  const knowledgeQueue = buildKnowledgePromotionQueueEntries(knowledgeEvidences, promotionState)
   const mergedIssueReviews = mergePromotionQueueItems([
     ...issueReviews,
     ...manualQueue.issueReviews,
+    ...knowledgeQueue.issueReviews,
   ]).sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0) || a.title.localeCompare(b.title))
   const mergedPatternCandidates = mergePromotionQueueItems([
     ...patternCandidates,
     ...manualQueue.patternCandidates,
+    ...knowledgeQueue.patternCandidates,
   ]).sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0) || a.title.localeCompare(b.title))
   const mergedSynthesisCandidates = mergePromotionQueueItems([
     ...synthesisCandidates,
     ...manualQueue.synthesisCandidates,
+    ...knowledgeQueue.synthesisCandidates,
   ]).sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
 
   const approvedIssues = approvedIssueRecords
@@ -5336,20 +5648,27 @@ export async function rebuildSynthesisPages(sourceEvidences = []) {
 }
 
 async function refreshPromotionArtifacts(options = {}) {
-  const sourceEvidences = Array.isArray(options.sourceEvidences) && options.sourceEvidences.length
+  const loaded = await loadPromotionQueueEvidences({ writeEvidence: options.writePromotionQueue !== false })
+  const baseSourceEvidences = Array.isArray(options.sourceEvidences) && options.sourceEvidences.length
     ? options.sourceEvidences
-    : await loadPublishedSourceEvidences()
-  const issueStats = await rebuildIssuePages(sourceEvidences)
-  const patternStats = await rebuildPatternPages(sourceEvidences, {
+    : loaded.sourceEvidences
+  const promotionState = await loadPromotionState()
+  const approvedEvidencePaths = collectApprovedPromotionEvidencePaths(promotionState)
+  const approvedKnowledgeEvidences = loaded.knowledgeEvidences
+    .filter((item) => approvedEvidencePaths.has(normalizeVaultRelativePath(item?.relativePath || '')))
+  const rebuildSourceEvidences = [...baseSourceEvidences, ...approvedKnowledgeEvidences]
+  const issueStats = await rebuildIssuePages(rebuildSourceEvidences)
+  const patternStats = await rebuildPatternPages(rebuildSourceEvidences, {
     issues: issueStats.issues,
   })
-  const projectStats = await rebuildProjectPages(sourceEvidences, {
+  const projectStats = await rebuildProjectPages(rebuildSourceEvidences, {
     issues: issueStats.issues,
     patterns: patternStats.patterns,
   })
-  const synthesisStats = await rebuildSynthesisPages(sourceEvidences)
+  const synthesisStats = await rebuildSynthesisPages(rebuildSourceEvidences)
   const promotionStats = await buildPromotionQueue({
-    sourceEvidences,
+    sourceEvidences: baseSourceEvidences,
+    knowledgeEvidences: loaded.knowledgeEvidences,
     issues: issueStats.issues,
     patterns: patternStats.patterns,
     writeReport: options.writePromotionQueue !== false,
@@ -5493,6 +5812,7 @@ async function loadLintNotes() {
     { space: 'syntheses', dir: paths.synthesesDir },
     { space: 'concepts', dir: paths.conceptsDir },
     { space: 'entities', dir: paths.entitiesDir },
+    { space: 'inbox', dir: paths.inboxDir, prefixes: ['knowledge__'] },
     { space: 'Templates', dir: paths.templatesDir },
   ]
   const notes = []
@@ -5502,6 +5822,7 @@ async function loadLintNotes() {
     for (const item of entries) {
       if (!item.isFile() || !item.name.endsWith('.md')) continue
       if (Array.isArray(spec.include) && !spec.include.includes(item.name)) continue
+      if (Array.isArray(spec.prefixes) && !spec.prefixes.some((prefix) => item.name.startsWith(prefix))) continue
       const relativePath = spec.space === 'root' ? item.name : `${spec.space}/${item.name}`
       const markdown = await readFile(path.join(spec.dir, item.name), 'utf-8').catch(() => '')
       if (!markdown) continue

@@ -2819,6 +2819,12 @@
   color: #d5fff8;
 }
 
+.knowledge-source-pill[data-source='knowledge'] {
+  border-color: rgba(248, 113, 113, 0.24);
+  background: rgba(244, 63, 94, 0.13);
+  color: #ffe1e7;
+}
+
 .knowledge-project-pill {
   justify-self: start;
   background: rgba(255, 255, 255, 0.03);
