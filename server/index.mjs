@@ -34,6 +34,7 @@ import { askModel } from './lib/ask-model.mjs'
 import { buildEffectiveModelSettings, buildModelCapabilityList } from './lib/model-settings.mjs'
 import { generateGroundedAnswer, rewriteRetrieveQuery } from './lib/rag.mjs'
 import { applyPromotionCandidate, buildPromotionCandidatePreview, buildPromotionQueue, buildWikiVaultSyncPreview, decidePromotionCandidate, ensureVaultScaffold, getVaultPaths, lintWikiVault, publishSessionsToVault } from './lib/wiki-vault.mjs'
+import { importOpenClawKnowledge, previewOpenClawKnowledge } from '../scripts/openclaw-knowledge.mjs'
 import {
   createBugInboxInDb,
   deleteBugInboxInDb,
@@ -2869,6 +2870,7 @@ const WIKI_VAULT_SPACE_DIRS = new Map([
   ['providers', 'providersDir'],
   ['entities', 'entitiesDir'],
   ['templates', 'templatesDir'],
+  ['inbox', 'inboxDir'],
   ['root', null],
 ])
 const WIKI_VAULT_DEFAULT_SEARCH_SPACES = ['projects', 'patterns', 'issues', 'syntheses', 'concepts']
@@ -2884,6 +2886,7 @@ function normalizeWikiSpace(input) {
   if (value === 'concept') return 'concepts'
   if (value === 'provider') return 'providers'
   if (value === 'entity') return 'entities'
+  if (value === 'knowledge-inbox') return 'inbox'
   return WIKI_VAULT_SPACE_DIRS.has(value) ? value : ''
 }
 
@@ -3459,6 +3462,11 @@ const server = http.createServer(async (req, res) => {
       ))
       const spaces = normalizeWikiSpaces(payload?.spaces)
       const includeMarkdown = payload?.includeMarkdown === true
+      let openClawSync = null
+      if (payload?.syncOpenClaw === true) {
+        openClawSync = await importOpenClawKnowledge({})
+        await buildPromotionQueue({ writeReport: true })
+      }
       const notes = await collectWikiVaultNotes(spaces)
       const results = notes
         .map((note) => {
@@ -3495,6 +3503,12 @@ const server = http.createServer(async (req, res) => {
         spaces,
         totalNotes: notes.length,
         totalMatched: results.length,
+        openClawSync: openClawSync
+          ? {
+              root: openClawSync.root,
+              summary: openClawSync.summary,
+            }
+          : undefined,
         results,
       })
     }
@@ -3756,7 +3770,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/knowledge-items') {
       const limit = Math.min(500, Math.max(1, Number(url.searchParams.get('limit') || 200)))
       const sourceType = normalizeString(url.searchParams.get('sourceType') || 'all') || 'all'
-      const status = normalizeString(url.searchParams.get('status') || 'all') || 'all'
+      const status = normalizeString(url.searchParams.get('status') || 'visible') || 'visible'
       const q = String(url.searchParams.get('q') || '').trim()
       const result = await listKnowledgeItemsInDb({
         limit,
@@ -3765,6 +3779,38 @@ const server = http.createServer(async (req, res) => {
         q,
       })
       return send(res, 200, result)
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/openclaw-knowledge/preview') {
+      const payload = await readBody(req)
+      try {
+        const result = await previewOpenClawKnowledge({
+          root: normalizeString(payload?.root || ''),
+        })
+        return send(res, 200, { ok: true, ...result })
+      } catch (error) {
+        return send(res, 400, { error: String(error?.message || error || 'OpenClaw 预览失败') })
+      }
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/openclaw-knowledge/import') {
+      const payload = await readBody(req)
+      try {
+        const result = await importOpenClawKnowledge({
+          root: normalizeString(payload?.root || ''),
+        })
+        const promotionQueue = await buildPromotionQueue({ writeReport: true })
+        return send(res, 200, {
+          ok: true,
+          ...result,
+          promotionQueue: {
+            reportPath: promotionQueue.reportPath,
+            summary: promotionQueue.summary || {},
+          },
+        })
+      } catch (error) {
+        return send(res, 400, { error: String(error?.message || error || 'OpenClaw 导入失败') })
+      }
     }
 
     if (req.method === 'POST' && url.pathname === '/api/knowledge-items') {

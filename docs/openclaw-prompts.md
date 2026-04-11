@@ -47,9 +47,10 @@
   "query": "string, required",
   "topK": "number, optional, default 8, max 20",
   "spaces": [
-    "string, optional, e.g. projects|patterns|issues|syntheses|concepts|sources|providers|root"
+    "string, optional, e.g. projects|patterns|issues|syntheses|concepts|sources|providers|inbox|root"
   ],
-  "includeMarkdown": "boolean, optional, default false"
+  "includeMarkdown": "boolean, optional, default false",
+  "syncOpenClaw": "boolean, optional, default false, run OpenClaw inbox incremental sync before searching"
 }
 ```
 
@@ -59,6 +60,20 @@
 - `results[].space`：命中的 wiki 空间，例如 `projects/patterns/issues`。
 - `results[].summary/excerpt`：页面摘要和命中片段。
 - `results[].audience`：该 note 更偏 `human|llm|shared`。
+- `openClawSync.summary`：当 `syncOpenClaw=true` 时返回本次 OpenClaw 同步概览。
+
+如果刚写入 `~/.openclaw/knowledge/inbox` 后需要立刻搜索未升格原料，使用：
+
+```json
+{
+  "query": "批量清理前应该如何避免误删关键记忆？",
+  "topK": 8,
+  "spaces": ["inbox", "patterns", "issues", "syntheses", "projects"],
+  "syncOpenClaw": true
+}
+```
+
+命中 `inbox/knowledge__*.md` 表示这是 Raw Inbox 证据页，还不是已升格的 reader-first wiki。
 
 ### Tool: `get_wiki_note`
 

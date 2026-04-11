@@ -142,6 +142,9 @@ paths:
                         type: string
                 includeMarkdown:
                   type: boolean
+                syncOpenClaw:
+                  type: boolean
+                  description: Run OpenClaw inbox incremental sync before searching.
       responses:
         '200':
           description: Wiki note search result
@@ -691,6 +694,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ImportResult'
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/openclaw-knowledge/preview:
+    post:
+      tags: [Import]
+      summary: Preview OpenClaw knowledge inbox sync
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                root:
+                  type: string
+                  description: Optional OpenClaw inbox root. Defaults to ~/.openclaw/knowledge/inbox.
+      responses:
+        '200':
+          description: OpenClaw sync preview
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/openclaw-knowledge/import:
+    post:
+      tags: [Import]
+      summary: Import changed OpenClaw knowledge items into Raw Inbox
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                root:
+                  type: string
+                  description: Optional OpenClaw inbox root. Defaults to ~/.openclaw/knowledge/inbox.
+      responses:
+        '200':
+          description: OpenClaw sync import result and refreshed promotion queue summary
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
         '400':
           $ref: '#/components/responses/Error400'
 

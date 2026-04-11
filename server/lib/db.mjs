@@ -2172,8 +2172,12 @@ export async function listKnowledgeItemsInDb({ limit = 200, sourceType = 'all', 
   }
 
   if (normalizedStatus && normalizedStatus !== 'all') {
-    where.push('status = ?')
-    params.push(normalizeKnowledgeStatus(normalizedStatus))
+    if (normalizedStatus === 'visible' || normalizedStatus === 'non-archived') {
+      where.push("status != 'archived'")
+    } else {
+      where.push('status = ?')
+      params.push(normalizeKnowledgeStatus(normalizedStatus))
+    }
   }
 
   if (keyword) {

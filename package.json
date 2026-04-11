@@ -9,6 +9,8 @@
         "wiki:vault:init": "node scripts/wiki-vault.mjs init",
         "wiki:vault:publish": "node scripts/wiki-vault.mjs publish --limit 10",
         "wiki:vault:rebuild-index": "node scripts/wiki-vault.mjs rebuild-index",
+        "openclaw:preview": "node scripts/openclaw-knowledge.mjs preview",
+        "openclaw:import": "node scripts/openclaw-knowledge.mjs import",
         "build": "vue-tsc --noEmit && vite build",
         "preview": "vite preview",
         "typecheck": "vue-tsc --noEmit",

@@ -3,6 +3,7 @@ import type {
   KnowledgeItemDto,
   KnowledgeItemsApi,
   KnowledgeStatsDto,
+  OpenClawKnowledgeSyncResultDto,
   SessionDataApi,
   WikiVaultApi,
 } from '@/services/kbApiServices'
@@ -11,13 +12,50 @@ import type { Issue, SessionItem, SessionRetrieveResponse, SessionReviewStatus }
 type KnowledgeSourceType = 'capture' | 'note' | 'document'
 type KnowledgeStatus = 'draft' | 'active' | 'archived'
 type KnowledgeSourceTypeFilter = 'all' | KnowledgeSourceType
-type KnowledgeStatusFilter = 'all' | KnowledgeStatus
+type KnowledgeStatusFilter = 'all' | 'visible' | KnowledgeStatus
 type KnowledgeIntakeStage = 'inbox' | 'needs-context' | 'search-candidate' | 'wiki-candidate' | 'reference-only'
 type KnowledgeConfidence = 'low' | 'medium' | 'high'
 type KnowledgeIntakeStageFilter = 'all' | KnowledgeIntakeStage
 type KnowledgeConfidenceFilter = 'all' | KnowledgeConfidence
 type QuickCaptureMode = 'single' | 'batch'
 type KnowledgeWorkbenchTab = 'raw' | 'task-review' | 'promotion' | 'health'
+type KnowledgeBatchImportDuplicateMode = 'merge' | 'skip' | 'keep'
+type KnowledgeBatchImportAction = 'create' | 'merge' | 'skip'
+type KnowledgeItemSavePayload = Partial<KnowledgeItemDto> & { tags?: string[] | string }
+type KnowledgeBatchImportDuplicate = {
+  id: string
+  title: string
+  score: number
+  reason: string
+  source: 'existing' | 'batch'
+}
+type KnowledgeBatchImportDraft = {
+  importId: string
+  id?: string
+  sourceType: KnowledgeSourceType
+  sourceSubtype: string
+  status: KnowledgeStatus
+  title: string
+  content: string
+  summary: string
+  sourceUrl: string
+  sourceFile: string
+  tags: string[]
+  meta: Record<string, unknown>
+  project: string
+  topic: string
+  intakeStage: KnowledgeIntakeStage
+  confidence: KnowledgeConfidence
+  keyQuestion: string
+  decisionNote: string
+}
+type KnowledgeBatchImportRow = KnowledgeBatchImportDraft & {
+  duplicates: KnowledgeBatchImportDuplicate[]
+  duplicateScore: number
+  duplicateAction: KnowledgeBatchImportAction
+  duplicateTargetId: string
+  skipped: boolean
+}
 type TaskReviewType =
   | 'bug-investigation'
   | 'coding-task'
@@ -291,6 +329,18 @@ function inferDefaultSubtype(sourceType: KnowledgeSourceType) {
   return SUBTYPE_SUGGESTIONS[sourceType]?.[0] || 'manual'
 }
 
+function normalizeKnowledgeSourceType(value: unknown): KnowledgeSourceType {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (normalized === 'note' || normalized === 'document') return normalized
+  return 'capture'
+}
+
+function normalizeKnowledgeStatus(value: unknown): KnowledgeStatus {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (normalized === 'active' || normalized === 'archived') return normalized
+  return 'draft'
+}
+
 function normalizeIntakeStage(value: unknown): KnowledgeIntakeStage {
   const normalized = String(value || '').trim()
   return INTAKE_STAGE_OPTIONS.some((item) => item.value === normalized) ? normalized as KnowledgeIntakeStage : 'inbox'
@@ -345,6 +395,202 @@ function buildKnowledgeContentTitle(content: string, fallback = '未命名片段
     .find(Boolean)
   if (!firstLine) return fallback
   return firstLine.slice(0, 60)
+}
+
+function normalizeImportTags(value: unknown) {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))]
+  }
+  return parseTagsInput(String(value || ''))
+}
+
+function buildDuplicateMatches(
+  input: { id?: string, title?: string, content?: string, sourceUrl?: string },
+  candidates: Array<{ id?: string, title?: string, content?: string, sourceUrl?: string, source: 'existing' | 'batch' }>,
+): KnowledgeBatchImportDuplicate[] {
+  const currentId = String(input.id || '').trim()
+  const sourceUrl = String(input.sourceUrl || '').trim().toLowerCase()
+  const titleFingerprint = buildKnowledgeFingerprint(input.title)
+  const contentFingerprint = buildKnowledgeFingerprint(input.content)
+  if (!sourceUrl && !titleFingerprint && !contentFingerprint) return []
+
+  return candidates
+    .filter((item) => !currentId || String(item.id || '').trim() !== currentId)
+    .map((item) => {
+      const itemUrl = String(item.sourceUrl || '').trim().toLowerCase()
+      const itemTitleFingerprint = buildKnowledgeFingerprint(item.title)
+      const itemContentFingerprint = buildKnowledgeFingerprint(item.content)
+      let score = 0
+      const reasons: string[] = []
+      if (sourceUrl && itemUrl && sourceUrl === itemUrl) {
+        score += 90
+        reasons.push('来源链接一致')
+      }
+      if (titleFingerprint && itemTitleFingerprint && titleFingerprint === itemTitleFingerprint) {
+        score += 55
+        reasons.push('标题一致')
+      }
+      if (contentFingerprint && itemContentFingerprint) {
+        if (contentFingerprint === itemContentFingerprint) {
+          score += 80
+          reasons.push('内容一致')
+        } else if (
+          contentFingerprint.length >= 48
+          && itemContentFingerprint.length >= 48
+          && (contentFingerprint.includes(itemContentFingerprint.slice(0, 80)) || itemContentFingerprint.includes(contentFingerprint.slice(0, 80)))
+        ) {
+          score += 42
+          reasons.push('内容开头相近')
+        }
+      }
+      return {
+        id: String(item.id || ''),
+        title: String(item.title || '未命名条目'),
+        score,
+        reason: reasons.join('、'),
+        source: item.source,
+      }
+    })
+    .filter((candidate) => candidate.score >= 42)
+    .sort((a, b) => b.score - a.score)
+}
+
+function normalizeBatchImportItem(value: unknown, index: number): KnowledgeBatchImportDraft | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const raw = value as Record<string, unknown>
+  const meta = raw.meta && typeof raw.meta === 'object' && !Array.isArray(raw.meta) ? raw.meta as Record<string, unknown> : {}
+  const sourceType = normalizeKnowledgeSourceType(raw.sourceType || raw.source_type)
+  const content = String(raw.content || raw.body || raw.text || '').trim()
+  const title = String(raw.title || '').trim() || buildKnowledgeContentTitle(content, `导入条目 ${index + 1}`)
+  if (!title && !content) return null
+  const intakeStage = normalizeIntakeStage(meta.intakeStage || raw.intakeStage)
+  const confidence = normalizeConfidence(meta.confidence || raw.confidence)
+  const project = String(meta.project || raw.project || '').trim()
+  const topic = String(meta.topic || raw.topic || '').trim()
+  const keyQuestion = String(meta.keyQuestion || raw.keyQuestion || '').trim()
+  const decisionNote = String(meta.decisionNote || raw.decisionNote || '').trim()
+
+  return {
+    importId: `import-${index}`,
+    id: String(raw.id || '').trim() || undefined,
+    sourceType,
+    sourceSubtype: String(raw.sourceSubtype || raw.source_subtype || '').trim().toLowerCase() || inferDefaultSubtype(sourceType),
+    status: normalizeKnowledgeStatus(raw.status),
+    title,
+    content,
+    summary: String(raw.summary || '').trim(),
+    sourceUrl: String(raw.sourceUrl || raw.source_url || '').trim(),
+    sourceFile: String(raw.sourceFile || raw.source_file || '').trim(),
+    tags: normalizeImportTags(raw.tags),
+    meta,
+    project,
+    topic,
+    intakeStage,
+    confidence,
+    keyQuestion,
+    decisionNote,
+  }
+}
+
+function parseKnowledgeBatchImportText(value: unknown): { drafts: KnowledgeBatchImportDraft[], error: string } {
+  const normalized = String(value || '').trim()
+  if (!normalized) return { drafts: [], error: '' }
+  try {
+    const parsed = JSON.parse(normalized)
+    const items: unknown[] = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.items)
+        ? parsed.items
+        : []
+    if (!items.length) {
+      return { drafts: [], error: 'JSON 需要是数组，或包含 items 数组。' }
+    }
+    return {
+      drafts: items
+        .map((item, index) => normalizeBatchImportItem(item, index))
+        .filter((item): item is KnowledgeBatchImportDraft => Boolean(item)),
+      error: '',
+    }
+  } catch (error) {
+    return { drafts: [], error: String(error instanceof Error ? error.message : error || 'JSON 解析失败') }
+  }
+}
+
+function mergeKnowledgeText(base: unknown, extra: unknown, heading: string) {
+  const baseText = String(base || '').trim()
+  const extraText = String(extra || '').trim()
+  if (!extraText) return baseText
+  if (!baseText) return extraText
+  const baseFingerprint = buildKnowledgeFingerprint(baseText)
+  const extraFingerprint = buildKnowledgeFingerprint(extraText)
+  if (
+    baseFingerprint === extraFingerprint
+    || (baseFingerprint.length >= 48 && extraFingerprint.length >= 48 && baseFingerprint.includes(extraFingerprint.slice(0, 80)))
+  ) {
+    return baseText
+  }
+  return `${baseText}\n\n${heading}\n\n${extraText}`
+}
+
+function mergeKnowledgeInlineText(base: unknown, extra: unknown) {
+  const baseText = String(base || '').trim()
+  const extraText = String(extra || '').trim()
+  if (!extraText) return baseText
+  if (!baseText) return extraText
+  if (baseText === extraText || baseText.includes(extraText)) return baseText
+  return `${baseText}；${extraText}`
+}
+
+function buildBatchImportSavePayload(row: KnowledgeBatchImportRow): KnowledgeItemSavePayload {
+  return {
+    id: row.id,
+    sourceType: row.sourceType,
+    sourceSubtype: row.sourceSubtype,
+    status: row.status,
+    title: row.title,
+    content: row.content,
+    summary: row.summary,
+    sourceUrl: row.sourceUrl,
+    sourceFile: row.sourceFile,
+    tags: row.tags,
+    meta: buildKnowledgeItemMeta(row.meta, {
+      project: row.project,
+      topic: row.topic,
+      intakeStage: row.intakeStage,
+      confidence: row.confidence,
+      keyQuestion: row.keyQuestion,
+      decisionNote: row.decisionNote,
+    }),
+  }
+}
+
+function buildBatchImportMergePayload(existing: KnowledgeItemDto, row: KnowledgeBatchImportRow): KnowledgeItemSavePayload {
+  const existingProject = getKnowledgeMetaString(existing, 'project')
+  const existingTopic = getKnowledgeMetaString(existing, 'topic')
+  const existingKeyQuestion = getKnowledgeMetaString(existing, 'keyQuestion')
+  const existingDecisionNote = getKnowledgeMetaString(existing, 'decisionNote')
+  const title = String(existing.title || '').trim() || row.title
+  const contentHeading = row.title && row.title !== title ? `补充采集：${row.title}` : '补充采集'
+  return {
+    id: existing.id,
+    sourceType: existing.sourceType,
+    sourceSubtype: existing.sourceSubtype || row.sourceSubtype,
+    status: existing.status,
+    title,
+    content: mergeKnowledgeText(existing.content, row.content, contentHeading),
+    summary: mergeKnowledgeText(existing.summary, row.summary, '补充摘要'),
+    sourceUrl: existing.sourceUrl || row.sourceUrl,
+    sourceFile: existing.sourceFile || row.sourceFile,
+    tags: [...new Set([...(existing.tags || []), ...row.tags].map((item) => String(item || '').trim()).filter(Boolean))],
+    meta: buildKnowledgeItemMeta(existing.meta, {
+      project: existingProject || row.project,
+      topic: existingTopic || row.topic,
+      intakeStage: normalizeIntakeStage(existing.meta?.intakeStage || row.intakeStage),
+      confidence: normalizeConfidence(existing.meta?.confidence || row.confidence),
+      keyQuestion: mergeKnowledgeInlineText(existingKeyQuestion, row.keyQuestion),
+      decisionNote: mergeKnowledgeInlineText(existingDecisionNote, row.decisionNote),
+    }),
+  }
 }
 
 function parseQuickCaptureBatchEntries(value: unknown) {
@@ -1097,7 +1343,7 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   const knowledgeSaving = ref(false)
   const selectedKnowledgeItemId = ref('')
   const knowledgeSourceTypeFilter = ref<KnowledgeSourceTypeFilter>('all')
-  const knowledgeStatusFilter = ref<KnowledgeStatusFilter>('all')
+  const knowledgeStatusFilter = ref<KnowledgeStatusFilter>('visible')
   const knowledgeIntakeStageFilter = ref<KnowledgeIntakeStageFilter>('all')
   const knowledgeConfidenceFilter = ref<KnowledgeConfidenceFilter>('all')
   const knowledgeKeyword = ref('')
@@ -1132,6 +1378,15 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   const quickCaptureIntakeStage = ref<KnowledgeIntakeStage>('inbox')
   const quickCaptureConfidence = ref<KnowledgeConfidence>('medium')
   const quickCaptureDecisionNote = ref('')
+  const batchImportOpen = ref(false)
+  const batchImportText = ref('')
+  const batchImportDuplicateMode = ref<KnowledgeBatchImportDuplicateMode>('merge')
+  const batchImportSaving = ref(false)
+  const openClawSyncOpen = ref(false)
+  const openClawSyncLoading = ref(false)
+  const openClawSyncImporting = ref(false)
+  const openClawSyncPreview = ref<OpenClawKnowledgeSyncResultDto | null>(null)
+  const openClawSyncError = ref('')
 
   const taskReviewLoading = ref(false)
   const taskReviewUpdatingId = ref('')
@@ -1640,6 +1895,68 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     }
     return quickCapturePreview.value
   })
+  const batchImportParsed = computed(() => parseKnowledgeBatchImportText(batchImportText.value))
+  const batchImportRows = computed<KnowledgeBatchImportRow[]>(() => {
+    const drafts = batchImportParsed.value.drafts
+    return drafts.map((draft, index) => {
+      const candidates = [
+        ...knowledgeItems.value.map((item) => ({
+          id: item.id,
+          title: item.title,
+          content: item.content,
+          sourceUrl: item.sourceUrl,
+          source: 'existing' as const,
+        })),
+        ...drafts.slice(0, index).map((item) => ({
+          id: item.id || item.importId,
+          title: item.title,
+          content: item.content,
+          sourceUrl: item.sourceUrl,
+          source: 'batch' as const,
+        })),
+      ]
+      const duplicates = buildDuplicateMatches(draft, candidates).slice(0, 3)
+      const topDuplicate = duplicates[0] || null
+      const duplicateScore = topDuplicate?.score || 0
+      const duplicateTargetId = topDuplicate?.source === 'existing' ? topDuplicate.id : ''
+      const duplicateAction: KnowledgeBatchImportAction = duplicateScore < 42
+        ? 'create'
+        : batchImportDuplicateMode.value === 'skip'
+          ? 'skip'
+          : batchImportDuplicateMode.value === 'merge'
+            ? duplicateTargetId
+              ? 'merge'
+              : 'skip'
+            : 'create'
+      return {
+        ...draft,
+        duplicates,
+        duplicateScore,
+        duplicateAction,
+        duplicateTargetId,
+        skipped: duplicateAction === 'skip',
+      }
+    })
+  })
+  const batchImportReadyCount = computed(() => batchImportRows.value.filter((item) => !item.skipped).length)
+  const batchImportDuplicateCount = computed(() => batchImportRows.value.filter((item) => item.duplicateScore >= 42).length)
+  const batchImportMergeCount = computed(() => batchImportRows.value.filter((item) => item.duplicateAction === 'merge').length)
+  const openClawSyncRows = computed(() => Array.isArray(openClawSyncPreview.value?.rows) ? openClawSyncPreview.value.rows : [])
+  const openClawSyncSummary = computed(() => openClawSyncPreview.value?.summary || {
+    total: 0,
+    new: 0,
+    changed: 0,
+    unchanged: 0,
+    missing: 0,
+    imported: 0,
+    archived: 0,
+    skipped: 0,
+    failed: 0,
+    issues: 0,
+  })
+  const openClawSyncCanImport = computed(() => {
+    return Boolean(openClawSyncPreview.value && !openClawSyncError.value)
+  })
   const editorDuplicateCandidates = computed(() => {
     const currentId = String(editorId.value || selectedKnowledgeItemId.value || '').trim()
     const sourceUrl = String(editorSourceUrl.value || '').trim().toLowerCase()
@@ -1647,43 +1964,22 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     const contentFingerprint = buildKnowledgeFingerprint(editorContent.value)
     if (!sourceUrl && !titleFingerprint && !contentFingerprint) return []
 
-    return knowledgeItems.value
-      .filter((item) => item.id !== currentId)
-      .map((item) => {
-        const itemUrl = String(item.sourceUrl || '').trim().toLowerCase()
-        const itemTitleFingerprint = buildKnowledgeFingerprint(item.title)
-        const itemContentFingerprint = buildKnowledgeFingerprint(item.content)
-        let score = 0
-        const reasons: string[] = []
-        if (sourceUrl && itemUrl && sourceUrl === itemUrl) {
-          score += 90
-          reasons.push('来源链接一致')
-        }
-        if (titleFingerprint && itemTitleFingerprint && titleFingerprint === itemTitleFingerprint) {
-          score += 55
-          reasons.push('标题一致')
-        }
-        if (contentFingerprint && itemContentFingerprint) {
-          if (contentFingerprint === itemContentFingerprint) {
-            score += 80
-            reasons.push('内容一致')
-          } else if (
-            contentFingerprint.length >= 48
-            && itemContentFingerprint.length >= 48
-            && (contentFingerprint.includes(itemContentFingerprint.slice(0, 80)) || itemContentFingerprint.includes(contentFingerprint.slice(0, 80)))
-          ) {
-            score += 42
-            reasons.push('内容开头相近')
-          }
-        }
-        return {
-          item,
-          score,
-          reason: reasons.join('、'),
-        }
-      })
-      .filter((candidate) => candidate.score >= 42)
-      .sort((a, b) => b.score - a.score)
+    return buildDuplicateMatches(
+      { id: currentId, title: editorTitle.value, content: editorContent.value, sourceUrl: editorSourceUrl.value },
+      knowledgeItems.value.map((item) => ({
+        id: item.id,
+        title: item.title,
+        content: item.content,
+        sourceUrl: item.sourceUrl,
+        source: 'existing' as const,
+      })),
+    )
+      .map((candidate) => ({
+        item: knowledgeItems.value.find((item) => item.id === candidate.id),
+        score: candidate.score,
+        reason: candidate.reason,
+      }))
+      .filter((candidate) => candidate.item)
       .slice(0, 3)
   })
 
@@ -1721,15 +2017,46 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     quickCaptureDecisionNote.value = ''
   }
 
+  function resetBatchImport() {
+    batchImportText.value = ''
+    batchImportDuplicateMode.value = 'merge'
+  }
+
+  function resetOpenClawSync() {
+    openClawSyncPreview.value = null
+    openClawSyncError.value = ''
+  }
+
   function openQuickCapture(sourceType: KnowledgeSourceType = 'capture') {
     quickCaptureSourceType.value = sourceType
     quickCaptureOpen.value = true
+  }
+
+  function openBatchImport() {
+    batchImportOpen.value = true
+  }
+
+  async function openOpenClawSync() {
+    openClawSyncOpen.value = true
+    await previewOpenClawSync()
   }
 
   function closeQuickCapture(force = false) {
     if (quickCaptureSaving.value && !force) return
     quickCaptureOpen.value = false
     resetQuickCapture()
+  }
+
+  function closeBatchImport(force = false) {
+    if (batchImportSaving.value && !force) return
+    batchImportOpen.value = false
+    resetBatchImport()
+  }
+
+  function closeOpenClawSync(force = false) {
+    if ((openClawSyncLoading.value || openClawSyncImporting.value) && !force) return
+    openClawSyncOpen.value = false
+    resetOpenClawSync()
   }
 
   function applyItemToEditor(item: KnowledgeItemDto | null) {
@@ -1826,6 +2153,46 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
       options.notify(String(error instanceof Error ? error.message : error || '加载 Promotion Queue 失败'), 'danger')
     } finally {
       promotionQueueLoading.value = false
+    }
+  }
+
+  async function previewOpenClawSync() {
+    if (openClawSyncLoading.value || openClawSyncImporting.value) return
+    openClawSyncLoading.value = true
+    openClawSyncError.value = ''
+    try {
+      openClawSyncPreview.value = await options.service.previewOpenClaw()
+    } catch (error) {
+      openClawSyncPreview.value = null
+      openClawSyncError.value = String(error instanceof Error ? error.message : error || 'OpenClaw 预览失败')
+      options.notify(openClawSyncError.value, 'danger')
+    } finally {
+      openClawSyncLoading.value = false
+    }
+  }
+
+  async function importOpenClawSync() {
+    if (openClawSyncImporting.value || openClawSyncLoading.value) return
+    openClawSyncImporting.value = true
+    openClawSyncError.value = ''
+    try {
+      const result = await options.service.importOpenClaw()
+      openClawSyncPreview.value = result
+      await Promise.all([
+        loadKnowledgeItems(),
+        loadPromotionQueue(true),
+      ])
+      const summary = result.summary || {}
+      const promotionTotal = Number(result.promotionQueue?.summary?.totalItems || 0)
+      options.notify(
+        `OpenClaw 同步完成：导入 ${Number(summary.imported || 0)} 条，归档 ${Number(summary.archived || 0)} 条，跳过 ${Number(summary.skipped || 0)} 条，失败 ${Number(summary.failed || 0)} 条，升格候选 ${promotionTotal} 条`,
+        Number(summary.failed || 0) > 0 ? 'warning' : 'success',
+      )
+    } catch (error) {
+      openClawSyncError.value = String(error instanceof Error ? error.message : error || 'OpenClaw 同步失败')
+      options.notify(openClawSyncError.value, 'danger')
+    } finally {
+      openClawSyncImporting.value = false
     }
   }
 
@@ -2018,6 +2385,58 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
       options.notify(String(error instanceof Error ? error.message : error || '快速采集失败'), 'danger')
     } finally {
       quickCaptureSaving.value = false
+    }
+  }
+
+  async function saveBatchImport() {
+    if (batchImportSaving.value) return
+    const error = batchImportParsed.value.error
+    if (error) {
+      options.notify(`批量导入解析失败：${error}`, 'danger')
+      return
+    }
+    const rows = batchImportRows.value.filter((item) => !item.skipped)
+    if (!rows.length) {
+      options.notify(batchImportRows.value.length ? '当前条目都被判定为重复，未导入。' : '没有可导入的条目。', 'warning')
+      return
+    }
+
+    batchImportSaving.value = true
+    let succeeded = 0
+    let merged = 0
+    let failed = 0
+    let lastItem: KnowledgeItemDto | null = null
+    try {
+      for (const row of rows) {
+        try {
+          const existing = row.duplicateAction === 'merge'
+            ? knowledgeItems.value.find((item) => item.id === row.duplicateTargetId) || null
+            : null
+          const result = await options.service.saveItem(
+            existing ? buildBatchImportMergePayload(existing, row) : buildBatchImportSavePayload(row),
+          )
+          if (result?.item) {
+            lastItem = result.item
+            succeeded += 1
+            if (existing) merged += 1
+          }
+        } catch {
+          failed += 1
+        }
+      }
+
+      const skipped = batchImportRows.value.length - rows.length
+      if (lastItem) applyItemToEditor(lastItem)
+      await loadKnowledgeItems()
+      closeBatchImport(true)
+      options.notify(
+        failed
+          ? `批量导入完成：处理 ${succeeded} 条，合并 ${merged} 条，失败 ${failed} 条，跳过 ${skipped} 条`
+          : `已处理 ${succeeded} 条知识采集${merged ? `，合并 ${merged} 条` : ''}${skipped ? `，跳过 ${skipped} 条疑似重复` : ''}`,
+        failed ? 'warning' : 'success',
+      )
+    } finally {
+      batchImportSaving.value = false
     }
   }
 
@@ -2561,6 +2980,23 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     quickCaptureBatchEntries,
     quickCaptureCanSave,
     quickCaptureSummary,
+    batchImportOpen,
+    batchImportText,
+    batchImportDuplicateMode,
+    batchImportSaving,
+    batchImportRows,
+    batchImportReadyCount,
+    batchImportDuplicateCount,
+    batchImportMergeCount,
+    batchImportError: computed(() => batchImportParsed.value.error),
+    openClawSyncOpen,
+    openClawSyncLoading,
+    openClawSyncImporting,
+    openClawSyncPreview,
+    openClawSyncRows,
+    openClawSyncSummary,
+    openClawSyncError,
+    openClawSyncCanImport,
     taskReviewLoading,
     taskReviewUpdatingId,
     taskReviewKeyword,
@@ -2626,6 +3062,13 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     openQuickCapture,
     closeQuickCapture,
     saveQuickCapture,
+    openBatchImport,
+    closeBatchImport,
+    saveBatchImport,
+    openOpenClawSync,
+    closeOpenClawSync,
+    previewOpenClawSync,
+    importOpenClawSync,
     applyTaskReviewAction,
     applyPromotionCandidate,
     dismissPromotionCandidate,

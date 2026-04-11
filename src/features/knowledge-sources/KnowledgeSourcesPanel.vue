@@ -58,6 +58,23 @@ const {
   editorKeyQuestion,
   editorDecisionNote,
   editorDuplicateCandidates,
+  batchImportOpen,
+  batchImportText,
+  batchImportDuplicateMode,
+  batchImportSaving,
+  batchImportRows,
+  batchImportReadyCount,
+  batchImportDuplicateCount,
+  batchImportMergeCount,
+  batchImportError,
+  openClawSyncOpen,
+  openClawSyncLoading,
+  openClawSyncImporting,
+  openClawSyncPreview,
+  openClawSyncRows,
+  openClawSyncSummary,
+  openClawSyncError,
+  openClawSyncCanImport,
   taskReviewLoading,
   taskReviewUpdatingId,
   taskReviewKeyword,
@@ -119,6 +136,13 @@ const {
   saveKnowledgeItem,
   updateKnowledgeItemStatus,
   deleteKnowledgeItem,
+  openBatchImport,
+  closeBatchImport,
+  saveBatchImport,
+  openOpenClawSync,
+  closeOpenClawSync,
+  previewOpenClawSync,
+  importOpenClawSync,
   applyTaskReviewAction,
   applyPromotionCandidate,
   dismissPromotionCandidate,
@@ -159,6 +183,19 @@ const editorDuplicateCandidatesResolved = computed(() => {
   const list = unref(editorDuplicateCandidates)
   return Array.isArray(list) ? list : []
 })
+const batchImportRowsResolved = computed(() => {
+  const list = unref(batchImportRows)
+  return Array.isArray(list) ? list : []
+})
+const openClawSyncRowsResolved = computed(() => {
+  const list = unref(openClawSyncRows)
+  return Array.isArray(list) ? list : []
+})
+const openClawSyncSummaryResolved = computed(() => unref(openClawSyncSummary) || {})
+const openClawSyncRootResolved = computed(() => String(unref(openClawSyncPreview)?.root || '~/.openclaw/knowledge/inbox'))
+const openClawSyncPromotionCountResolved = computed(() =>
+  Number(unref(openClawSyncPreview)?.promotionQueue?.summary?.totalItems || 0),
+)
 const summaryCardsResolved = computed(() => {
   const list = workbenchHeroResolved.value.cards
   return Array.isArray(list) ? list : []
@@ -530,6 +567,16 @@ function formatIntakeStageLabel(value: string) {
 
 function formatConfidenceLabel(value: string) {
   return confidenceOptionsResolved.value.find((item) => item.value === value)?.label || '中'
+}
+
+function formatOpenClawSyncAction(value: string) {
+  if (value === 'new') return '新增'
+  if (value === 'changed') return '变更'
+  if (value === 'missing') return '待归档'
+  if (value === 'unchanged') return '跳过'
+  if (value === 'imported') return '已导入'
+  if (value === 'archived') return '已归档'
+  return value || '未知'
 }
 
 function formatKnowledgePromotionDecision(value: string) {
@@ -1207,6 +1254,7 @@ function focusTaskReviewBySummary(cardId: string) {
           <label>
             <small>状态</small>
             <select v-model="knowledgeStatusFilter" class="app-select" @change="loadKnowledgeItems">
+              <option value="visible">未归档</option>
               <option value="all">全部</option>
               <option value="draft">Draft</option>
               <option value="active">Active</option>
@@ -1271,6 +1319,11 @@ function focusTaskReviewBySummary(cardId: string) {
               <small>可作为后续 wiki 编译的原料</small>
             </div>
             <div class="knowledge-list-head-actions">
+              <button type="button" class="app-btn-ghost knowledge-openclaw-sync-btn" @click="openOpenClawSync">
+                <IconRefreshCw :size="15" />
+                <span>OpenClaw</span>
+              </button>
+              <button type="button" class="app-btn-ghost" @click="openBatchImport">批量导入</button>
               <button type="button" class="app-btn" @click="openNewKnowledgeItemEditor('capture')">新建条目</button>
             </div>
           </header>
@@ -2953,6 +3006,181 @@ function focusTaskReviewBySummary(cardId: string) {
           </template>
         </div>
       </DialogScrollContent>
+    </Dialog>
+
+    <Dialog :open="openClawSyncOpen" @update:open="(open) => { if (!open) closeOpenClawSync() }">
+      <DialogContent class="knowledge-openclaw-sync-dialog" :show-close="false">
+        <DialogHeader>
+          <DialogTitle>同步 OpenClaw</DialogTitle>
+          <DialogDescription>
+            从 OpenClaw inbox 读取增量知识，确认后写入 Raw Inbox，并刷新升格审核队列。
+          </DialogDescription>
+        </DialogHeader>
+
+        <div class="knowledge-openclaw-sync-summary">
+          <div class="knowledge-openclaw-sync-root">
+            <small>同步目录</small>
+            <strong>{{ openClawSyncRootResolved }}</strong>
+          </div>
+          <div class="knowledge-openclaw-sync-metrics">
+            <span><small>总数</small><strong>{{ openClawSyncSummaryResolved.total || 0 }}</strong></span>
+            <span><small>新增</small><strong>{{ openClawSyncSummaryResolved.new || 0 }}</strong></span>
+            <span><small>变更</small><strong>{{ openClawSyncSummaryResolved.changed || 0 }}</strong></span>
+            <span><small>减少</small><strong>{{ openClawSyncSummaryResolved.missing || openClawSyncSummaryResolved.archived || 0 }}</strong></span>
+            <span><small>跳过</small><strong>{{ openClawSyncSummaryResolved.unchanged || openClawSyncSummaryResolved.skipped || 0 }}</strong></span>
+            <span><small>导入</small><strong>{{ openClawSyncSummaryResolved.imported || 0 }}</strong></span>
+            <span><small>问题</small><strong>{{ openClawSyncSummaryResolved.issues || openClawSyncSummaryResolved.failed || 0 }}</strong></span>
+          </div>
+        </div>
+
+        <p v-if="openClawSyncError" class="knowledge-batch-import-error">{{ openClawSyncError }}</p>
+
+        <div v-if="openClawSyncLoading" class="knowledge-list-empty knowledge-openclaw-sync-empty">
+          <IconRefreshCw :size="18" class="animate-spin" />
+          <p>正在读取 OpenClaw inbox...</p>
+        </div>
+
+        <div v-else-if="!openClawSyncRowsResolved.length" class="knowledge-list-empty knowledge-openclaw-sync-empty">
+          <IconDatabase :size="18" />
+          <p>还没有可预览的 OpenClaw 条目。</p>
+        </div>
+
+        <div v-else class="knowledge-openclaw-sync-list">
+          <article
+            v-for="row in openClawSyncRowsResolved"
+            :key="row.id"
+            class="knowledge-openclaw-sync-row"
+            :data-action="row.action"
+          >
+            <div>
+              <strong>{{ row.title || row.openclawPath }}</strong>
+              <p>{{ row.openclawPath }}</p>
+            </div>
+            <div class="knowledge-openclaw-sync-row-meta">
+              <span :data-action="row.action">{{ formatOpenClawSyncAction(row.action) }}</span>
+              <span>{{ row.sourceType }}/{{ row.sourceSubtype }}</span>
+              <span>{{ formatIntakeStageLabel(row.intakeStage) }}</span>
+              <span v-if="row.reason">{{ row.reason }}</span>
+            </div>
+          </article>
+        </div>
+
+        <footer class="component-confirm-actions">
+          <button
+            type="button"
+            class="app-btn-ghost"
+            @click="previewOpenClawSync"
+            :disabled="openClawSyncLoading || openClawSyncImporting"
+          >
+            {{ openClawSyncLoading ? '预览中...' : '重新预览' }}
+          </button>
+          <button
+            type="button"
+            class="app-btn-ghost"
+            @click="closeOpenClawSync"
+            :disabled="openClawSyncLoading || openClawSyncImporting"
+          >
+            关闭
+          </button>
+          <button
+            type="button"
+            class="app-btn"
+            @click="importOpenClawSync"
+            :disabled="openClawSyncLoading || openClawSyncImporting || !openClawSyncCanImport"
+          >
+            {{ openClawSyncImporting ? '同步中...' : `确认同步 ${Number(openClawSyncSummaryResolved.new || 0) + Number(openClawSyncSummaryResolved.changed || 0) + Number(openClawSyncSummaryResolved.missing || 0)} 条` }}
+          </button>
+        </footer>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog :open="batchImportOpen" @update:open="(open) => { if (!open) closeBatchImport() }">
+      <DialogContent class="knowledge-batch-import-dialog" :show-close="false">
+        <DialogHeader>
+          <DialogTitle>批量导入 Raw Inbox</DialogTitle>
+          <DialogDescription>
+            粘贴 JSON 数组或包含 items 的对象，导入前会按来源链接、标题和正文指纹提示重复。
+          </DialogDescription>
+        </DialogHeader>
+
+        <div class="knowledge-batch-import-grid">
+          <label class="knowledge-batch-import-input">
+            <small>JSON 数据</small>
+            <textarea
+              v-model="batchImportText"
+              class="app-textarea knowledge-batch-import-textarea"
+              spellcheck="false"
+              placeholder='{"items":[{"title":"...","content":"...","meta":{"intakeStage":"wiki-candidate"}}]}'
+            ></textarea>
+          </label>
+
+          <aside class="knowledge-batch-import-preview">
+            <div class="knowledge-batch-import-summary">
+              <span>识别 {{ batchImportRowsResolved.length }} 条</span>
+              <span>可处理 {{ batchImportReadyCount || 0 }} 条</span>
+              <span>疑似重复 {{ batchImportDuplicateCount || 0 }} 条</span>
+              <span v-if="batchImportMergeCount">将合并 {{ batchImportMergeCount }} 条</span>
+            </div>
+            <div class="knowledge-batch-import-mode" aria-label="重复处理方式">
+              <label>
+                <input v-model="batchImportDuplicateMode" type="radio" value="merge" />
+                <span>合并已有，跳过批内重复</span>
+              </label>
+              <label>
+                <input v-model="batchImportDuplicateMode" type="radio" value="skip" />
+                <span>跳过所有疑似重复</span>
+              </label>
+              <label>
+                <input v-model="batchImportDuplicateMode" type="radio" value="keep" />
+                <span>仍然创建新条目</span>
+              </label>
+            </div>
+            <p v-if="batchImportError" class="knowledge-batch-import-error">{{ batchImportError }}</p>
+
+            <div v-if="batchImportRowsResolved.length" class="knowledge-batch-import-list">
+              <article
+                v-for="row in batchImportRowsResolved"
+                :key="row.importId"
+                class="knowledge-batch-import-row"
+                :data-skipped="row.skipped ? 'true' : 'false'"
+              >
+                <div>
+                  <strong>{{ row.title || '未命名条目' }}</strong>
+                  <p>{{ compactMarkdownPreview(row.content || row.summary || '') }}</p>
+                </div>
+                <div class="knowledge-batch-import-meta">
+                  <span>{{ formatSourceTypeLabel(row.sourceType) }}</span>
+                  <span>{{ formatIntakeStageLabel(row.intakeStage) }}</span>
+                  <span v-if="row.project">{{ row.project }}</span>
+                  <span v-if="row.duplicateAction === 'merge'">将合并</span>
+                  <span v-if="row.skipped">将跳过</span>
+                </div>
+                <small v-if="row.duplicates.length" class="knowledge-batch-import-duplicate">
+                  相似：{{ row.duplicates[0].title }} · {{ row.duplicates[0].reason }} · {{ row.duplicates[0].score }}
+                </small>
+              </article>
+            </div>
+            <div v-else class="knowledge-list-empty knowledge-batch-import-empty">
+              <IconDatabase :size="18" />
+              <p>等待粘贴 JSON 数据。</p>
+            </div>
+          </aside>
+        </div>
+
+        <footer class="component-confirm-actions">
+          <button type="button" class="app-btn-ghost" @click="closeBatchImport" :disabled="batchImportSaving">
+            取消
+          </button>
+          <button
+            type="button"
+            class="app-btn"
+            @click="saveBatchImport"
+            :disabled="batchImportSaving || Boolean(batchImportError) || !batchImportReadyCount"
+          >
+            {{ batchImportSaving ? '处理中...' : `处理 ${batchImportReadyCount || 0} 条` }}
+          </button>
+        </footer>
+      </DialogContent>
     </Dialog>
 
     <Dialog :open="promotionDecisionConfirmOpen" @update:open="(open) => { if (!open) closePromotionDecisionConfirm() }">

@@ -78,16 +78,61 @@ export interface KnowledgeStatsDto {
   }
 }
 
+export interface OpenClawKnowledgeSyncRowDto {
+  action: string
+  id: string
+  title: string
+  sourceType: string
+  sourceSubtype: string
+  status: string
+  intakeStage: string
+  confidence: string
+  openclawPath: string
+  existingUpdatedAt?: string
+  imported?: boolean
+  reason?: string
+}
+
+export interface OpenClawKnowledgeSyncResultDto {
+  ok?: boolean
+  root: string
+  summary: {
+    total: number
+    new?: number
+    changed?: number
+    unchanged?: number
+    missing?: number
+    imported?: number
+    archived?: number
+    skipped?: number
+    failed?: number
+    issues: number
+  }
+  rows: OpenClawKnowledgeSyncRowDto[]
+  issues: Array<{ path: string; issue: string }>
+  promotionQueue?: {
+    reportPath?: string
+    summary?: {
+      totalItems?: number
+      issueReviewCount?: number
+      patternCandidateCount?: number
+      synthesisCandidateCount?: number
+    }
+  }
+}
+
 export interface KnowledgeItemsApi {
   fetchItems(params?: {
     limit?: number
     q?: string
     sourceType?: 'all' | 'capture' | 'note' | 'document'
-    status?: 'all' | 'draft' | 'active' | 'archived'
+    status?: 'all' | 'visible' | 'draft' | 'active' | 'archived'
   }): Promise<{ items: KnowledgeItemDto[]; stats: KnowledgeStatsDto }>
   saveItem(payload: Partial<KnowledgeItemDto> & { tags?: string[] | string }): Promise<{ item: KnowledgeItemDto }>
   updateStatus(payload: { id: string; status: 'draft' | 'active' | 'archived' }): Promise<{ item: KnowledgeItemDto }>
   deleteItem(id: string): Promise<{ removed: boolean }>
+  previewOpenClaw(payload?: { root?: string }): Promise<OpenClawKnowledgeSyncResultDto>
+  importOpenClaw(payload?: { root?: string }): Promise<OpenClawKnowledgeSyncResultDto>
 }
 
 export interface SessionDataApi<TSession, TIssue, TRetrieveResponse> {
@@ -601,12 +646,17 @@ export interface WikiVaultApi {
     topK?: number
     spaces?: string[]
     includeMarkdown?: boolean
+    syncOpenClaw?: boolean
   }): Promise<{
     query: string
     topK: number
     spaces: string[]
     totalNotes: number
     totalMatched: number
+    openClawSync?: {
+      root: string
+      summary: Record<string, number>
+    }
     results: Array<{
       path: string
       space: string
@@ -1076,6 +1126,20 @@ export function createKnowledgeItemsApi(request: JsonRequest): KnowledgeItemsApi
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
+      })
+    },
+    previewOpenClaw(payload = {}) {
+      return request<OpenClawKnowledgeSyncResultDto>('/api/openclaw-knowledge/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+    },
+    importOpenClaw(payload = {}) {
+      return request<OpenClawKnowledgeSyncResultDto>('/api/openclaw-knowledge/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       })
     },
   }
