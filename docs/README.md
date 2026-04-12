@@ -16,6 +16,7 @@
 | 理解 Knowledge Workbench | [知识工作台 Mock 演练](./knowledge-workbench/mock-runbook.md) |
 | 理解 Wiki / Obsidian / Vault | [Wiki Promotion Pipeline](./wiki-vault/promotion-pipeline.md) |
 | 接入 OpenClaw L5 记忆 | [OpenClaw L5 Memory Backend Rules](./openclaw/l5-memory-backend-rules.md) |
+| 给 OpenClaw 暴露 API 能力 | [OpenClaw API Capability Matrix](./openclaw/api-capabilities.md) |
 
 ## 按任务找文档
 
@@ -57,6 +58,7 @@
 
 先读：
 
+- [OpenClaw API Capability Matrix](./openclaw/api-capabilities.md)
 - [OpenClaw L5 Memory Backend Rules](./openclaw/l5-memory-backend-rules.md)
 - [OpenClaw Knowledge Ingestion Proposal](./openclaw/knowledge-ingestion.md)
 - [OpenClaw Prompt & Tool Template](./openclaw/prompts.md)
@@ -121,6 +123,7 @@ OpenClaw inbox -> myLocalRAG Raw Inbox -> Promotion Review -> Vault / Obsidian
 
 ### OpenClaw
 
+- [OpenClaw API Capability Matrix](./openclaw/api-capabilities.md)
 - [OpenClaw L5 Memory Backend Rules](./openclaw/l5-memory-backend-rules.md)
 - [OpenClaw Knowledge Ingestion Proposal](./openclaw/knowledge-ingestion.md)
 - [OpenClaw Prompt & Tool Template](./openclaw/prompts.md)
@@ -136,7 +139,7 @@ OpenClaw inbox -> myLocalRAG Raw Inbox -> Promotion Review -> Vault / Obsidian
 
 任务相关读取规则：
 
-- 做 OpenClaw 接入：读 OpenClaw 三件套，再看 API 文档。
+- 做 OpenClaw 接入：读 OpenClaw 能力矩阵和三件套，再看公开 API 文档。
 - 做 Wiki/Vault：读 Wiki Promotion Pipeline、Wiki Page Contract、Obsidian Syncthing MVP。
 - 做 Knowledge Workbench：读 mock runbook、mock 数据、Wiki Promotion Pipeline。
 - 做 API：读 API README、OpenAPI，并在改动后运行 API 文档检查。

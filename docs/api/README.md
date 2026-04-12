@@ -5,7 +5,8 @@
 ## 文件说明
 
 - `openapi.yaml`：OpenAPI 3.0.3 标准文档（内部全量）
-- `openapi.public.yaml`：对外公开版（精简子集）
+- `openapi.public.yaml`：对外公开版（OpenClaw 默认工具集 + 受控写入入口）
+- `../openclaw/api-capabilities.md`：OpenClaw 能力矩阵、scope 建议和风险分层
 
 ## 在线查看（Swagger UI）
 
@@ -23,6 +24,8 @@
 
 2. 对外暴露
 - 可直接导入 Apifox / Postman / Insomnia / Swagger UI
+- OpenClaw 默认使用 `openapi.public.yaml`
+- 全系统能力见 `openapi.yaml`，但外部网关应按 `read`、`write:knowledge`、`admin` 分层授权
 - 示例（Swagger UI Docker）：
 
 ```bash
@@ -56,6 +59,7 @@ npm run docs:api:check:public
 
 - 新增接口：
   - 必须在 `openapi.yaml` 增加 path + requestBody + responses
+  - 如果接口属于 OpenClaw 默认读取或知识写入能力，再同步增加到 `openapi.public.yaml`
 - 变更字段：
   - 对外字段尽量向后兼容
   - 破坏性变更建议增量新接口（如 `/api/v2/...`）

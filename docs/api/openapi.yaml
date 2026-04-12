@@ -19,7 +19,10 @@ tags:
   - name: Sessions
   - name: Retrieval
   - name: Wiki
+  - name: Knowledge
+  - name: OpenClaw
   - name: Prompt
+  - name: Model Settings
   - name: Bug Trace
   - name: Bug Inbox
   - name: Feishu
@@ -64,6 +67,121 @@ paths:
                     type: object
                     additionalProperties:
                       type: string
+
+  /api/wiki-vault/stats:
+    get:
+      tags: [Wiki]
+      summary: Get latest wiki vault build stats
+      parameters:
+        - in: query
+          name: provider
+          required: false
+          schema:
+            type: string
+            description: Provider name or all
+      responses:
+        '200':
+          description: Wiki build stats merged with current preview counts
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/wiki-vault/preview:
+    post:
+      tags: [Wiki]
+      summary: Preview wiki vault publication
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WikiVaultSyncRequest'
+      responses:
+        '200':
+          description: Wiki publication preview
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/wiki-vault/sync-job:
+    post:
+      tags: [Wiki]
+      summary: Start an async wiki vault publication job
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WikiVaultSyncRequest'
+      responses:
+        '200':
+          description: Queued wiki sync job and preview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job, preview]
+                properties:
+                  job:
+                    type: object
+                    additionalProperties: true
+                  preview:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+    get:
+      tags: [Wiki]
+      summary: Read an async wiki vault publication job
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Wiki sync job state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /api/wiki-vault/publish:
+    post:
+      tags: [Wiki]
+      summary: Publish sessions into the wiki vault
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WikiVaultSyncRequest'
+      responses:
+        '200':
+          description: Publish result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
 
   /api/wiki-vault/explain:
     get:
@@ -115,6 +233,72 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+
+  /api/wiki-vault/promotion-apply:
+    post:
+      tags: [Wiki]
+      summary: Apply a promotion candidate into the reader-first wiki
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Promotion apply result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/wiki-vault/promotion-decision:
+    post:
+      tags: [Wiki]
+      summary: Record an approval or rejection decision for a promotion candidate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Promotion decision result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/wiki-vault/promotion-preview:
+    post:
+      tags: [Wiki]
+      summary: Build a preview for a promotion candidate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Promotion candidate preview
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
 
   /api/wiki-vault/search:
     post:
@@ -191,6 +375,37 @@ paths:
         '400':
           $ref: '#/components/responses/Error400'
 
+  /api/wiki-vault/repair-link:
+    post:
+      tags: [Wiki]
+      summary: Repair a wikilink target in a single wiki note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, fromTarget, toTarget]
+              properties:
+                path:
+                  type: string
+                fromTarget:
+                  type: string
+                toTarget:
+                  type: string
+      responses:
+        '200':
+          description: Link repair result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+
   /api/wiki-vault/project:
     get:
       tags: [Wiki]
@@ -261,6 +476,48 @@ paths:
             application/json:
               schema:
                 type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/prompt-effect-assessment:
+    post:
+      tags: [Prompt]
+      summary: Assess likely execution quality for a prompt with model assistance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:
+                  type: string
+                promptId:
+                  type: string
+                taskType:
+                  type: string
+                cacheOnly:
+                  type: boolean
+                  description: Return only a cached assessment when available.
+                forceRegenerate:
+                  type: boolean
+                contextMessages:
+                  type: array
+                  items:
+                    oneOf:
+                      - type: string
+                      - type: object
+                        additionalProperties: true
+      responses:
+        '200':
+          description: Prompt effect assessment or null
+          content:
+            application/json:
+              schema:
+                type: object
+                nullable: true
                 additionalProperties: true
         '400':
           $ref: '#/components/responses/Error400'
@@ -452,6 +709,137 @@ paths:
           $ref: '#/components/responses/Error400'
         '500':
           $ref: '#/components/responses/Error500'
+
+  /api/model-settings:
+    get:
+      tags: [Model Settings]
+      summary: Read assistant, embedding, and DSPy model settings
+      responses:
+        '200':
+          description: Model settings and capability list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [settings, capabilities]
+                properties:
+                  settings:
+                    type: object
+                    additionalProperties: true
+                  capabilities:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+    post:
+      tags: [Model Settings]
+      summary: Save assistant, embedding, and DSPy model settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Saved model settings and capability list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [settings, capabilities]
+                properties:
+                  settings:
+                    type: object
+                    additionalProperties: true
+                  capabilities:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+
+  /api/model-settings/test:
+    post:
+      tags: [Model Settings]
+      summary: Test model gateway connectivity for one or more owners
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [owners]
+              properties:
+                owners:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                    enum: [assistant, embedding, dspy]
+                settings:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: Connectivity test result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [testedAt, results]
+                properties:
+                  testedAt:
+                    type: string
+                    format: date-time
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/feishu/settings:
+    get:
+      tags: [Feishu]
+      summary: Read Feishu project settings
+      responses:
+        '200':
+          description: Feishu settings view
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [settings]
+                properties:
+                  settings:
+                    type: object
+                    additionalProperties: true
+    post:
+      tags: [Feishu]
+      summary: Save Feishu project settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Saved Feishu settings view
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [settings]
+                properties:
+                  settings:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
 
   /api/sources:
     get:
@@ -699,7 +1087,7 @@ paths:
 
   /api/openclaw-knowledge/preview:
     post:
-      tags: [Import]
+      tags: [OpenClaw]
       summary: Preview OpenClaw knowledge inbox sync
       requestBody:
         required: false
@@ -724,7 +1112,7 @@ paths:
 
   /api/openclaw-knowledge/import:
     post:
-      tags: [Import]
+      tags: [OpenClaw]
       summary: Import changed OpenClaw knowledge items into Raw Inbox
       requestBody:
         required: false
@@ -739,6 +1127,126 @@ paths:
       responses:
         '200':
           description: OpenClaw sync import result and refreshed promotion queue summary
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/knowledge-items:
+    get:
+      tags: [Knowledge]
+      summary: List Raw Inbox knowledge items
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 200
+        - in: query
+          name: sourceType
+          required: false
+          schema:
+            type: string
+            default: all
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            default: visible
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Raw Inbox knowledge items
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    post:
+      tags: [Knowledge]
+      summary: Upsert a Raw Inbox knowledge item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeItemInput'
+      responses:
+        '200':
+          description: Saved Raw Inbox item
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item]
+                properties:
+                  item:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/knowledge-items/status:
+    post:
+      tags: [Knowledge]
+      summary: Update Raw Inbox item status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, status]
+              properties:
+                id:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '200':
+          description: Updated item
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item]
+                properties:
+                  item:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /api/knowledge-items/delete:
+    post:
+      tags: [Knowledge]
+      summary: Delete or archive a Raw Inbox knowledge item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: Delete result
           content:
             application/json:
               schema:
@@ -1231,6 +1739,38 @@ paths:
         '400':
           $ref: '#/components/responses/Error400'
 
+  /api/bug-inbox/update:
+    post:
+      tags: [Bug Inbox]
+      summary: Update bug inbox description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                description:
+                  type: string
+                  maxLength: 100
+      responses:
+        '200':
+          description: Updated bug inbox item
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item]
+                properties:
+                  item:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
   /api/bug-inbox/delete:
     post:
       tags: [Bug Inbox]
@@ -1313,6 +1853,49 @@ paths:
                     items:
                       type: object
                       additionalProperties: true
+
+  /api/sessions/review:
+    post:
+      tags: [Sessions]
+      summary: Update review metadata for a session or segment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                segmentId:
+                  type: string
+                status:
+                  type: string
+                keepInSearch:
+                  type: boolean
+                qualityScore:
+                  type: number
+                note:
+                  type: string
+                reviewedBy:
+                  type: string
+      responses:
+        '200':
+          description: Updated session review metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [session]
+                properties:
+                  session:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
 
   /api/sessions/delete:
     post:
@@ -1485,6 +2068,62 @@ paths:
         '400':
           $ref: '#/components/responses/Error400'
 
+  /api/embeddings/stats:
+    get:
+      tags: [Embedding]
+      summary: Read latest embedding build stats
+      parameters:
+        - in: query
+          name: provider
+          required: false
+          schema:
+            type: string
+            description: Provider name or all
+      responses:
+        '200':
+          description: Embedding build stats
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/embeddings/preview:
+    post:
+      tags: [Embedding]
+      summary: Preview an embedding rebuild plan
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddingRebuildRequest'
+      responses:
+        '200':
+          description: Embedding rebuild preview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [provider, embedMode, force, limit, totalSessions, totalChunks, alreadyEmbedded, targetCount, reasonCounts, embedding]
+                properties:
+                  provider: { type: string }
+                  embedMode: { type: string }
+                  force: { type: boolean }
+                  limit: { type: integer }
+                  totalSessions: { type: integer }
+                  totalChunks: { type: integer }
+                  alreadyEmbedded: { type: integer }
+                  targetCount: { type: integer }
+                  reasonCounts:
+                    type: object
+                    additionalProperties: true
+                  embedding:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
   /api/embeddings/rebuild:
     post:
       tags: [Embedding]
@@ -1542,6 +2181,59 @@ paths:
                     format: date-time
         '400':
           $ref: '#/components/responses/Error400'
+
+  /api/embeddings/rebuild-job:
+    post:
+      tags: [Embedding]
+      summary: Start an async embedding rebuild job
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddingRebuildRequest'
+      responses:
+        '200':
+          description: Queued embedding rebuild job and preview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job, preview]
+                properties:
+                  job:
+                    type: object
+                    additionalProperties: true
+                  preview:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+    get:
+      tags: [Embedding]
+      summary: Read an async embedding rebuild job
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Embedding rebuild job state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
 
   /api/embeddings/evaluate:
     post:
@@ -1708,6 +2400,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    Error500:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     MessageTagsResponse:
       description: Tag update result
       content:
@@ -1723,6 +2421,78 @@ components:
       properties:
         error:
           type: string
+
+    WikiVaultSyncRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          description: Provider name or all.
+        sessionId:
+          type: string
+        sessionIds:
+          type: array
+          items:
+            type: string
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 5000
+        syncMode:
+          type: string
+          enum: [publish-only, publish-with-summary]
+
+    EmbeddingRebuildRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          description: Provider name or all.
+        force:
+          type: boolean
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 5000
+        embedMode:
+          type: string
+          enum: [local, remote]
+        mode:
+          type: string
+          enum: [local, remote]
+
+    KnowledgeItemInput:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Stable id. OpenClaw should use openclaw_ plus a stable path hash.
+        sourceType:
+          type: string
+          enum: [capture, note, document]
+        sourceSubtype:
+          type: string
+        status:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        summary:
+          type: string
+        sourceUrl:
+          type: string
+        sourceFile:
+          type: string
+        tags:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        meta:
+          type: object
+          additionalProperties: true
 
     Source:
       type: object

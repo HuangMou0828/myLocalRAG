@@ -75,6 +75,82 @@
 
 命中 `inbox/knowledge__*.md` 表示这是 Raw Inbox 证据页，还不是已升格的 reader-first wiki。
 
+### Tool: `preview_openclaw_knowledge`
+
+- method: `POST`
+- url: `http://127.0.0.1:3030/api/openclaw-knowledge/preview`
+- body schema:
+
+```json
+{
+  "root": "string, optional, defaults to ~/.openclaw/knowledge/inbox"
+}
+```
+
+使用场景：
+
+- OpenClaw 已写入 `~/.openclaw/knowledge/inbox`，但想先确认会新增、更新或归档哪些 Raw Inbox 条目。
+- 只读预览，不写入数据库。
+
+### Tool: `import_openclaw_knowledge`
+
+- method: `POST`
+- url: `http://127.0.0.1:3030/api/openclaw-knowledge/import`
+- body schema:
+
+```json
+{
+  "root": "string, optional, defaults to ~/.openclaw/knowledge/inbox"
+}
+```
+
+返回重点字段：
+
+- `summary`：新增、更新、跳过、归档统计。
+- `promotionQueue.summary`：同步后刷新出的升格候选概览。
+
+使用场景：
+
+- OpenClaw 任务结束后把新经验写入 inbox，再调用本工具进入 `myLocalRAG` Raw Inbox。
+- 刚写入后要立刻检索，可改用 `search_wiki_notes` 并传 `syncOpenClaw=true`。
+
+### Tool: `upsert_knowledge_item`
+
+- method: `POST`
+- url: `http://127.0.0.1:3030/api/knowledge-items`
+- body schema:
+
+```json
+{
+  "id": "string, optional but recommended stable id",
+  "sourceType": "capture|note|document",
+  "sourceSubtype": "string, e.g. error-lesson|pattern|memory|daily-note|project-doc",
+  "status": "string, optional, active|draft|archived",
+  "title": "string, required if content is empty",
+  "content": "string, required if title is empty",
+  "summary": "string, optional",
+  "sourceUrl": "string, optional",
+  "sourceFile": "string, optional",
+  "tags": ["string"],
+  "meta": {
+    "sourceSystem": "openclaw",
+    "project": "string",
+    "topic": "string",
+    "intakeStage": "inbox|needs-context|search-candidate|wiki-candidate|reference-only",
+    "confidence": "low|medium|high",
+    "keyQuestion": "string",
+    "decisionNote": "string",
+    "contentHash": "string",
+    "openclawPath": "string"
+  }
+}
+```
+
+使用场景：
+
+- OpenClaw 没有文件层或需要直接上报结构化知识时使用。
+- 默认仍推荐先写 Markdown 到 inbox，再调用 `import_openclaw_knowledge`。
+
 ### Tool: `get_wiki_note`
 
 - method: `GET`

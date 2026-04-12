@@ -3,12 +3,13 @@ info:
   title: Multi-AI Session Hub Public API
   version: 1.0.0
   description: |
-    对外公开版接口文档（精简版）。
+    对外公开版接口文档（OpenClaw 默认工具集 + 受控写入入口）。
 
     设计原则：
-    - 仅保留外部调用方常用能力
-    - 隐藏数据源管理、导入、Bug/Feishu、Embedding 运维相关接口
-    - 默认未启用鉴权，生产环境请在网关层补充鉴权和限流
+    - 默认保留 OpenClaw 常用读取、检索、复盘、Prompt 能力
+    - 暴露 Raw Inbox / OpenClaw inbox 写入同步入口，承接 L4 -> L5 记忆流
+    - 隐藏数据源管理、Bug/Feishu、Embedding 运维、模型配置等高风险接口
+    - 当前服务未启用鉴权，生产环境请在网关层补充鉴权、scope 和限流
 servers:
   - url: http://127.0.0.1:3030
     description: Local development server
@@ -18,6 +19,8 @@ tags:
   - name: Sessions
   - name: Retrieval
   - name: Wiki
+  - name: Knowledge
+  - name: OpenClaw
   - name: Prompt
   - name: Review
 
@@ -315,6 +318,176 @@ paths:
         '400':
           $ref: '#/components/responses/Error400'
 
+  /api/openclaw-knowledge/preview:
+    post:
+      tags: [OpenClaw]
+      summary: Preview OpenClaw knowledge inbox sync
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                root:
+                  type: string
+                  description: Optional OpenClaw inbox root. Defaults to ~/.openclaw/knowledge/inbox.
+      responses:
+        '200':
+          description: OpenClaw sync preview
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/openclaw-knowledge/import:
+    post:
+      tags: [OpenClaw]
+      summary: Import changed OpenClaw knowledge items into Raw Inbox
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                root:
+                  type: string
+                  description: Optional OpenClaw inbox root. Defaults to ~/.openclaw/knowledge/inbox.
+      responses:
+        '200':
+          description: OpenClaw sync import result and refreshed promotion queue summary
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/knowledge-items:
+    get:
+      tags: [Knowledge]
+      summary: List Raw Inbox knowledge items
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 200
+        - in: query
+          name: sourceType
+          required: false
+          schema:
+            type: string
+            default: all
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            default: visible
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Raw Inbox knowledge items
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    post:
+      tags: [Knowledge]
+      summary: Upsert a Raw Inbox knowledge item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeItemInput'
+      responses:
+        '200':
+          description: Saved Raw Inbox item
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item]
+                properties:
+                  item:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
+  /api/knowledge-items/status:
+    post:
+      tags: [Knowledge]
+      summary: Update Raw Inbox item status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, status]
+              properties:
+                id:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '200':
+          description: Updated item
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item]
+                properties:
+                  item:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /api/knowledge-items/delete:
+    post:
+      tags: [Knowledge]
+      summary: Delete or archive a Raw Inbox knowledge item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: Delete result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error400'
+
   /api/prompt-rubric:
     get:
       tags: [Prompt]
@@ -534,6 +707,18 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    Error404:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Error500:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
     ErrorResponse:
@@ -542,3 +727,36 @@ components:
       properties:
         error:
           type: string
+
+    KnowledgeItemInput:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Stable id. OpenClaw should use openclaw_ plus a stable path hash.
+        sourceType:
+          type: string
+          enum: [capture, note, document]
+        sourceSubtype:
+          type: string
+        status:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        summary:
+          type: string
+        sourceUrl:
+          type: string
+        sourceFile:
+          type: string
+        tags:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        meta:
+          type: object
+          additionalProperties: true
