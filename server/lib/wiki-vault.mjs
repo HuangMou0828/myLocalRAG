@@ -208,6 +208,16 @@ function parseWikiLinks(markdownText = '') {
     .filter(Boolean)
 }
 
+function hasUnpublishedConceptLinks(markdownText = '', conceptCatalog = null) {
+  if (!(conceptCatalog instanceof Map)) return false
+  return parseWikiLinks(markdownText)
+    .filter((target) => target.startsWith('concepts/'))
+    .some((target) => {
+      const slug = path.posix.basename(target, '.md')
+      return !conceptCatalog.has(slug)
+    })
+}
+
 function extractLintSummary(markdownText = '') {
   const body = stripFrontmatter(markdownText)
   const summaryCallout = body.match(/>\s*\[!summary\][^\n]*\n((?:>\s?.*\n?){1,6})/i)
@@ -1092,6 +1102,38 @@ function createLintFinding({ severity = 'low', code = 'generic', relativePath = 
   }
 }
 
+function createBrokenWikiLinkFinding(item = {}) {
+  const target = String(item?.target || '').trim()
+  if (target.startsWith('projects/')) {
+    return createLintFinding({
+      severity: 'high',
+      code: 'missing-project-hub',
+      relativePath: item.from,
+      title: item.title,
+      detail: `Project link points to a missing hub: ${target}`,
+      suggestion: 'Rebuild the wiki index. If it remains, normalize the project metadata or create the project hub.',
+    })
+  }
+  if (target.startsWith('concepts/')) {
+    return createLintFinding({
+      severity: 'medium',
+      code: 'missing-concept-page',
+      relativePath: item.from,
+      title: item.title,
+      detail: `Concept link points to a concept page that was not published: ${target}`,
+      suggestion: 'Keep Related Concepts limited to published concept pages, or promote enough evidence for this concept.',
+    })
+  }
+  return createLintFinding({
+    severity: 'high',
+    code: 'broken-wikilink',
+    relativePath: item.from,
+    title: item.title,
+    detail: `Links to missing note: ${target}`,
+    suggestion: 'Fix the target path or create the missing note.',
+  })
+}
+
 function isLintReaderFirstNote(note = {}) {
   const relativePath = String(note?.relativePath || '')
   if (!relativePath || /(^|\/)README\.md$/i.test(relativePath)) return false
@@ -1252,6 +1294,15 @@ const GENERIC_CONCEPTS = new Set([
   'mock',
   'css',
   'bug',
+  'error',
+  'errors',
+  'openclaw',
+  'open-claw',
+  'request',
+  'requests',
+  'pattern',
+  'patterns',
+  'feature-request',
   'mac',
   'claude',
   'inbox',
@@ -1397,6 +1448,8 @@ const TOPIC_CONCEPT_SLUGS = new Set([
   'embedding',
   'obsidian',
   'syncthing',
+  'memory',
+  'cleanup-safety',
   'prompt',
   'feishu',
   'skill',
@@ -1449,6 +1502,8 @@ const PINNED_CONCEPT_SLUGS = new Set([
   'embedding',
   'obsidian',
   'syncthing',
+  'memory',
+  'cleanup-safety',
   'qrcode',
   'session-management',
   'bug-trace',
@@ -1471,6 +1526,8 @@ const KNOWN_CONCEPT_PATTERNS = [
   { slug: 'embedding', label: 'Embeddings', patterns: [/\bembedding(s)?\b/i, /向量\b/iu] },
   { slug: 'obsidian', label: 'Obsidian', patterns: [/\bobsidian\b/i] },
   { slug: 'syncthing', label: 'Syncthing', patterns: [/\bsyncthing\b/i] },
+  { slug: 'memory', label: 'Memory', patterns: [/\bmemory\b/i, /记忆/u] },
+  { slug: 'cleanup-safety', label: '清理安全', patterns: [/批量清理|清理[\s\S]{0,24}误删|误删/u] },
   { slug: 'qrcode', label: 'QRCode', patterns: [/\bqrcode\b/i, /二维码/iu] },
   { slug: 'session-management', label: '会话管理', patterns: [/会话管理/iu, /session management/i] },
   { slug: 'bug-trace', label: 'Bug Trace', patterns: [/\bbug[- ]?trace\b/i, /bug.*反查/iu, /代码反查/iu] },
@@ -1486,6 +1543,8 @@ function normalizeConceptLabel(slug, rawLabel = '') {
     embedding: 'Embeddings',
     obsidian: 'Obsidian',
     syncthing: 'Syncthing',
+    memory: 'Memory',
+    'cleanup-safety': '清理安全',
     qrcode: 'QRCode',
     'session-management': '会话管理',
     'bug-trace': 'Bug Trace',
@@ -1634,6 +1693,7 @@ export function extractSessionConcepts(session) {
   const contextText = [
     session?.title || '',
     firstUser,
+    session?.conceptContext || '',
     ...(Array.isArray(session?.tags) ? session.tags : []),
   ].join('\n')
 
@@ -1828,6 +1888,7 @@ export async function buildWikiVaultSyncPreview(sessions = [], options = {}) {
       && previousHash === conceptInputHash
       && previousKind === (item.concept.kind === 'module' ? 'module' : 'topic')
       && previousSchemaVersion === CONCEPT_PAGE_SCHEMA_VERSION
+      && !hasUnpublishedConceptLinks(existingMarkdown, conceptCatalog)
       && (
         !summaryConfig
         || entryDigests.length < 2
@@ -2336,6 +2397,14 @@ function buildKnowledgeItemEvidence(item = {}) {
   const concepts = extractSessionConcepts({
     title: [title, topic, tags.join(' ')].filter(Boolean).join(' · '),
     tags,
+    conceptContext: [
+      title,
+      topic,
+      tags.join(' '),
+      keyQuestion,
+      summary,
+      content,
+    ].filter(Boolean).join('\n'),
     messages: [
       { role: 'user', content: keyQuestion || title },
       { role: 'assistant', content: content || summary },
@@ -2462,6 +2531,12 @@ async function loadPromotionQueueEvidences(options = {}) {
     knowledgeEvidences,
     allEvidences: [...sourceEvidences, ...knowledgeEvidences],
   }
+}
+
+function filterApprovedKnowledgeEvidences(knowledgeEvidences = [], promotionState = createEmptyPromotionState()) {
+  const approvedEvidencePaths = collectApprovedPromotionEvidencePaths(promotionState)
+  return (Array.isArray(knowledgeEvidences) ? knowledgeEvidences : [])
+    .filter((item) => approvedEvidencePaths.has(normalizeVaultRelativePath(item?.relativePath || '')))
 }
 
 const ISSUE_SIGNAL_PATTERNS = [
@@ -2715,6 +2790,12 @@ function dedupeConcepts(items = [], limit = 10) {
   return unique
 }
 
+function filterPublishedConcepts(items = [], conceptCatalog = null, limit = 10) {
+  const concepts = dedupeConcepts(items, limit)
+  if (!(conceptCatalog instanceof Map)) return concepts
+  return concepts.filter((item) => conceptCatalog.has(String(item?.slug || '').trim()))
+}
+
 function pickDominantProject(candidates = []) {
   const counts = new Map()
   for (const item of Array.isArray(candidates) ? candidates : []) {
@@ -2853,7 +2934,8 @@ function groupPatternCandidates(candidates = []) {
   return map
 }
 
-function collectIssueArtifacts(sourceEvidences = []) {
+function collectIssueArtifacts(sourceEvidences = [], options = {}) {
+  const conceptCatalog = options.conceptCatalog instanceof Map ? options.conceptCatalog : null
   const candidates = (Array.isArray(sourceEvidences) ? sourceEvidences : [])
     .map((item) => buildIssueCandidate(item))
     .filter((item) => item && Number(item.confidence || 0) >= 0.55)
@@ -2886,8 +2968,9 @@ function collectIssueArtifacts(sourceEvidences = []) {
       const evidenceItems = dedupeList(allCandidates.map((item) => item?.evidence?.relativePath || ''), 20)
       const project = pickDominantProject(allCandidates.map((item) => item?.project || ''))
       const files = curateRepoFileReferences(allCandidates.flatMap((item) => item.files || []), project, 12)
-      const concepts = dedupeConcepts(
+      const concepts = filterPublishedConcepts(
         allCandidates.flatMap((item) => (Array.isArray(item?.evidence?.concepts) ? item.evidence.concepts : [])),
+        conceptCatalog,
         8,
       )
       return {
@@ -2962,6 +3045,7 @@ function renderIssueMarkdown(issue, existingMarkdown = '', promotionRecord = nul
 
 function collectPatternArtifacts(sourceEvidences = [], options = {}) {
   const promotionState = options.promotionState || createEmptyPromotionState()
+  const conceptCatalog = options.conceptCatalog instanceof Map ? options.conceptCatalog : null
   const dismissedPatternSlugs = new Set(
     Object.entries(promotionState.patterns || {})
       .filter(([, record]) => isDismissedPromotionRecord(record))
@@ -2978,7 +3062,7 @@ function collectPatternArtifacts(sourceEvidences = [], options = {}) {
       const evidenceItems = dedupeList(allCandidates.map((item) => item?.evidence?.relativePath || ''), 20)
       const project = pickDominantProject(allCandidates.map((item) => item?.project || ''))
       const files = curateRepoFileReferences(allCandidates.flatMap((item) => item.files || []), project, 12)
-      const concepts = dedupeConcepts(allCandidates.flatMap((item) => item.concepts || []), 10)
+      const concepts = filterPublishedConcepts(allCandidates.flatMap((item) => item.concepts || []), conceptCatalog, 10)
       const relatedIssues = issueList.filter((issue) => normalizeProjectKey(issue?.project || '') === normalizeProjectKey(project || ''))
       return {
         slug: group.slug,
@@ -3196,6 +3280,7 @@ export async function buildPromotionCandidatePreview(payload = {}) {
   const { allEvidences: sourceEvidences } = await loadPromotionQueueEvidences({ writeEvidence: true })
   const state = await loadPromotionState()
   const previewState = normalizePromotionState(JSON.parse(JSON.stringify(state)))
+  const conceptCatalog = buildConceptCatalogFromEntries(sourceEvidences)
   const paths = await ensureVaultScaffold()
 
   let relativePath = ''
@@ -3218,7 +3303,9 @@ export async function buildPromotionCandidatePreview(payload = {}) {
       approvedAt: previewState.issues[issueSlug]?.approvedAt || now,
       updatedAt: now,
     }
-    const issues = collectIssueArtifacts(sourceEvidences)
+    const issues = collectIssueArtifacts(sourceEvidences, {
+      conceptCatalog,
+    })
     const issue = issues.find((item) => String(item?.slug || '') === issueSlug)
     if (!issue) throw new Error('未找到可预览的 issue note')
     previewTitle = issue.title
@@ -3262,10 +3349,13 @@ export async function buildPromotionCandidatePreview(payload = {}) {
       approvedAt: previewState.patterns[patternSlug]?.approvedAt || now,
       updatedAt: now,
     }
-    const issues = collectIssueArtifacts(sourceEvidences)
+    const issues = collectIssueArtifacts(sourceEvidences, {
+      conceptCatalog,
+    })
     const patterns = collectPatternArtifacts(sourceEvidences, {
       issues,
       promotionState: previewState,
+      conceptCatalog,
     })
     const pattern = patterns.find((item) => String(item?.slug || '') === patternSlug)
     if (!pattern) throw new Error('未找到可预览的 pattern note')
@@ -3705,26 +3795,42 @@ export async function rebuildVaultIndex(options = {}) {
   }
 
   entries.sort((a, b) => +new Date(b.updatedAt || 0) - +new Date(a.updatedAt || 0))
-  await rebuildProviderPages(entries)
   const sourceEvidences = await buildSourceEntryEvidenceList(entries)
-  const issueStats = await rebuildIssuePages(sourceEvidences)
-  const patternStats = await rebuildPatternPages(sourceEvidences, {
-    issues: issueStats.issues,
+  const knowledgeEvidences = await loadKnowledgePromotionEvidences({
+    writeEvidence: options.writeKnowledgeEvidence !== false,
   })
-  const projectStats = await rebuildProjectPages(sourceEvidences, {
+  const promotionState = await loadPromotionState()
+  const approvedKnowledgeEvidences = filterApprovedKnowledgeEvidences(knowledgeEvidences, promotionState)
+  const readerFirstEvidences = [...sourceEvidences, ...approvedKnowledgeEvidences]
+  const providerEntries = [...entries, ...approvedKnowledgeEvidences]
+  await rebuildProviderPages(providerEntries)
+  const conceptEntries = readerFirstEvidences
+  const conceptCatalog = buildConceptCatalogFromEntries(conceptEntries)
+  const issueStats = await rebuildIssuePages(readerFirstEvidences, {
+    conceptCatalog,
+  })
+  const patternStats = await rebuildPatternPages(readerFirstEvidences, {
+    issues: issueStats.issues,
+    conceptCatalog,
+  })
+  const projectStats = await rebuildProjectPages(readerFirstEvidences, {
     issues: issueStats.issues,
     patterns: patternStats.patterns,
+    conceptCatalog,
   })
-  const synthesisStats = await rebuildSynthesisPages(sourceEvidences)
+  const synthesisStats = await rebuildSynthesisPages(readerFirstEvidences)
 
-  const providerGroups = groupByProvider(entries)
+  const providerGroups = groupByProvider(providerEntries)
   const providerNames = Array.from(providerGroups.keys()).sort((a, b) => a.localeCompare(b))
-  const conceptStats = await rebuildConceptPages(entries, {
+  const conceptStats = await rebuildConceptPages(conceptEntries, {
     summaryMode: options.conceptSummaryMode || 'llm',
     onProgress: options.onConceptProgress,
   })
-  const conceptGroups = groupByConcept(entries)
-  const conceptCount = conceptGroups.size
+  const conceptGroups = groupByConcept(conceptEntries)
+  const publishedConceptGroups = new Map(
+    Array.from(conceptGroups.entries()).filter(([slug]) => conceptCatalog.has(slug)),
+  )
+  const conceptCount = publishedConceptGroups.size
 
   const lines = [
     '# Vault Index',
@@ -3818,7 +3924,7 @@ export async function rebuildVaultIndex(options = {}) {
     lines.push('_No concept pages yet._')
     lines.push('')
   } else {
-    const concepts = Array.from(conceptGroups.values())
+    const concepts = Array.from(publishedConceptGroups.values())
       .sort((a, b) => b.entries.length - a.entries.length || a.concept.label.localeCompare(b.concept.label))
       .slice(0, 20)
     for (const item of concepts) {
@@ -3861,6 +3967,7 @@ export async function rebuildVaultIndex(options = {}) {
   await writeFile(paths.index, lines.join('\n'), 'utf-8')
   const promotionStats = await buildPromotionQueue({
     sourceEvidences,
+    knowledgeEvidences,
     issues: issueStats?.issues || [],
     patterns: patternStats?.patterns || [],
     writeReport: options.writePromotionQueue !== false,
@@ -3954,9 +4061,10 @@ export async function rebuildProviderPages(entries = []) {
   }
 }
 
-export async function rebuildIssuePages(sourceEvidences = []) {
+export async function rebuildIssuePages(sourceEvidences = [], options = {}) {
   const paths = await ensureVaultScaffold()
   const promotionState = await loadPromotionState()
+  const conceptCatalog = options.conceptCatalog instanceof Map ? options.conceptCatalog : null
   const dismissedIssueSlugs = new Set(
     Object.entries(promotionState.issues || {})
       .filter(([, record]) => isDismissedPromotionRecord(record))
@@ -3995,8 +4103,9 @@ export async function rebuildIssuePages(sourceEvidences = []) {
       const evidenceItems = dedupeList(allCandidates.map((item) => item?.evidence?.relativePath || ''), 20)
       const project = pickDominantProject(allCandidates.map((item) => item?.project || ''))
       const files = curateRepoFileReferences(allCandidates.flatMap((item) => item.files || []), project, 12)
-      const concepts = dedupeConcepts(
+      const concepts = filterPublishedConcepts(
         allCandidates.flatMap((item) => (Array.isArray(item?.evidence?.concepts) ? item.evidence.concepts : [])),
+        conceptCatalog,
         8,
       )
       return {
@@ -4110,6 +4219,7 @@ export async function rebuildPatternPages(sourceEvidences = [], options = {}) {
   const paths = await ensureVaultScaffold()
   const promotionState = await loadPromotionState()
   const issueList = Array.isArray(options.issues) ? options.issues : []
+  const conceptCatalog = options.conceptCatalog instanceof Map ? options.conceptCatalog : null
   const dismissedPatternSlugs = new Set(
     Object.entries(promotionState.patterns || {})
       .filter(([, record]) => isDismissedPromotionRecord(record))
@@ -4125,7 +4235,7 @@ export async function rebuildPatternPages(sourceEvidences = [], options = {}) {
       const evidenceItems = dedupeList(allCandidates.map((item) => item?.evidence?.relativePath || ''), 20)
       const project = pickDominantProject(allCandidates.map((item) => item?.project || ''))
       const files = curateRepoFileReferences(allCandidates.flatMap((item) => item.files || []), project, 12)
-      const concepts = dedupeConcepts(allCandidates.flatMap((item) => item.concepts || []), 10)
+      const concepts = filterPublishedConcepts(allCandidates.flatMap((item) => item.concepts || []), conceptCatalog, 10)
       const relatedIssues = issueList.filter((issue) => normalizeProjectKey(issue?.project || '') === normalizeProjectKey(project || ''))
       return {
         slug: group.slug,
@@ -4241,6 +4351,7 @@ export async function rebuildProjectPages(sourceEvidences = [], options = {}) {
   const paths = await ensureVaultScaffold()
   const issueList = Array.isArray(options.issues) ? options.issues : []
   const patternList = Array.isArray(options.patterns) ? options.patterns : []
+  const conceptCatalog = options.conceptCatalog instanceof Map ? options.conceptCatalog : null
   const projectGroups = new Map()
 
   for (const evidence of Array.isArray(sourceEvidences) ? sourceEvidences : []) {
@@ -4260,8 +4371,10 @@ export async function rebuildProjectPages(sourceEvidences = [], options = {}) {
     .map((group) => {
       const evidences = Array.isArray(group.evidences) ? group.evidences : []
       const files = curateRepoFileReferences(evidences.flatMap((item) => item.mentionedFiles || []), group.project, 12)
-      const concepts = dedupeConcepts(
+      const hasKnowledgeEvidence = evidences.some((item) => item?.knowledgeItemId)
+      const concepts = filterPublishedConcepts(
         evidences.flatMap((item) => (Array.isArray(item.concepts) ? item.concepts : [])),
+        conceptCatalog,
         10,
       )
       const issueRefs = issueList.filter((issue) => normalizeProjectKey(issue?.project || '') === group.project)
@@ -4274,6 +4387,7 @@ export async function rebuildProjectPages(sourceEvidences = [], options = {}) {
         concepts,
         issues: issueRefs,
         patterns: patternRefs,
+        hasKnowledgeEvidence,
         evidences: evidences
           .slice()
           .sort((a, b) => +new Date(b.updatedAt || 0) - +new Date(a.updatedAt || 0)),
@@ -4284,7 +4398,7 @@ export async function rebuildProjectPages(sourceEvidences = [], options = {}) {
           .slice(-1)[0] || '',
       }
     })
-    .filter((item) => item.evidenceCount >= 2)
+    .filter((item) => item.evidenceCount >= 2 || item.hasKnowledgeEvidence || item.issues.length || item.patterns.length)
     .sort((a, b) => b.evidenceCount - a.evidenceCount || a.label.localeCompare(b.label))
 
   const existingFiles = await readdir(paths.projectsDir, { withFileTypes: true }).catch(() => [])
@@ -4444,6 +4558,7 @@ export async function rebuildConceptPages(entries = [], options = {}) {
       && previousHash === conceptInputHash
       && previousKind === (concept.kind === 'module' ? 'module' : 'topic')
       && previousSchemaVersion === CONCEPT_PAGE_SCHEMA_VERSION
+      && !hasUnpublishedConceptLinks(existingMarkdown, conceptCatalog)
       && (
         !summaryConfig
         || entryDigests.length < 2
@@ -5719,17 +5834,20 @@ async function refreshPromotionArtifacts(options = {}) {
     ? options.sourceEvidences
     : loaded.sourceEvidences
   const promotionState = await loadPromotionState()
-  const approvedEvidencePaths = collectApprovedPromotionEvidencePaths(promotionState)
-  const approvedKnowledgeEvidences = loaded.knowledgeEvidences
-    .filter((item) => approvedEvidencePaths.has(normalizeVaultRelativePath(item?.relativePath || '')))
+  const approvedKnowledgeEvidences = filterApprovedKnowledgeEvidences(loaded.knowledgeEvidences, promotionState)
   const rebuildSourceEvidences = [...baseSourceEvidences, ...approvedKnowledgeEvidences]
-  const issueStats = await rebuildIssuePages(rebuildSourceEvidences)
+  const conceptCatalog = buildConceptCatalogFromEntries(rebuildSourceEvidences)
+  const issueStats = await rebuildIssuePages(rebuildSourceEvidences, {
+    conceptCatalog,
+  })
   const patternStats = await rebuildPatternPages(rebuildSourceEvidences, {
     issues: issueStats.issues,
+    conceptCatalog,
   })
   const projectStats = await rebuildProjectPages(rebuildSourceEvidences, {
     issues: issueStats.issues,
     patterns: patternStats.patterns,
+    conceptCatalog,
   })
   const synthesisStats = await rebuildSynthesisPages(rebuildSourceEvidences)
   const promotionStats = await buildPromotionQueue({
@@ -5966,14 +6084,7 @@ export async function lintWikiVault(options = {}) {
 
   if (brokenLinks.length) {
     for (const item of brokenLinks) {
-      findings.push(createLintFinding({
-        severity: 'high',
-        code: 'broken-wikilink',
-        relativePath: item.from,
-        title: item.title,
-        detail: `Links to missing note: ${item.target}`,
-        suggestion: 'Fix the target path or create the missing note.',
-      }))
+      findings.push(createBrokenWikiLinkFinding(item))
     }
   }
 
