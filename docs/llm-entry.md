@@ -16,6 +16,7 @@
 必读：
 
 - [OpenClaw API Capability Matrix](./openclaw/api-capabilities.md)
+- [OpenClaw Cron Automation Recipes](./openclaw/cron-automation-recipes.md)
 - [OpenClaw L5 Memory Backend Rules](./openclaw/l5-memory-backend-rules.md)
 - [OpenClaw Knowledge Ingestion Proposal](./openclaw/knowledge-ingestion.md)
 - [OpenClaw Prompt & Tool Template](./openclaw/prompts.md)
@@ -24,6 +25,7 @@
 
 - `openapi.public.yaml` 是 OpenClaw 默认工具集，不建议默认暴露内部全量接口。
 - OpenClaw 默认 scope 建议是 `read + write:knowledge`；`admin` 只在用户授权时使用。
+- OpenClaw cron 自动化先按第一阶段运行：L5 巡检、inbox 导入、每日 AI 日报、每周复盘、每周升格队列报告。
 - OpenClaw 写入 `~/.openclaw/knowledge/inbox`。
 - myLocalRAG 负责 Raw Inbox、升格审核、Vault/Obsidian 和检索。
 - `syncOpenClaw: true` 用于搜索前增量同步 OpenClaw inbox。
