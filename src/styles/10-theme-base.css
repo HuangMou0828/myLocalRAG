@@ -6,7 +6,7 @@
   --popover: 221 42% 10%;
   --popover-foreground: 210 20% 96%;
   --primary: 229 88% 70%;
-  --primary-foreground: 222 47% 11%;
+  --primary-foreground: 210 20% 98%;
   --secondary: 217 33% 17%;
   --secondary-foreground: 210 20% 96%;
   --muted: 217 33% 17%;
@@ -38,8 +38,23 @@
   
   /* Accent Colors */
   --accent-primary: #6f86ff;
+  --accent-primary-hover: #8fa0ff;
+  --accent-soft-bg: rgba(111, 134, 255, 0.14);
+  --accent-ring: rgba(111, 134, 255, 0.35);
   --accent-primary-glow: rgba(111, 134, 255, 0.22);
   --accent-danger: #f43f5e;
+  --success-soft: rgba(35, 163, 109, 0.14);
+  --warning-soft: rgba(214, 154, 45, 0.14);
+  --danger-soft: rgba(216, 77, 106, 0.14);
+  --info-soft: rgba(74, 163, 255, 0.14);
+  --success-border: rgba(35, 163, 109, 0.3);
+  --warning-border: rgba(214, 154, 45, 0.3);
+  --danger-border: rgba(216, 77, 106, 0.3);
+  --info-border: rgba(74, 163, 255, 0.3);
+  --success-text: #b8e8d2;
+  --warning-text: #ead09f;
+  --danger-text: #f1bfcc;
+  --info-text: #cfe0ff;
   
   /* Score Bands */
   --color-excellent: #10b981;
@@ -54,14 +69,16 @@
   --color-cursor: #3b82f6;
   --color-doubao: #007aff;
   --color-gemini: #8b5cf6;
+  --color-feishu-master: #00b96b;
   --color-all: #64748b;
   --color-other: #94a3b8;
   
   /* Borders & Shadows */
-  --border-light: rgba(148, 163, 184, 0.14);
-  --border-soft: rgba(148, 163, 184, 0.1);
-  --border-strong: rgba(148, 163, 184, 0.2);
-  --border-focus: rgba(111, 134, 255, 0.46);
+  --border-light: rgba(255, 255, 255, 0.06);
+  --border-soft: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-focus: var(--accent-ring);
+  --focus-underlay: rgba(10, 16, 24, 0.95);
   --shadow-sm: 0 8px 18px rgba(3, 8, 20, 0.18);
   --shadow-md: 0 16px 34px rgba(3, 8, 20, 0.24);
   --shadow-glow: 0 0 15px var(--accent-primary-glow);
@@ -229,17 +246,17 @@ small {
   gap: 0.25rem;
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
-  border: 1px solid rgba(111, 134, 255, 0.18);
-  background: rgba(111, 134, 255, 0.1);
-  color: #d9e1ff;
+  border: 1px solid var(--accent-ring);
+  background: var(--accent-soft-bg);
+  color: var(--text-secondary);
   font-size: 0.7rem;
   line-height: 1.2;
 }
 
 .retrieve-chip.warn-chip {
-  border-color: rgba(214, 154, 45, 0.22);
-  background: rgba(214, 154, 45, 0.14);
-  color: #f2d18c;
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning-text);
 }
 
 .retrieve-meta-text {

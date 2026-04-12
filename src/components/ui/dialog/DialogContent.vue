@@ -42,7 +42,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
 
       <DialogClose
         v-if="props.showClose"
-        class="absolute right-4 top-4 inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent p-0 text-slate-300 opacity-90 transition hover:bg-slate-800 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0 disabled:pointer-events-none"
+        class="absolute right-4 top-4 inline-flex h-7 w-7 items-center justify-center rounded-md border border-[color:var(--border-soft)] bg-transparent p-0 text-[color:var(--text-secondary)] opacity-90 transition hover:bg-[rgba(255,255,255,0.06)] hover:text-[color:var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0 disabled:pointer-events-none"
       >
         <X class="w-4 h-4" />
         <span class="sr-only">Close</span>

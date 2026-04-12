@@ -48,12 +48,12 @@ function onChange(event: Event) {
 }
 
 .form-field-label {
-  color: #9fb6d5;
+  color: var(--text-muted);
   font-size: 0.7rem;
 }
 
 .form-field-hint {
-  color: #7f9bbd;
+  color: var(--text-muted);
   font-size: 0.68rem;
 }
 </style>

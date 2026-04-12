@@ -69,7 +69,7 @@ function onChange(value: string) {
 }
 
 .form-field-label {
-  color: #9fb6d5;
+  color: var(--text-muted);
   font-size: 0.7rem;
   margin: 0;
 }
@@ -90,7 +90,7 @@ function onChange(value: string) {
   align-items: center;
   gap: 0.35rem;
   font-size: 0.8rem;
-  color: #dbeafe;
+  color: var(--text-secondary);
 }
 
 .form-radio-option.disabled {
@@ -104,7 +104,7 @@ function onChange(value: string) {
 }
 
 .form-field-hint {
-  color: #7f9bbd;
+  color: var(--text-muted);
   font-size: 0.68rem;
 }
 </style>

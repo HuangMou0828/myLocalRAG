@@ -54,17 +54,17 @@ function onInput(event: Event) {
 }
 
 .form-field-label {
-  color: #9fb6d5;
+  color: var(--text-muted);
   font-size: 0.7rem;
 }
 
 .form-field-hint {
-  color: #7f9bbd;
+  color: var(--text-muted);
   font-size: 0.68rem;
 }
 
 .form-field-input.is-invalid {
-  border-color: rgba(248, 113, 113, 0.65);
-  box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.14);
+  border-color: var(--danger-border);
+  box-shadow: 0 0 0 2px var(--danger-soft);
 }
 </style>
