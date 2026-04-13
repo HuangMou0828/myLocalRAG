@@ -1,0 +1,14 @@
+{
+  "name": "codex-mobile-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A small mobile-first control desk for running approved Codex and project tasks on this Mac.",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs --host 0.0.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

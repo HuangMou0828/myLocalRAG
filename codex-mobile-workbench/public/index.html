@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Codex 手机工作台</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Codex Mobile Workbench</p>
+          <h1>手机工作台</h1>
+        </div>
+        <span id="connection" class="status-pill">连接中</span>
+      </header>
+
+      <section class="workspace-row" aria-label="工作区">
+        <label for="workspace">工作区</label>
+        <select id="workspace"></select>
+      </section>
+
+      <section class="quick-actions" aria-label="快捷操作">
+        <button data-prompt="查看状态">查看状态</button>
+        <button data-prompt="总结改动">总结改动</button>
+        <button data-prompt="运行 typecheck">Typecheck</button>
+        <button data-prompt="运行 build">Build</button>
+      </section>
+
+      <section id="messages" class="messages" aria-live="polite"></section>
+
+      <form id="composer" class="composer">
+        <textarea id="prompt" rows="3" placeholder="发一个任务，比如：帮我看一下未提交改动"></textarea>
+        <button type="submit">发送</button>
+      </form>
+
+      <section class="tasks-section">
+        <div class="section-title">
+          <h2>任务</h2>
+          <button id="refresh" type="button">刷新</button>
+        </div>
+        <div id="tasks" class="tasks"></div>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
