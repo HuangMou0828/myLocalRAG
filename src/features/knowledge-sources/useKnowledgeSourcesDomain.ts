@@ -2880,6 +2880,39 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     const relativePath = String(item?.relativePath || '').trim()
     const fromTarget = extractBrokenTarget(item?.detail)
     const toTarget = String(candidatePath || '').trim()
+    if (!relativePath || !fromTarget || !toTarget) return
+    await applyHealthRepairPlan({
+      path: relativePath,
+      fromTarget,
+      toTarget,
+    })
+  }
+
+  async function previewHealthRepairSuggestion(
+    item: HealthFinding | null | undefined,
+    candidatePath: string,
+  ) {
+    const relativePath = String(item?.relativePath || '').trim()
+    const fromTarget = extractBrokenTarget(item?.detail)
+    const toTarget = String(candidatePath || '').trim()
+    if (!relativePath || !fromTarget || !toTarget) {
+      throw new Error('修复参数不完整，无法生成预览')
+    }
+    return options.wikiService.previewRepairLink({
+      path: relativePath,
+      fromTarget,
+      toTarget,
+    })
+  }
+
+  async function applyHealthRepairPlan(payload: {
+    path: string
+    fromTarget: string
+    toTarget: string
+  }) {
+    const relativePath = String(payload?.path || '').trim()
+    const fromTarget = String(payload?.fromTarget || '').trim()
+    const toTarget = String(payload?.toTarget || '').trim()
     if (!relativePath || !fromTarget || !toTarget || healthRepairApplyingTarget.value) return
     healthRepairApplyingTarget.value = `${relativePath}::${toTarget}`
     try {
@@ -2898,8 +2931,70 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
       await loadWikiHealth(true)
     } catch (error) {
       options.notify(String(error instanceof Error ? error.message : error || '断链修复失败'), 'danger')
+      throw error
     } finally {
       healthRepairApplyingTarget.value = ''
+    }
+  }
+
+  async function previewHealthAnchorSuggestion(
+    item: HealthFinding | null | undefined,
+    candidatePath: string,
+  ) {
+    const orphanTarget = String(item?.relativePath || '').trim()
+    const candidate = String(candidatePath || '').trim()
+    if (!orphanTarget || !candidate) throw new Error('锚点参数不完整')
+    return options.wikiService.previewAnchorLink({ candidatePath: candidate, orphanTarget })
+  }
+
+  async function applyHealthAnchorPlan(payload: { candidatePath: string; orphanTarget: string }) {
+    const candidatePath = String(payload?.candidatePath || '').trim()
+    const orphanTarget = String(payload?.orphanTarget || '').trim()
+    if (!candidatePath || !orphanTarget || healthRepairApplyingTarget.value) return
+    healthRepairApplyingTarget.value = `${candidatePath}::${orphanTarget}`
+    try {
+      await options.wikiService.insertAnchorLink({ candidatePath, orphanTarget })
+      options.notify('已在候选页面插入回链', 'success')
+      healthSuggestionMode.value = ''
+      healthSuggestionKey.value = ''
+      healthSuggestionTitle.value = ''
+      healthSuggestionDescription.value = ''
+      healthSuggestionQuery.value = ''
+      healthSuggestionResults.value = []
+      await loadWikiHealth(true)
+    } catch (error) {
+      options.notify(String(error instanceof Error ? error.message : error || '插入回链失败'), 'danger')
+      throw error
+    } finally {
+      healthRepairApplyingTarget.value = ''
+    }
+  }
+
+  const vaultRebuildLoading = ref(false)
+
+  async function triggerVaultRebuild() {
+    if (vaultRebuildLoading.value) return
+    vaultRebuildLoading.value = true
+    try {
+      await options.wikiService.rebuildWikiIndex()
+      options.notify('Vault 索引重建完成', 'success')
+      await loadWikiHealth(true)
+    } catch (error) {
+      options.notify(String(error instanceof Error ? error.message : error || '重建索引失败'), 'danger')
+    } finally {
+      vaultRebuildLoading.value = false
+    }
+  }
+
+  async function cleanHealthBrokenEvidence(item: HealthFinding | null | undefined) {
+    const relativePath = String(item?.relativePath || '').trim()
+    if (!relativePath) return
+    const result = await options.wikiService.cleanSynthesisEvidence({ path: relativePath })
+    if (result.removed.length) {
+      options.notify(`已清理 ${result.removed.length} 条失效 evidence，finding 将在下次刷新后消失`, 'success')
+      await loadWikiHealth(true)
+    } else {
+      options.notify('未发现失效 evidence，无需清理', 'info')
     }
   }
 
@@ -3081,8 +3176,15 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     openHealthQueueEvidence,
     loadHealthRepairSuggestions,
     loadHealthAnchorSuggestions,
+    previewHealthRepairSuggestion,
+    previewHealthAnchorSuggestion,
     batchDecideHealthStaleDraftIssues,
+    applyHealthRepairPlan,
+    applyHealthAnchorPlan,
     applyHealthRepairSuggestion,
+    vaultRebuildLoading,
+    triggerVaultRebuild,
+    cleanHealthBrokenEvidence,
     closePromotionPreview,
     closePromotionViewer,
     resetEditor,

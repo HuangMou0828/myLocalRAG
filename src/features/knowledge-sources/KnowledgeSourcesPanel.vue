@@ -18,6 +18,19 @@ import {
   IconWrench,
 } from '@/components/icons/app-icons'
 
+type HealthRepairPreviewPayload = {
+  path: string
+  fromTarget: string
+  toTarget: string
+  replacedCount: number
+  samples: Array<{
+    line: number
+    text: string
+    before: string
+    after: string
+  }>
+}
+
 const props = defineProps<{ ctx: Record<string, any> }>()
 
 const {
@@ -155,8 +168,14 @@ const {
   openHealthQueueEvidence,
   loadHealthRepairSuggestions,
   loadHealthAnchorSuggestions,
+  previewHealthRepairSuggestion,
+  previewHealthAnchorSuggestion,
   batchDecideHealthStaleDraftIssues,
-  applyHealthRepairSuggestion,
+  applyHealthRepairPlan,
+  applyHealthAnchorPlan,
+  vaultRebuildLoading,
+  triggerVaultRebuild,
+  cleanHealthBrokenEvidence,
   closePromotionPreview,
   closePromotionViewer,
 } = props.ctx
@@ -434,6 +453,7 @@ const healthActionQueuesResolved = computed(() => {
   return Array.isArray(list) ? list : []
 })
 const selectedHealthFindingResolved = computed(() => unref(selectedHealthFinding) || null)
+const selectedHealthBrokenTargetResolved = computed(() => extractHealthBrokenTarget(selectedHealthFindingResolved.value?.detail))
 const healthDetailRef = ref<HTMLElement | null>(null)
 const knowledgeEditorDialogOpen = ref(false)
 const knowledgeEditorIntakeOpen = ref(true)
@@ -452,6 +472,14 @@ const healthSuggestionStateResolved = computed(() => unref(healthSuggestionState
   results: [],
   isCurrentFinding: false,
 })
+const healthRepairPreviewOpen = ref(false)
+const healthRepairPreviewLoading = ref(false)
+const healthRepairPreviewError = ref('')
+const healthRepairPreviewData = ref<HealthRepairPreviewPayload | null>(null)
+const healthAnchorPreviewOpen = ref(false)
+const healthAnchorPreviewLoading = ref(false)
+const healthAnchorPreviewError = ref('')
+const healthAnchorPreviewData = ref<{ candidatePath: string; orphanTarget: string; insertedAt: string | null; alreadyLinked: boolean } | null>(null)
 const promotionViewerNotesResolved = computed(() => {
   const list = unref(promotionViewerNotes)
   return Array.isArray(list) ? list : []
@@ -851,6 +879,11 @@ function formatHealthQueueCodes(codes: unknown) {
     .join(' · ')
 }
 
+function extractHealthBrokenTarget(detail: unknown) {
+  const match = String(detail || '').match(/Links to missing note:\s*(.+)$/i)
+  return String(match?.[1] || '').trim()
+}
+
 function isHealthRepairSuggestionAvailable(item: Record<string, any> | null) {
   return String(item?.code || '') === 'broken-wikilink'
 }
@@ -865,10 +898,6 @@ function isHealthStaleDraftIssue(item: Record<string, any> | null) {
 
 function queueHasCode(queue: Record<string, any> | null, code: string) {
   return Array.isArray(queue?.codes) && queue.codes.includes(code)
-}
-
-function healthRepairApplyKey(item: Record<string, any> | null, candidatePath: string) {
-  return `${String(item?.relativePath || '').trim()}::${String(candidatePath || '').trim()}`
 }
 
 function healthFindingItemKey(item: Record<string, any> | null) {
@@ -965,6 +994,45 @@ async function openHealthSuggestionCandidate(path: string, title = '候选页面
   await openHealthQueueNotes([{ relativePath: path } as any], title)
 }
 
+function closeHealthRepairPreview() {
+  healthRepairPreviewOpen.value = false
+  healthRepairPreviewLoading.value = false
+  healthRepairPreviewError.value = ''
+  healthRepairPreviewData.value = null
+}
+
+async function openHealthRepairPreview(item: Record<string, any> | null, candidatePath: string) {
+  if (!item || !candidatePath) return
+  healthRepairPreviewOpen.value = true
+  healthRepairPreviewLoading.value = true
+  healthRepairPreviewError.value = ''
+  healthRepairPreviewData.value = null
+  try {
+    const preview = await previewHealthRepairSuggestion(item, candidatePath)
+    healthRepairPreviewData.value = preview as HealthRepairPreviewPayload
+  } catch (error) {
+    healthRepairPreviewError.value = String(error instanceof Error ? error.message : error || '生成替换预览失败')
+  } finally {
+    healthRepairPreviewLoading.value = false
+  }
+}
+
+async function confirmHealthRepairPreview() {
+  const preview = healthRepairPreviewData.value
+  if (!preview || !preview.replacedCount) return
+  try {
+    await applyHealthRepairPlan({
+      path: preview.path,
+      fromTarget: preview.fromTarget,
+      toTarget: preview.toTarget,
+    })
+    closeHealthRepairPreview()
+    healthSuggestionDialogOpen.value = false
+  } catch {
+    // Keep preview dialog open so user can retry or switch candidate.
+  }
+}
+
 async function openHealthRepairSuggestionDialog(item: Record<string, any> | null) {
   if (!item) return
   healthSuggestionDialogOpen.value = true
@@ -975,6 +1043,41 @@ async function openHealthAnchorSuggestionDialog(item: Record<string, any> | null
   if (!item) return
   healthSuggestionDialogOpen.value = true
   await loadHealthAnchorSuggestions(item)
+}
+
+function closeHealthAnchorPreview() {
+  healthAnchorPreviewOpen.value = false
+  healthAnchorPreviewLoading.value = false
+  healthAnchorPreviewError.value = ''
+  healthAnchorPreviewData.value = null
+}
+
+async function openHealthAnchorPreview(item: Record<string, any> | null, candidatePath: string) {
+  if (!item || !candidatePath) return
+  healthAnchorPreviewOpen.value = true
+  healthAnchorPreviewLoading.value = true
+  healthAnchorPreviewError.value = ''
+  healthAnchorPreviewData.value = null
+  try {
+    const preview = await previewHealthAnchorSuggestion(item, candidatePath)
+    healthAnchorPreviewData.value = preview as any
+  } catch (error) {
+    healthAnchorPreviewError.value = String(error instanceof Error ? error.message : error || '生成预览失败')
+  } finally {
+    healthAnchorPreviewLoading.value = false
+  }
+}
+
+async function confirmHealthAnchorPreview() {
+  const preview = healthAnchorPreviewData.value
+  if (!preview || preview.alreadyLinked) return
+  try {
+    await applyHealthAnchorPlan({ candidatePath: preview.candidatePath, orphanTarget: preview.orphanTarget })
+    closeHealthAnchorPreview()
+    healthSuggestionDialogOpen.value = false
+  } catch {
+    // Keep preview dialog open so user can retry.
+  }
 }
 
 function formatPromotionSourceTone(value: string) {
@@ -2392,6 +2495,17 @@ function focusTaskReviewBySummary(cardId: string) {
             <IconRefreshCw v-if="healthLoading" :size="18" class="animate-spin" />
             <IconRefreshCw v-else :size="18" />
           </button>
+          <button
+            type="button"
+            class="icon-btn"
+            :disabled="unref(vaultRebuildLoading)"
+            @click="triggerVaultRebuild()"
+            :title="unref(vaultRebuildLoading) ? '重建中…' : '重建 Vault 索引（修复 missing-concept / missing-project 类问题）'"
+            aria-label="重建 Vault 索引"
+          >
+            <IconDatabase v-if="!unref(vaultRebuildLoading)" :size="18" />
+            <IconRefreshCw v-else :size="18" class="animate-spin" />
+          </button>
         </div>
 
         <div class="knowledge-filter-group">
@@ -2599,6 +2713,34 @@ function focusTaskReviewBySummary(cardId: string) {
               <span class="knowledge-review-path">{{ selectedHealthFindingResolved.relativePath }}</span>
             </div>
 
+            <div
+              v-if="isHealthRepairSuggestionAvailable(selectedHealthFindingResolved)"
+              class="knowledge-evidence-section knowledge-health-repair-guide"
+            >
+              <small>断链修复（推荐流程）</small>
+              <p>先生成候选目标，再预览替换命中，确认后再执行写入。</p>
+              <span v-if="selectedHealthBrokenTargetResolved" class="knowledge-review-path">
+                缺失目标：{{ selectedHealthBrokenTargetResolved }}
+              </span>
+              <button
+                type="button"
+                class="app-btn"
+                @click="openHealthRepairSuggestionDialog(selectedHealthFindingResolved)"
+              >
+                <IconWrench :size="16" />
+                开始修复断链
+              </button>
+              <button
+                v-if="String(selectedHealthFindingResolved?.relativePath || '').startsWith('syntheses/')"
+                type="button"
+                class="app-btn-ghost"
+                @click="cleanHealthBrokenEvidence(selectedHealthFindingResolved)"
+              >
+                <IconDatabase :size="16" />
+                清理失效 Evidence
+              </button>
+            </div>
+
             <div class="knowledge-review-actions">
               <button
                 type="button"
@@ -2631,15 +2773,6 @@ function focusTaskReviewBySummary(cardId: string) {
               >
                 <IconClock3 :size="16" />
                 去任务筛选
-              </button>
-              <button
-                v-if="isHealthRepairSuggestionAvailable(selectedHealthFindingResolved)"
-                type="button"
-                class="app-btn-ghost"
-                @click="openHealthRepairSuggestionDialog(selectedHealthFindingResolved)"
-              >
-                <IconWrench :size="16" />
-                生成修复建议
               </button>
               <button
                 v-if="isHealthAnchorSuggestionAvailable(selectedHealthFindingResolved)"
@@ -2742,15 +2875,25 @@ function focusTaskReviewBySummary(cardId: string) {
                   v-if="healthSuggestionStateResolved.mode === 'repair'"
                   type="button"
                   class="app-btn"
-                  :disabled="Boolean(healthRepairApplyingTarget)"
-                  @click="applyHealthRepairSuggestion(selectedHealthFindingResolved, candidate.path)"
+                  :disabled="Boolean(healthRepairApplyingTarget) || healthRepairPreviewLoading"
+                  @click="openHealthRepairPreview(selectedHealthFindingResolved, candidate.path)"
                 >
                   <IconCheck :size="16" />
                   {{
-                    healthRepairApplyingTarget === healthRepairApplyKey(selectedHealthFindingResolved, candidate.path)
-                      ? '替换中…'
-                      : '替换为这个目标'
+                    healthRepairPreviewLoading
+                      ? '生成预览中…'
+                      : '预览替换'
                   }}
+                </button>
+                <button
+                  v-if="healthSuggestionStateResolved.mode === 'anchor'"
+                  type="button"
+                  class="app-btn"
+                  :disabled="Boolean(healthRepairApplyingTarget) || healthAnchorPreviewLoading"
+                  @click="openHealthAnchorPreview(selectedHealthFindingResolved, candidate.path)"
+                >
+                  <IconLink2 :size="16" />
+                  {{ healthAnchorPreviewLoading ? '生成预览中…' : '预览插入' }}
                 </button>
               </div>
             </article>
@@ -2760,6 +2903,162 @@ function focusTaskReviewBySummary(cardId: string) {
             <IconListFilter :size="20" />
             <p>当前没有可展示的建议结果。</p>
           </div>
+        </div>
+      </DialogScrollContent>
+    </Dialog>
+
+    <Dialog :open="healthRepairPreviewOpen" @update:open="(open) => { if (!open) closeHealthRepairPreview() }">
+      <DialogScrollContent
+        class="component-modal-dialog component-modal-dialog--md component-modal-dialog--tone-info knowledge-evidence-dialog"
+        :show-close="false"
+      >
+        <DialogHeader class="component-modal-dialog-header knowledge-evidence-dialog-header">
+          <div class="component-modal-dialog-title-row">
+            <div class="knowledge-evidence-dialog-title-wrap">
+              <DialogTitle class="knowledge-evidence-dialog-title">断链替换预览</DialogTitle>
+              <DialogDescription class="form-modal-desc">
+                先确认会命中多少处 wikilink，再决定是否写入。
+              </DialogDescription>
+            </div>
+            <DialogClose as-child>
+              <button type="button" class="app-btn-ghost modal-close-btn" aria-label="关闭断链替换预览">×</button>
+            </DialogClose>
+          </div>
+        </DialogHeader>
+
+        <div class="component-modal-dialog-body knowledge-evidence-dialog-body">
+          <div v-if="healthRepairPreviewLoading" class="knowledge-list-empty knowledge-health-suggestion-empty">
+            <IconRefreshCw :size="20" class="animate-spin" />
+            <p>正在生成替换预览…</p>
+          </div>
+
+          <div v-else-if="healthRepairPreviewError" class="knowledge-list-empty knowledge-health-suggestion-empty">
+            <IconTriangleAlert :size="20" />
+            <p>{{ healthRepairPreviewError }}</p>
+          </div>
+
+          <template v-else-if="healthRepairPreviewData">
+            <div class="knowledge-evidence-meta">
+              <div class="knowledge-evidence-meta-card">
+                <small>关联页面</small>
+                <strong>{{ healthRepairPreviewData.path }}</strong>
+              </div>
+              <div class="knowledge-evidence-meta-card">
+                <small>缺失目标</small>
+                <strong>{{ healthRepairPreviewData.fromTarget }}</strong>
+              </div>
+              <div class="knowledge-evidence-meta-card">
+                <small>替换目标</small>
+                <strong>{{ healthRepairPreviewData.toTarget }}</strong>
+              </div>
+            </div>
+
+            <div class="knowledge-evidence-section">
+              <small>命中数量</small>
+              <strong>{{ healthRepairPreviewData.replacedCount }}</strong>
+              <p v-if="!healthRepairPreviewData.replacedCount">当前页面没有匹配到这个断链目标，请换一个候选再试。</p>
+            </div>
+
+            <div v-if="healthRepairPreviewData.samples.length" class="knowledge-evidence-section">
+              <small>替换样例（最多 6 条）</small>
+              <div class="knowledge-health-repair-preview-list">
+                <article
+                  v-for="sample in healthRepairPreviewData.samples"
+                  :key="`${sample.line}-${sample.before}-${sample.after}`"
+                  class="knowledge-health-repair-preview-item"
+                >
+                  <span class="knowledge-list-badge">L{{ sample.line }}</span>
+                  <code>{{ sample.before }}</code>
+                  <span>→</span>
+                  <code>{{ sample.after }}</code>
+                </article>
+              </div>
+            </div>
+
+            <div class="knowledge-review-actions">
+              <button type="button" class="app-btn-ghost" @click="closeHealthRepairPreview" :disabled="Boolean(healthRepairApplyingTarget)">
+                取消
+              </button>
+              <button
+                type="button"
+                class="app-btn"
+                :disabled="Boolean(healthRepairApplyingTarget) || !healthRepairPreviewData.replacedCount"
+                @click="confirmHealthRepairPreview"
+              >
+                <IconCheck :size="16" />
+                {{ healthRepairApplyingTarget ? '替换中…' : '确认替换并写入' }}
+              </button>
+            </div>
+          </template>
+        </div>
+      </DialogScrollContent>
+    </Dialog>
+
+    <Dialog :open="healthAnchorPreviewOpen" @update:open="(open) => { if (!open) closeHealthAnchorPreview() }">
+      <DialogScrollContent
+        class="component-modal-dialog component-modal-dialog--md component-modal-dialog--tone-info knowledge-evidence-dialog"
+        :show-close="false"
+      >
+        <DialogHeader class="component-modal-dialog-header knowledge-evidence-dialog-header">
+          <div class="component-modal-dialog-title-row">
+            <div class="knowledge-evidence-dialog-title-wrap">
+              <DialogTitle class="knowledge-evidence-dialog-title">回链插入预览</DialogTitle>
+              <DialogDescription class="form-modal-desc">
+                确认将在候选页面的 Related 段插入指向孤儿页的 wikilink。
+              </DialogDescription>
+            </div>
+            <DialogClose as-child>
+              <button type="button" class="app-btn-ghost modal-close-btn" aria-label="关闭回链插入预览">×</button>
+            </DialogClose>
+          </div>
+        </DialogHeader>
+
+        <div class="component-modal-dialog-body knowledge-evidence-dialog-body">
+          <div v-if="healthAnchorPreviewLoading" class="knowledge-list-empty knowledge-health-suggestion-empty">
+            <IconRefreshCw :size="20" class="animate-spin" />
+            <p>正在生成插入预览…</p>
+          </div>
+
+          <div v-else-if="healthAnchorPreviewError" class="knowledge-list-empty knowledge-health-suggestion-empty">
+            <IconTriangleAlert :size="20" />
+            <p>{{ healthAnchorPreviewError }}</p>
+          </div>
+
+          <template v-else-if="healthAnchorPreviewData">
+            <div class="knowledge-evidence-meta">
+              <div class="knowledge-evidence-meta-card">
+                <small>候选页面</small>
+                <strong>{{ healthAnchorPreviewData.candidatePath }}</strong>
+              </div>
+              <div class="knowledge-evidence-meta-card">
+                <small>孤儿页目标</small>
+                <strong>{{ healthAnchorPreviewData.orphanTarget }}</strong>
+              </div>
+              <div class="knowledge-evidence-meta-card">
+                <small>插入位置</small>
+                <strong>{{ healthAnchorPreviewData.insertedAt || '—' }}</strong>
+              </div>
+            </div>
+
+            <div v-if="healthAnchorPreviewData.alreadyLinked" class="knowledge-evidence-section">
+              <p>该候选页面已存在指向孤儿页的链接，无需重复插入。</p>
+            </div>
+
+            <div class="knowledge-review-actions">
+              <button type="button" class="app-btn-ghost" @click="closeHealthAnchorPreview" :disabled="Boolean(healthRepairApplyingTarget)">
+                取消
+              </button>
+              <button
+                type="button"
+                class="app-btn"
+                :disabled="Boolean(healthRepairApplyingTarget) || Boolean(healthAnchorPreviewData.alreadyLinked)"
+                @click="confirmHealthAnchorPreview"
+              >
+                <IconCheck :size="16" />
+                {{ healthRepairApplyingTarget ? '写入中…' : '确认插入并写入' }}
+              </button>
+            </div>
+          </template>
         </div>
       </DialogScrollContent>
     </Dialog>
