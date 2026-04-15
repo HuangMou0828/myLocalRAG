@@ -33,7 +33,7 @@ import { buildEffectiveFeishuProjectSettings, buildFeishuProjectSettingsView, me
 import { askModel } from './lib/ask-model.mjs'
 import { buildEffectiveModelSettings, buildModelCapabilityList } from './lib/model-settings.mjs'
 import { generateGroundedAnswer, rewriteRetrieveQuery } from './lib/rag.mjs'
-import { applyPromotionCandidate, buildPromotionCandidatePreview, buildPromotionQueue, buildWikiVaultSyncPreview, decidePromotionCandidate, ensureVaultScaffold, getVaultPaths, lintWikiVault, publishSessionsToVault } from './lib/wiki-vault.mjs'
+import { applyPromotionCandidate, buildPromotionCandidatePreview, buildPromotionQueue, buildWikiVaultSyncPreview, cleanSynthesisEvidenceItems, decidePromotionCandidate, ensureVaultScaffold, getVaultPaths, lintWikiVault, publishSessionsToVault, rebuildVaultIndex } from './lib/wiki-vault.mjs'
 import { importOpenClawKnowledge, previewOpenClawKnowledge } from '../scripts/openclaw-knowledge.mjs'
 import {
   createBugInboxInDb,
@@ -3013,6 +3013,73 @@ function replaceWikiLinkTarget(markdownText = '', fromTarget = '', toTarget = ''
   }
 }
 
+function buildWikiLinkRepairSamples(markdownText = '', fromTarget = '', toTarget = '', limit = 6) {
+  const source = String(markdownText || '')
+  const normalizedFrom = normalizeWikiLinkTarget(fromTarget)
+  const normalizedTo = normalizeWikiLinkTarget(toTarget)
+  if (!normalizedFrom || !normalizedTo || normalizedFrom === normalizedTo) return []
+
+  const samples = []
+  const lines = source.split(/\r?\n/g)
+  for (let index = 0; index < lines.length; index += 1) {
+    if (samples.length >= limit) break
+    const line = String(lines[index] || '')
+    const pattern = /\[\[([^\]]+)\]\]/g
+    let matched = pattern.exec(line)
+    while (matched) {
+      if (samples.length >= limit) break
+      const full = String(matched[0] || '')
+      const content = String(matched[1] || '')
+      const [targetPart, ...labelParts] = content.split('|')
+      const [targetOnly, ...anchorParts] = String(targetPart || '').split('#')
+      if (normalizeWikiLinkTarget(targetOnly) === normalizedFrom) {
+        const labelSuffix = labelParts.length ? `|${labelParts.join('|')}` : ''
+        const anchorSuffix = anchorParts.length ? `#${anchorParts.join('#')}` : ''
+        samples.push({
+          line: index + 1,
+          text: line.trim().slice(0, 220),
+          before: full,
+          after: `[[${normalizedTo}${anchorSuffix}${labelSuffix}]]`,
+        })
+      }
+      matched = pattern.exec(line)
+    }
+  }
+  return samples
+}
+
+// Insert a wikilink into a candidate page's Related/My Notes section.
+// Returns { markdown, insertedAt } where insertedAt is the section heading used.
+function insertAnchorLinkIntoMarkdown(markdownText = '', orphanTarget = '') {
+  const source = String(markdownText || '')
+  const target = normalizeWikiLinkTarget(orphanTarget)
+  if (!target) return { markdown: source, insertedAt: null }
+
+  // Avoid duplicate insertion
+  const alreadyLinked = new RegExp(`\\[\\[${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\|[^\\]]*)?\\]\\]`)
+  if (alreadyLinked.test(source)) return { markdown: source, insertedAt: null }
+
+  const lines = source.split(/\r?\n/)
+  // Prefer ## Related* sections, fallback to ## My Notes, then append before EOF
+  const sectionPatterns = [/^## Related/i, /^## My Notes/i]
+  for (const pattern of sectionPatterns) {
+    const idx = lines.findIndex((l) => pattern.test(l))
+    if (idx === -1) continue
+    // Insert after the heading (skip blank lines)
+    let insertIdx = idx + 1
+    while (insertIdx < lines.length && lines[insertIdx].trim() === '') insertIdx++
+    lines.splice(insertIdx, 0, `- [[${target}]]`)
+    return { markdown: lines.join('\n'), insertedAt: lines[idx] }
+  }
+
+  // No matching section — append a Related section before end
+  const trimmed = source.trimEnd()
+  return {
+    markdown: `${trimmed}\n\n## Related\n\n- [[${target}]]\n`,
+    insertedAt: '## Related',
+  }
+}
+
 function stripMarkdownForSearch(markdownText = '') {
   return normalizeString(
     stripWikiFrontmatter(markdownText)
@@ -3573,6 +3640,91 @@ const server = http.createServer(async (req, res) => {
           summary: refreshed.summary,
           updatedAt: refreshed.updatedAt,
         } : null,
+      })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/wiki-vault/repair-link-preview') {
+      const payload = await readBody(req).catch(() => ({}))
+      const relativePath = normalizeWikiRelativePath(payload?.path || '')
+      const fromTarget = normalizeWikiLinkTarget(payload?.fromTarget || '')
+      const toTarget = normalizeWikiLinkTarget(payload?.toTarget || '')
+      if (!relativePath) return send(res, 400, { error: 'path 必填' })
+      if (!fromTarget) return send(res, 400, { error: 'fromTarget 必填' })
+      if (!toTarget) return send(res, 400, { error: 'toTarget 必填' })
+      if (fromTarget === toTarget) return send(res, 400, { error: 'fromTarget / toTarget 不能相同' })
+
+      const note = await loadWikiNoteByRelativePath(relativePath)
+      if (!note) return send(res, 404, { error: '未找到 note' })
+
+      const repaired = replaceWikiLinkTarget(note.markdown, fromTarget, toTarget)
+      const samples = buildWikiLinkRepairSamples(note.markdown, fromTarget, toTarget, 6)
+      return send(res, 200, {
+        ok: true,
+        path: relativePath,
+        fromTarget,
+        toTarget,
+        replacedCount: repaired.replacedCount,
+        samples,
+      })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/wiki-vault/rebuild-index') {
+      const startedAt = new Date().toISOString()
+      const result = await rebuildVaultIndex({ conceptSummaryMode: 'fallback' })
+      return send(res, 200, {
+        ok: true,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        totalConcepts: result?.totalConcepts ?? null,
+        totalProjects: result?.totalProjects ?? null,
+      })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/wiki-vault/clean-synthesis-evidence') {
+      const payload = await readBody(req).catch(() => ({}))
+      const targetPath = normalizeWikiRelativePath(payload?.path || '')
+      if (!targetPath) return send(res, 400, { error: 'path 必填' })
+      const result = await cleanSynthesisEvidenceItems(targetPath)
+      return send(res, 200, result)
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/wiki-vault/anchor-link-preview') {
+      const payload = await readBody(req).catch(() => ({}))
+      const candidatePath = normalizeWikiRelativePath(payload?.candidatePath || '')
+      const orphanTarget = normalizeWikiLinkTarget(payload?.orphanTarget || '')
+      if (!candidatePath) return send(res, 400, { error: 'candidatePath 必填' })
+      if (!orphanTarget) return send(res, 400, { error: 'orphanTarget 必填' })
+      const note = await loadWikiNoteByRelativePath(candidatePath)
+      if (!note) return send(res, 404, { error: '未找到候选页面' })
+      const result = insertAnchorLinkIntoMarkdown(note.markdown, orphanTarget)
+      return send(res, 200, {
+        ok: true,
+        candidatePath,
+        orphanTarget,
+        insertedAt: result.insertedAt,
+        alreadyLinked: result.insertedAt === null,
+      })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/wiki-vault/anchor-link') {
+      const payload = await readBody(req).catch(() => ({}))
+      const candidatePath = normalizeWikiRelativePath(payload?.candidatePath || '')
+      const orphanTarget = normalizeWikiLinkTarget(payload?.orphanTarget || '')
+      if (!candidatePath) return send(res, 400, { error: 'candidatePath 必填' })
+      if (!orphanTarget) return send(res, 400, { error: 'orphanTarget 必填' })
+      const note = await loadWikiNoteByRelativePath(candidatePath)
+      if (!note?.absolutePath) return send(res, 404, { error: '未找到候选页面' })
+      const result = insertAnchorLinkIntoMarkdown(note.markdown, orphanTarget)
+      if (result.insertedAt === null) return send(res, 400, { error: '链接已存在，无需重复插入' })
+      const timestamp = new Date().toISOString()
+      const nextMarkdown = updateWikiFrontmatterValue(result.markdown, 'updatedAt', timestamp)
+      await writeFile(note.absolutePath, nextMarkdown, 'utf-8')
+      return send(res, 200, {
+        ok: true,
+        candidatePath,
+        orphanTarget,
+        insertedAt: result.insertedAt,
+        updatedAt: timestamp,
       })
     }
 

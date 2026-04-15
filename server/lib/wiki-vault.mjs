@@ -5872,6 +5872,44 @@ async function refreshPromotionArtifacts(options = {}) {
   }
 }
 
+export async function cleanSynthesisEvidenceItems(targetPath = '') {
+  const normalized = normalizeVaultRelativePath(targetPath)
+  if (!normalized || !normalized.startsWith('syntheses/')) {
+    throw new Error('只支持 syntheses/ 路径')
+  }
+
+  const paths = await ensureVaultScaffold()
+  const state = await loadPromotionState()
+  const record = state.syntheses?.[normalized]
+  if (!record) throw new Error(`未找到 synthesis 记录: ${normalized}`)
+
+  const before = Array.isArray(record.evidenceItems) ? record.evidenceItems : []
+  const { access } = await import('node:fs/promises')
+  const alive = []
+  const removed = []
+  for (const item of before) {
+    const abs = path.join(paths.root, normalizeVaultRelativePath(item))
+    const exists = await access(abs).then(() => true).catch(() => false)
+    if (exists) alive.push(item)
+    else removed.push(item)
+  }
+
+  if (!removed.length) return { ok: true, targetPath: normalized, removed: [], rebuilt: false }
+
+  record.evidenceItems = alive
+  record.updatedAt = new Date().toISOString()
+  await savePromotionState(state)
+
+  // Rebuild just this synthesis file
+  const filePath = path.join(paths.root, normalized)
+  const existingMarkdown = await readFile(filePath, 'utf-8').catch(() => '')
+  const evidenceByPath = new Map()
+  const markdown = renderSynthesisMarkdown(record, evidenceByPath, existingMarkdown)
+  await writeFile(filePath, markdown, 'utf-8')
+
+  return { ok: true, targetPath: normalized, removed, rebuilt: true }
+}
+
 export async function decidePromotionCandidate(payload = {}) {
   const kind = String(payload?.kind || '').trim()
   if (!['issue-review', 'pattern-candidate', 'synthesis-candidate'].includes(kind)) {
@@ -6070,7 +6108,7 @@ export async function lintWikiVault(options = {}) {
     if (note.relativePath === 'log.md') continue
     const uniqueTargets = Array.from(new Set(note.outboundLinks))
     for (const target of uniqueTargets) {
-      if (!target || target.includes('...')) continue
+      if (!target || /(?:^|\/)\.\.\.(?:\/|$)/.test(target) || target === '...') continue
       if (!noteByWikiPath.has(target)) {
         brokenLinks.push({ from: note.relativePath, target, title: note.title })
       } else if (target !== note.wikiPath) {
