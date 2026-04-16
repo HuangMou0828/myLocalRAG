@@ -164,6 +164,8 @@ type PromotionQueueItem = {
   sourceKind?: string
   sourceLabel?: string
   updatedAt?: string
+  /** 原始采集条目 ID，用于 approve 后回写 promotionRef 链路 */
+  sourceKnowledgeItemId?: string
 }
 
 type PromotionEvidenceNote = Awaited<ReturnType<WikiVaultApi['fetchNote']>>['note']
@@ -1341,6 +1343,7 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   const knowledgeStats = ref<KnowledgeStatsDto>({ ...EMPTY_STATS, byType: { ...EMPTY_STATS.byType } })
   const knowledgeLoading = ref(false)
   const knowledgeSaving = ref(false)
+  const knowledgeItemsLoadedAt = ref(0)
   const selectedKnowledgeItemId = ref('')
   const knowledgeSourceTypeFilter = ref<KnowledgeSourceTypeFilter>('all')
   const knowledgeStatusFilter = ref<KnowledgeStatusFilter>('visible')
@@ -2116,6 +2119,7 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     } catch (error) {
       options.notify(String(error instanceof Error ? error.message : error || '加载失败'), 'danger')
     } finally {
+      knowledgeItemsLoadedAt.value = Date.now()
       knowledgeLoading.value = false
     }
   }
@@ -2217,8 +2221,14 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
       .join('::')
   }
 
+  const STALE_AFTER_MS = 60_000
+
   async function setWorkbenchTab(nextTab: KnowledgeWorkbenchTab) {
     workbenchTab.value = nextTab
+    if (nextTab === 'raw') {
+      const isStale = !knowledgeItemsLoadedAt.value || (Date.now() - knowledgeItemsLoadedAt.value > STALE_AFTER_MS)
+      if (isStale) await loadKnowledgeItems()
+    }
     if (nextTab === 'task-review') await loadTaskReviewSessions(false)
     if (nextTab === 'promotion') await loadPromotionQueue(false)
     if (nextTab === 'health') await loadWikiHealth(false)
@@ -2291,6 +2301,15 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     } finally {
       knowledgeSaving.value = false
     }
+  }
+
+  /** 保存并送审：保存后若 intakeStage 为 wiki-candidate，主动推送 Promotion 队列并跳转 tab */
+  async function saveAndSubmitKnowledgeItem() {
+    const saved = await saveKnowledgeItem()
+    if (!saved || editorIntakeStage.value !== 'wiki-candidate') return saved
+    await loadPromotionQueue(true)
+    await setWorkbenchTab('promotion')
+    return true
   }
 
   async function updateKnowledgeItemStatus(status: KnowledgeStatus) {
@@ -2538,6 +2557,16 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
         loadWikiHealth(true),
         loadKnowledgeItems(),
       ])
+      if (decision === 'approve' && item.sourceKnowledgeItemId && item.targetPath) {
+        const sourceItem = knowledgeItems.value.find(i => i.id === item.sourceKnowledgeItemId)
+        if (sourceItem) {
+          try {
+            await options.service.saveItem({ ...sourceItem, meta: { ...sourceItem.meta, promotionRef: item.targetPath } })
+          } catch {
+            // 非关键路径，链路写回失败不阻断主流程
+          }
+        }
+      }
       if (decision === 'approve') {
         options.notify('已升格到 reader-first wiki', 'success')
       } else if (decision === 'dismiss') {
@@ -3152,6 +3181,7 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     selectHealthFinding,
     startNewKnowledgeItem,
     saveKnowledgeItem,
+    saveAndSubmitKnowledgeItem,
     updateKnowledgeItemStatus,
     deleteKnowledgeItem,
     openQuickCapture,

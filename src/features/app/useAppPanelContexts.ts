@@ -400,6 +400,7 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
     selectHealthFinding: knowledgeSourcesDomain.selectHealthFinding,
     startNewKnowledgeItem: knowledgeSourcesDomain.startNewKnowledgeItem,
     saveKnowledgeItem: knowledgeSourcesDomain.saveKnowledgeItem,
+    saveAndSubmitKnowledgeItem: knowledgeSourcesDomain.saveAndSubmitKnowledgeItem,
     updateKnowledgeItemStatus: knowledgeSourcesDomain.updateKnowledgeItemStatus,
     deleteKnowledgeItem: knowledgeSourcesDomain.deleteKnowledgeItem,
     openQuickCapture: knowledgeSourcesDomain.openQuickCapture,
