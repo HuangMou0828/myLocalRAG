@@ -2,7 +2,7 @@ import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises'
 import { createTwoFilesPatch } from 'diff'
-import { ensureObsidianReady, isObsidianCliEnabled, runObsidianCli, runObsidianCliJson } from './obsidian-cli.mjs'
+import { ensureObsidianReady, isObsidianCliEnabled, runObsidianCli } from './obsidian-cli.mjs'
 import { askModel } from './ask-model.mjs'
 import { listKnowledgeItemsInDb, loadModelSettingsInDb, patchKnowledgeItemMetaInDb } from './db.mjs'
 import { loadIndex } from './scanner.mjs'
@@ -5012,7 +5012,7 @@ function buildPromotionQueueMarkdown(report = {}) {
     '',
   ]
 
-  const renderQueueSection = (title, items, emptyText) => {
+  const renderQueueSection = (title, items, emptyText, withTasks = false) => {
     lines.push(`## ${title}`)
     lines.push('')
     if (!items.length) {
@@ -5021,29 +5021,37 @@ function buildPromotionQueueMarkdown(report = {}) {
       return
     }
     for (const item of items) {
-      lines.push(`### ${escapeMarkdownText(item.title || 'Untitled Candidate')}`)
+      if (withTasks) {
+        const checked = item?.taskChecked === true ? 'x' : ' '
+        const token = String(item?.taskToken || '').trim()
+        const tokenComment = token ? ` <!-- ${escapeMarkdownText(token)} -->` : ''
+        lines.push(`- [${checked}] ${escapeMarkdownText(item.title || 'Untitled Candidate')}${tokenComment}`)
+      } else {
+        lines.push(`### ${escapeMarkdownText(item.title || 'Untitled Candidate')}`)
+      }
       lines.push('')
-      lines.push(`- Kind: \`${escapeMarkdownText(item.kind || 'candidate')}\``)
-      if (item.sourceLabel) lines.push(`- Source: \`${escapeMarkdownText(item.sourceLabel)}\``)
-      if (item.currentPath) lines.push(`- Current note: ${toWikiLink(item.currentPath, item.currentLabel || item.title || 'Current Note')}`)
-      if (item.targetPath) lines.push(`- Suggested target: \`${escapeMarkdownText(item.targetPath)}\``)
-      if (item.project) lines.push(`- Project: ${toWikiLink(buildProjectRelativePath(item.project), item.project)}`)
-      if (item.confidence !== undefined) lines.push(`- Confidence: \`${Number(item.confidence || 0).toFixed(2)}\``)
-      if (item.reason) lines.push(`- Why queued: ${escapeMarkdownText(item.reason)}`)
-      if (item.summary) lines.push(`- Summary: ${escapeMarkdownText(item.summary)}`)
+      const bulletPrefix = withTasks ? '  -' : '-'
+      lines.push(`${bulletPrefix} Kind: \`${escapeMarkdownText(item.kind || 'candidate')}\``)
+      if (item.sourceLabel) lines.push(`${bulletPrefix} Source: \`${escapeMarkdownText(item.sourceLabel)}\``)
+      if (item.currentPath) lines.push(`${bulletPrefix} Current note: ${toWikiLink(item.currentPath, item.currentLabel || item.title || 'Current Note')}`)
+      if (item.targetPath) lines.push(`${bulletPrefix} Suggested target: \`${escapeMarkdownText(item.targetPath)}\``)
+      if (item.project) lines.push(`${bulletPrefix} Project: ${toWikiLink(buildProjectRelativePath(item.project), item.project)}`)
+      if (item.confidence !== undefined) lines.push(`${bulletPrefix} Confidence: \`${Number(item.confidence || 0).toFixed(2)}\``)
+      if (item.reason) lines.push(`${bulletPrefix} Why queued: ${escapeMarkdownText(item.reason)}`)
+      if (item.summary) lines.push(`${bulletPrefix} Summary: ${escapeMarkdownText(item.summary)}`)
       if (Array.isArray(item.suggestedActions) && item.suggestedActions.length) {
-        lines.push(`- Suggested action: ${escapeMarkdownText(item.suggestedActions.join('；'))}`)
+        lines.push(`${bulletPrefix} Suggested action: ${escapeMarkdownText(item.suggestedActions.join('；'))}`)
       }
       if (Array.isArray(item.evidenceItems) && item.evidenceItems.length) {
-        lines.push(`- Evidence: ${item.evidenceItems.map((entry) => toWikiLink(entry)).join(' · ')}`)
+        lines.push(`${bulletPrefix} Evidence: ${item.evidenceItems.map((entry) => toWikiLink(entry)).join(' · ')}`)
       }
       lines.push('')
     }
   }
 
-  renderQueueSection('Issue Reviews', issueReviews, '_No draft issue reviews right now._')
-  renderQueueSection('Pattern Candidates', patternCandidates, '_No pattern candidates right now._')
-  renderQueueSection('Synthesis Candidates', synthesisCandidates, '_No synthesis candidates right now._')
+  renderQueueSection('Issue Reviews', issueReviews, '_No draft issue reviews right now._', true)
+  renderQueueSection('Pattern Candidates', patternCandidates, '_No pattern candidates right now._', true)
+  renderQueueSection('Synthesis Candidates', synthesisCandidates, '_No synthesis candidates right now._', true)
   renderQueueSection('Approved Issues', approvedIssues, '_No manually approved issue pages right now._')
   renderQueueSection('Approved Patterns', approvedPatterns, '_No manually approved pattern pages right now._')
   renderQueueSection('Approved Syntheses', approvedSyntheses, '_No manually approved synthesis pages right now._')
@@ -5057,6 +5065,157 @@ function buildPromotionQueueIdentity(item = {}) {
   const pathKey = String(item?.currentPath || item?.targetPath || '').trim()
   const titleKey = String(item?.title || '').trim()
   return `${String(item?.kind || '').trim()}::${pathKey || titleKey}`
+}
+
+function buildPromotionQueueTaskToken(item = {}) {
+  const identity = buildPromotionQueueIdentity(item)
+  if (!identity) return ''
+  return `pq:${Buffer.from(identity, 'utf-8').toString('base64url')}`
+}
+
+function extractPromotionQueueTaskToken(text = '') {
+  const match = String(text || '').match(/\bpq:[A-Za-z0-9_-]+\b/)
+  return String(match?.[0] || '').trim()
+}
+
+function parsePromotionQueueTaskStatesFromMarkdown(markdown = '') {
+  const states = new Map()
+  const lines = String(markdown || '').split(/\r?\n/g)
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = String(lines[index] || '')
+    const match = line.match(/^\s*-\s*\[([ xX])\]\s+(.+)$/)
+    if (!match) continue
+    const token = extractPromotionQueueTaskToken(match[2] || '')
+    if (!token) continue
+    states.set(token, {
+      checked: String(match[1] || '').toLowerCase() === 'x',
+      line: index + 1,
+    })
+  }
+  return states
+}
+
+function parseObsidianTaskTodo(payload = '') {
+  const normalizedPayload = typeof payload === 'string' ? parseObsidianPayload(payload) : payload
+  const items = Array.isArray(normalizedPayload)
+    ? normalizedPayload
+    : Array.isArray(normalizedPayload?.results)
+      ? normalizedPayload.results
+      : Array.isArray(normalizedPayload?.items)
+        ? normalizedPayload.items
+        : []
+  const entries = []
+  for (const item of items) {
+    const text = pickFirstString(item, ['text', 'task', 'lineText'])
+    const token = extractPromotionQueueTaskToken(text)
+    if (!token) continue
+    const file = normalizeVaultRelativePath(pickFirstString(item, ['file', 'path']))
+    const line = Number(pickFirstString(item, ['line', 'lineNumber']) || 0)
+    const status = pickFirstString(item, ['status'])
+    const ref = file && line > 0 ? `${file}:${line}` : ''
+    entries.push({
+      token,
+      ref,
+      file,
+      line,
+      checked: String(status || '').trim().toLowerCase() === 'x',
+      text,
+    })
+  }
+  return entries
+}
+
+async function loadPromotionQueueTaskOpenRefs(paths, options = {}) {
+  if (!isObsidianCliEnabled()) return new Map()
+  const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
+  const result = await runObsidianCli(['tasks', 'todo', `path=${queueRelativePath}`, 'format=json'], {
+    ensureReady: options.ensureReady === true,
+    autoLaunch: options.autoLaunch === true,
+    timeoutMs: Math.max(900, Number(options.timeoutMs || 2600)),
+    readyTimeoutMs: options.readyTimeoutMs,
+    probeTimeoutMs: options.probeTimeoutMs,
+  }).catch(() => null)
+  if (!result?.stdout) return new Map()
+  const entries = parseObsidianTaskTodo(result.stdout)
+  const refs = new Map()
+  for (const entry of entries) {
+    if (!entry?.token || !entry?.ref) continue
+    refs.set(entry.token, entry.ref)
+  }
+  return refs
+}
+
+async function buildPromotionQueueTaskMetadata(paths) {
+  const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
+  const existingMarkdown = await readFile(paths.promotionQueue, 'utf-8').catch(() => '')
+  const stateByToken = parsePromotionQueueTaskStatesFromMarkdown(existingMarkdown)
+  const openRefByToken = await loadPromotionQueueTaskOpenRefs(paths, {
+    ensureReady: false,
+    autoLaunch: false,
+    timeoutMs: 2200,
+  }).catch(() => new Map())
+  return {
+    queueRelativePath,
+    stateByToken,
+    openRefByToken,
+  }
+}
+
+function attachPromotionQueueTaskMetadata(items = [], metadata = {}) {
+  const queueRelativePath = String(metadata?.queueRelativePath || '').trim()
+  const stateByToken = metadata?.stateByToken instanceof Map ? metadata.stateByToken : new Map()
+  const openRefByToken = metadata?.openRefByToken instanceof Map ? metadata.openRefByToken : new Map()
+  return (Array.isArray(items) ? items : []).map((item) => {
+    const token = buildPromotionQueueTaskToken(item)
+    const state = token ? stateByToken.get(token) : null
+    const openRef = token ? String(openRefByToken.get(token) || '').trim() : ''
+    const fallbackRef = state?.line ? `${queueRelativePath}:${Number(state.line || 0)}` : ''
+    return {
+      ...item,
+      taskToken: token || undefined,
+      taskChecked: Boolean(state?.checked),
+      taskRef: openRef || (state?.line ? fallbackRef : undefined),
+    }
+  })
+}
+
+async function markPromotionQueueTaskDone(payload = {}) {
+  if (!isObsidianCliEnabled()) return { engine: 'legacy', done: false }
+  if (String(payload?.decision || '').trim() === 'revoke') return { engine: 'obsidian-cli', done: false, reason: 'revoke-skipped' }
+  const paths = await ensureVaultScaffold()
+  const refsByToken = await loadPromotionQueueTaskOpenRefs(paths, {
+    ensureReady: true,
+    autoLaunch: true,
+    timeoutMs: 4200,
+    readyTimeoutMs: 5000,
+    probeTimeoutMs: 1200,
+  }).catch(() => new Map())
+  const token = buildPromotionQueueTaskToken(payload)
+  const ref = token ? String(refsByToken.get(token) || '').trim() : ''
+  if (!token || !ref) return { engine: 'obsidian-cli', done: false, token, ref }
+  try {
+    await runObsidianCli(['task', 'done', `ref=${ref}`], {
+      ensureReady: true,
+      autoLaunch: true,
+      timeoutMs: 5000,
+      readyTimeoutMs: 5000,
+      probeTimeoutMs: 1200,
+    })
+    return {
+      engine: 'obsidian-cli',
+      done: true,
+      token,
+      ref,
+    }
+  } catch {
+    return {
+      engine: 'obsidian-cli',
+      done: false,
+      token,
+      ref,
+      error: 'task-done-failed',
+    }
+  }
 }
 
 function mergePromotionQueueItems(items = []) {
@@ -5779,6 +5938,10 @@ export async function buildPromotionQueue(options = {}) {
     ...manualQueue.synthesisCandidates,
     ...knowledgeQueue.synthesisCandidates,
   ]).sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
+  const taskMetadata = await buildPromotionQueueTaskMetadata(paths)
+  const queueIssueReviews = attachPromotionQueueTaskMetadata(mergedIssueReviews, taskMetadata)
+  const queuePatternCandidates = attachPromotionQueueTaskMetadata(mergedPatternCandidates, taskMetadata)
+  const queueSynthesisCandidates = attachPromotionQueueTaskMetadata(mergedSynthesisCandidates, taskMetadata)
 
   const approvedIssues = approvedIssueRecords
     .map((record) => ({
@@ -5823,20 +5986,23 @@ export async function buildPromotionQueue(options = {}) {
     .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
 
   const summary = {
-    totalItems: mergedIssueReviews.length + mergedPatternCandidates.length + mergedSynthesisCandidates.length,
-    issueReviewCount: mergedIssueReviews.length,
-    patternCandidateCount: mergedPatternCandidates.length,
-    synthesisCandidateCount: mergedSynthesisCandidates.length,
+    totalItems: queueIssueReviews.length + queuePatternCandidates.length + queueSynthesisCandidates.length,
+    issueReviewCount: queueIssueReviews.length,
+    patternCandidateCount: queuePatternCandidates.length,
+    synthesisCandidateCount: queueSynthesisCandidates.length,
     approvedIssueCount: approvedIssues.length,
     approvedPatternCount: approvedPatterns.length,
     approvedSynthesisCount: approvedSyntheses.length,
+    openTaskCount: [...queueIssueReviews, ...queuePatternCandidates, ...queueSynthesisCandidates]
+      .filter((item) => item?.taskChecked !== true)
+      .length,
   }
   const report = {
     generatedAt: new Date().toISOString(),
     summary,
-    issueReviews: mergedIssueReviews,
-    patternCandidates: mergedPatternCandidates,
-    synthesisCandidates: mergedSynthesisCandidates,
+    issueReviews: queueIssueReviews,
+    patternCandidates: queuePatternCandidates,
+    synthesisCandidates: queueSynthesisCandidates,
     approvedIssues,
     approvedPatterns,
     approvedSyntheses,
@@ -6144,6 +6310,15 @@ export async function decidePromotionCandidate(payload = {}) {
     evidenceItems,
     decidedAt: now,
   })
+  const taskSync = await markPromotionQueueTaskDone({
+    kind,
+    sourceKind: String(payload?.sourceKind || '').trim(),
+    segmentId: String(payload?.segmentId || '').trim(),
+    title,
+    currentPath: kind === 'issue-review' ? relativePath : '',
+    targetPath: kind === 'issue-review' ? '' : relativePath,
+    decision,
+  })
 
   await savePromotionState(state)
   const refreshed = await refreshPromotionArtifacts({
@@ -6162,6 +6337,7 @@ export async function decidePromotionCandidate(payload = {}) {
     patternStats: refreshed.patternStats,
     synthesisStats: refreshed.synthesisStats,
     knowledgeItems,
+    taskSync,
   }
 }
 

@@ -2260,6 +2260,12 @@ function focusTaskReviewBySummary(cardId: string) {
               <span>{{ formatDateTime(promotionQueueResolved.generatedAt) }}</span>
             </div>
           </label>
+          <label>
+            <small>待办任务</small>
+            <div class="knowledge-static-field">
+              <span>{{ Number(promotionQueueResolved.summary.openTaskCount || 0) }}</span>
+            </div>
+          </label>
           <label class="knowledge-filter-search">
             <small>队列文件</small>
             <div class="knowledge-static-field">
@@ -2372,7 +2378,14 @@ function focusTaskReviewBySummary(cardId: string) {
                   置信 {{ confidencePercent(item.confidence) }}
                 </span>
                 <span
-                  v-else-if="item.updatedAt"
+                  v-if="activePromotionSourceSection === 'auto' && item.taskChecked"
+                  class="knowledge-chip status"
+                  data-status="active"
+                >
+                  任务已勾选
+                </span>
+                <span
+                  v-if="activePromotionSourceSection !== 'auto' && item.updatedAt"
                   class="knowledge-review-updated-at"
                 >
                   {{ formatDateTime(item.updatedAt) }}

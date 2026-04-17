@@ -541,6 +541,7 @@ export interface WikiVaultApi {
       approvedIssueCount?: number
       approvedPatternCount?: number
       approvedSynthesisCount?: number
+      openTaskCount?: number
     }
     issueReviews: Array<{
       kind: string
@@ -557,6 +558,9 @@ export interface WikiVaultApi {
       summary: string
       suggestedActions: string[]
       evidenceItems: string[]
+      taskToken?: string
+      taskChecked?: boolean
+      taskRef?: string
     }>
     patternCandidates: Array<{
       kind: string
@@ -572,6 +576,9 @@ export interface WikiVaultApi {
       summary: string
       suggestedActions: string[]
       evidenceItems: string[]
+      taskToken?: string
+      taskChecked?: boolean
+      taskRef?: string
     }>
     synthesisCandidates: Array<{
       kind: string
@@ -588,6 +595,9 @@ export interface WikiVaultApi {
       suggestedActions: string[]
       evidenceItems: string[]
       updatedAt?: string
+      taskToken?: string
+      taskChecked?: boolean
+      taskRef?: string
     }>
     approvedIssues: Array<{
       kind: string
@@ -769,6 +779,14 @@ export interface WikiVaultApi {
         totalFindings: number
       }
     }
+    taskSync?: {
+      engine?: string
+      done?: boolean
+      token?: string
+      ref?: string
+      reason?: string
+      error?: string
+    }
   }>
   decidePromotion(payload: {
     decision: 'approve' | 'dismiss' | 'revoke'
@@ -788,6 +806,14 @@ export interface WikiVaultApi {
     decision: string
     kind: string
     relativePath: string
+    taskSync?: {
+      engine?: string
+      done?: boolean
+      token?: string
+      ref?: string
+      reason?: string
+      error?: string
+    }
   }>
   previewPromotion(payload: {
     kind: 'issue-review' | 'pattern-candidate' | 'synthesis-candidate'
