@@ -5210,6 +5210,8 @@ function buildPromotionQueueIdentity(item = {}) {
 }
 
 function buildPromotionQueueTaskToken(item = {}) {
+  const explicitToken = String(item?.taskToken || '').trim()
+  if (/^pq:[A-Za-z0-9_-]+$/.test(explicitToken)) return explicitToken
   const identity = buildPromotionQueueIdentity(item)
   if (!identity) return ''
   return `pq:${Buffer.from(identity, 'utf-8').toString('base64url')}`
@@ -5426,12 +5428,40 @@ async function markPromotionQueueTaskDoneFallback(paths, options = {}) {
 }
 
 async function markPromotionQueueTaskDone(payload = {}) {
-  if (!isObsidianCliEnabled()) return { engine: 'legacy', done: false }
-  if (String(payload?.decision || '').trim() === 'revoke') return { engine: 'obsidian-cli', done: false, reason: 'revoke-skipped' }
   const paths = await ensureVaultScaffold()
+  const cliEnabled = isObsidianCliEnabled()
   const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
   const payloadRef = normalizePromotionQueueTaskRef(payload?.taskRef, queueRelativePath)
   const token = buildPromotionQueueTaskToken(payload)
+  if (String(payload?.decision || '').trim() === 'revoke') {
+    return {
+      engine: cliEnabled ? 'obsidian-cli' : 'markdown-fallback',
+      done: false,
+      token,
+      reason: 'revoke-skipped',
+    }
+  }
+
+  if (!cliEnabled) {
+    const fallback = await markPromotionQueueTaskDoneFallback(paths, {
+      token,
+      ref: payloadRef || '',
+    }).catch(() => null)
+    if (fallback?.done) {
+      return {
+        ...fallback,
+        token,
+      }
+    }
+    return {
+      engine: 'markdown-fallback',
+      done: false,
+      token,
+      ref: payloadRef || '',
+      reason: fallback?.reason || 'cli-disabled-and-fallback-failed',
+    }
+  }
+
   let tokenTodoRef = ''
   let tokenMarkdownRef = ''
   if (token) {
@@ -6603,6 +6633,7 @@ export async function decidePromotionCandidate(payload = {}) {
     kind,
     sourceKind: String(payload?.sourceKind || '').trim(),
     segmentId: String(payload?.segmentId || '').trim(),
+    taskToken: String(payload?.taskToken || '').trim(),
     title,
     currentPath: kind === 'issue-review' ? relativePath : '',
     targetPath: kind === 'issue-review' ? '' : relativePath,
