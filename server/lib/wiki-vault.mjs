@@ -48,6 +48,8 @@ function stableSha1(input) {
 
 const CONCEPT_PAGE_SCHEMA_VERSION = '2'
 const READER_PAGE_SCHEMA_VERSION = '1'
+const OBSIDIAN_TEMPLATE_AUTO_CREATE_ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.KB_OBSIDIAN_TEMPLATE_AUTO_CREATE_ENABLED || '1').trim())
+const OBSIDIAN_POST_PUBLISH_OPEN_ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.KB_OBSIDIAN_POST_PUBLISH_OPEN_ENABLED || '1').trim())
 
 function toFileSlug(input, fallback = 'untitled') {
   const normalized = String(input || '')
@@ -342,6 +344,92 @@ function normalizeVaultRelativePath(value = '') {
     .replace(/\\/g, '/')
     .replace(/^\/+/g, '')
     .trim()
+}
+
+function resolveGeneratedNoteTemplateName(relativePath = '') {
+  const normalized = normalizeVaultRelativePath(relativePath)
+  if (!normalized) return ''
+  if (normalized.startsWith('sources/')) return 'Source Conversation'
+  if (normalized.startsWith('issues/')) return 'Issue Note'
+  if (normalized.startsWith('patterns/')) return 'Coding Pattern'
+  if (normalized.startsWith('projects/')) return 'Project Hub'
+  if (normalized.startsWith('syntheses/')) return 'Synthesis Note'
+  if (normalized.startsWith('concepts/')) return 'Concept Draft'
+  if (normalized.startsWith('entities/')) return 'Entity Note'
+  return ''
+}
+
+async function seedVaultNoteFromTemplate(relativePath = '', templateName = '') {
+  const normalizedPath = normalizeVaultRelativePath(relativePath)
+  const normalizedTemplate = String(templateName || resolveGeneratedNoteTemplateName(normalizedPath)).trim()
+  if (!normalizedPath || !normalizedTemplate) {
+    return { engine: 'legacy', seeded: false, path: normalizedPath, template: normalizedTemplate }
+  }
+  if (!OBSIDIAN_TEMPLATE_AUTO_CREATE_ENABLED || !isObsidianCliEnabled()) {
+    return { engine: 'legacy', seeded: false, path: normalizedPath, template: normalizedTemplate }
+  }
+
+  const ready = await ensureObsidianReady({
+    autoLaunch: true,
+    readyTimeoutMs: 3000,
+    probeTimeoutMs: 1000,
+  })
+  if (!ready) {
+    return { engine: 'legacy', seeded: false, path: normalizedPath, template: normalizedTemplate, reason: 'obsidian-not-ready' }
+  }
+
+  try {
+    await runObsidianCli(['create', `path=${normalizedPath}`, `template=${normalizedTemplate}`], {
+      ensureReady: false,
+      autoLaunch: false,
+      timeoutMs: 4500,
+    })
+    return { engine: 'obsidian-cli', seeded: true, path: normalizedPath, template: normalizedTemplate }
+  } catch {
+    return { engine: 'obsidian-cli', seeded: false, path: normalizedPath, template: normalizedTemplate, reason: 'create-failed' }
+  }
+}
+
+async function readExistingMarkdownWithTemplateSeed(relativePath = '', filePath = '', templateName = '') {
+  let markdown = await readFile(filePath, 'utf-8').catch(() => '')
+  if (markdown) return { markdown, seeded: false }
+
+  const seedResult = await seedVaultNoteFromTemplate(relativePath, templateName)
+  if (!seedResult.seeded) return { markdown: '', seeded: false, seedResult }
+
+  markdown = await readFile(filePath, 'utf-8').catch(() => '')
+  return {
+    markdown,
+    seeded: Boolean(markdown),
+    seedResult,
+  }
+}
+
+async function runObsidianPostPublishRefresh(pathToOpen = 'index.md') {
+  const targetPath = normalizeVaultRelativePath(pathToOpen) || 'index.md'
+  if (!OBSIDIAN_POST_PUBLISH_OPEN_ENABLED || !isObsidianCliEnabled()) {
+    return { engine: 'legacy', opened: false, path: targetPath }
+  }
+
+  const ready = await ensureObsidianReady({
+    autoLaunch: true,
+    readyTimeoutMs: 3000,
+    probeTimeoutMs: 1000,
+  })
+  if (!ready) {
+    return { engine: 'legacy', opened: false, path: targetPath, reason: 'obsidian-not-ready' }
+  }
+
+  try {
+    await runObsidianCli(['open', `path=${targetPath}`], {
+      ensureReady: false,
+      autoLaunch: false,
+      timeoutMs: 4500,
+    })
+    return { engine: 'obsidian-cli', opened: true, path: targetPath }
+  } catch {
+    return { engine: 'obsidian-cli', opened: false, path: targetPath, reason: 'open-failed' }
+  }
 }
 
 function createEmptyPromotionState() {
@@ -1040,6 +1128,57 @@ export async function ensureVaultScaffold() {
   )
 
   return paths
+}
+
+export async function createVaultNoteFromTemplate({ path: relativePath = '', template = '' } = {}) {
+  const normalizedPath = normalizeVaultRelativePath(relativePath)
+  if (!normalizedPath || normalizedPath.includes('..')) {
+    throw new Error('Invalid vault path')
+  }
+
+  const paths = await ensureVaultScaffold()
+  const templateName = String(template || resolveGeneratedNoteTemplateName(normalizedPath)).trim()
+  if (!templateName) throw new Error('template 必填')
+
+  const absolutePath = path.join(paths.root, normalizedPath)
+  const existing = await readFile(absolutePath, 'utf-8').catch(() => '')
+  if (existing) {
+    return {
+      engine: 'legacy',
+      created: false,
+      path: normalizedPath,
+      template: templateName,
+      reason: 'already-exists',
+    }
+  }
+
+  const seeded = await seedVaultNoteFromTemplate(normalizedPath, templateName)
+  if (seeded.seeded) {
+    return {
+      engine: seeded.engine,
+      created: true,
+      path: normalizedPath,
+      template: templateName,
+      mode: 'obsidian-cli',
+    }
+  }
+
+  const fallbackTemplatePath = path.join(paths.templatesDir, `${templateName}.md`)
+  const fallbackTemplateContent = await readFile(fallbackTemplatePath, 'utf-8').catch(() => '')
+  const fallbackTitle = path.posix.basename(normalizedPath, '.md').replace(/[-_]+/g, ' ').trim() || 'Untitled'
+  await mkdir(path.dirname(absolutePath), { recursive: true })
+  await writeFile(
+    absolutePath,
+    fallbackTemplateContent || `# ${fallbackTitle}\n\n`,
+    'utf-8',
+  )
+  return {
+    engine: 'legacy',
+    created: true,
+    path: normalizedPath,
+    template: templateName,
+    mode: 'filesystem-fallback',
+  }
 }
 
 function buildSessionFileName(session) {
@@ -3850,18 +3989,14 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
   for (const session of list) {
     const fileName = buildSessionFileName(session)
     expectedFileNames.add(fileName)
+    const relativePath = `sources/${fileName}`
     const filePath = path.join(paths.sourcesDir, fileName)
     const existingName = existingBySessionId.get(String(session?.id || '').trim())
     if (existingName && existingName !== fileName) {
       await unlink(path.join(paths.sourcesDir, existingName)).catch(() => {})
     }
-    let manualNotes = '-'
-
-    try {
-      manualNotes = extractManualNotes(await readFile(filePath, 'utf-8'))
-    } catch {
-      manualNotes = '-'
-    }
+    const existingMarkdownResult = await readExistingMarkdownWithTemplateSeed(relativePath, filePath, 'Source Conversation')
+    const manualNotes = extractManualNotes(existingMarkdownResult.markdown)
 
     const markdown = renderSessionMarkdown(session, manualNotes, maxMessages, getPublishedConceptsForSession(session, conceptCatalog))
     await writeFile(filePath, markdown, 'utf-8')
@@ -3873,7 +4008,7 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
       messageCount: Array.isArray(session?.messages) ? session.messages.length : 0,
       updatedAt: String(session?.updatedAt || ''),
       fileName,
-      relativePath: `sources/${fileName}`,
+      relativePath,
     }
     published.push(publishedItem)
     if (typeof options.onSessionPublished === 'function') {
@@ -3903,6 +4038,7 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
     action: 'publish-sessions',
     published,
   })
+  const obsidianPostPublish = await runObsidianPostPublishRefresh('index.md')
 
   return {
     vaultDir: paths.root,
@@ -3915,6 +4051,7 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
     promotionStats: indexResult.promotionStats || null,
     lintStats: indexResult.lintStats || null,
     propertySync,
+    obsidianPostPublish,
   }
 }
 
@@ -4278,7 +4415,8 @@ export async function rebuildIssuePages(sourceEvidences = [], options = {}) {
   for (const issue of issues) {
     const relativePath = buildIssueRelativePath(issue.slug)
     const filePath = path.join(paths.root, relativePath)
-    const existingMarkdown = await readFile(filePath, 'utf-8').catch(() => '')
+    const existingMarkdownResult = await readExistingMarkdownWithTemplateSeed(relativePath, filePath, 'Issue Note')
+    const existingMarkdown = existingMarkdownResult.markdown
     const manualNotes = extractManualNotes(existingMarkdown)
     const manualApproval = isApprovedPromotionRecord(promotionState.issues[issue.slug]) ? promotionState.issues[issue.slug] : null
     const issueStatus = issue.evidenceCount <= 1 && !manualApproval ? 'draft' : 'active'
@@ -4410,7 +4548,8 @@ export async function rebuildPatternPages(sourceEvidences = [], options = {}) {
   for (const pattern of patterns) {
     const relativePath = buildPatternRelativePath(pattern.slug)
     const filePath = path.join(paths.root, relativePath)
-    const existingMarkdown = await readFile(filePath, 'utf-8').catch(() => '')
+    const existingMarkdownResult = await readExistingMarkdownWithTemplateSeed(relativePath, filePath, 'Coding Pattern')
+    const existingMarkdown = existingMarkdownResult.markdown
     const manualNotes = extractManualNotes(existingMarkdown)
     const manualApproval = isApprovedPromotionRecord(promotionState.patterns[pattern.slug]) ? promotionState.patterns[pattern.slug] : null
     const lines = [
@@ -4549,7 +4688,8 @@ export async function rebuildProjectPages(sourceEvidences = [], options = {}) {
   for (const project of projects) {
     const relativePath = buildProjectRelativePath(project.key)
     const filePath = path.join(paths.root, relativePath)
-    const existingMarkdown = await readFile(filePath, 'utf-8').catch(() => '')
+    const existingMarkdownResult = await readExistingMarkdownWithTemplateSeed(relativePath, filePath, 'Project Hub')
+    const existingMarkdown = existingMarkdownResult.markdown
     const openQuestions = extractProtectedMarkdownSection(existingMarkdown, 'Open Questions', '-')
     const manualNotes = extractManualNotes(existingMarkdown)
     const lines = [
@@ -4678,8 +4818,10 @@ export async function rebuildConceptPages(entries = [], options = {}) {
       ...item.concept,
       kind: inferConceptKind(item?.concept?.slug || '', new Set(), ''),
     }
-    const filePath = path.join(paths.root, buildConceptRelativePath(concept))
-    const existingMarkdown = await readFile(filePath, 'utf-8').catch(() => '')
+    const relativePath = buildConceptRelativePath(concept)
+    const filePath = path.join(paths.root, relativePath)
+    const existingMarkdownResult = await readExistingMarkdownWithTemplateSeed(relativePath, filePath, 'Concept Draft')
+    const existingMarkdown = existingMarkdownResult.markdown
     const entryDigests = await buildConceptEntryDigests(
       item.entries.slice().sort((a, b) => +new Date(b.updatedAt || 0) - +new Date(a.updatedAt || 0)),
     )
@@ -6085,7 +6227,8 @@ export async function rebuildSynthesisPages(sourceEvidences = []) {
     if (!targetPath) continue
 
     const filePath = path.join(paths.root, targetPath)
-    const existingMarkdown = await readFile(filePath, 'utf-8').catch(() => '')
+    const existingMarkdownResult = await readExistingMarkdownWithTemplateSeed(targetPath, filePath, 'Synthesis Note')
+    const existingMarkdown = existingMarkdownResult.markdown
     const manualNotes = extractManualNotes(existingMarkdown)
     const evidenceItems = dedupeList(Array.isArray(record.evidenceItems) ? record.evidenceItems : [], 12)
       .map((item) => normalizeVaultRelativePath(item))

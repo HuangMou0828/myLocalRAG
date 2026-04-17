@@ -98,3 +98,7 @@ node scripts/wiki-vault.mjs refresh-published
 
 - Add asset publishing or external image-host URL rewriting.
 - Add explicit publish history and diff preview for Vault runs.
+
+## Related Docs
+
+- [Obsidian CLI API（M3）](./obsidian-cli-api.md)

@@ -34,7 +34,7 @@ import { askModel } from './lib/ask-model.mjs'
 import { buildEffectiveModelSettings, buildModelCapabilityList } from './lib/model-settings.mjs'
 import { generateGroundedAnswer, rewriteRetrieveQuery } from './lib/rag.mjs'
 import { isObsidianCliEnabled, runObsidianCliJson } from './lib/obsidian-cli.mjs'
-import { applyPromotionCandidate, buildPromotionCandidatePreview, buildPromotionQueue, buildWikiVaultSyncPreview, cleanSynthesisEvidenceItems, decidePromotionCandidate, ensureVaultScaffold, getVaultPaths, lintWikiVault, publishSessionsToVault, rebuildVaultIndex } from './lib/wiki-vault.mjs'
+import { applyPromotionCandidate, buildPromotionCandidatePreview, buildPromotionQueue, buildWikiVaultSyncPreview, cleanSynthesisEvidenceItems, createVaultNoteFromTemplate, decidePromotionCandidate, ensureVaultScaffold, getVaultPaths, lintWikiVault, publishSessionsToVault, rebuildVaultIndex } from './lib/wiki-vault.mjs'
 import { importOpenClawKnowledge, previewOpenClawKnowledge } from '../scripts/openclaw-knowledge.mjs'
 import {
   createBugInboxInDb,
@@ -2741,6 +2741,7 @@ function toWikiVaultSyncJobPayload(job) {
     skippedConceptCount: Math.max(0, Number(job.skippedConceptCount || 0)),
     reusedLlmConceptCount: Math.max(0, Number(job.reusedLlmConceptCount || 0)),
     reusedFallbackConceptCount: Math.max(0, Number(job.reusedFallbackConceptCount || 0)),
+    obsidianPostPublish: job.obsidianPostPublish || null,
     progress: totalSteps ? Number((processedSteps / totalSteps).toFixed(4)) : (job.status === 'completed' ? 1 : 0),
     statusText: String(job.statusText || ''),
     error: job.error || null,
@@ -2805,6 +2806,7 @@ async function runWikiVaultSyncJob(job, { sessions = [] } = {}) {
     job.skippedConceptCount = Number(conceptStats.skippedConceptCount || 0)
     job.reusedLlmConceptCount = Number(conceptStats.reusedLlmConceptCount || 0)
     job.reusedFallbackConceptCount = Number(conceptStats.reusedFallbackConceptCount || 0)
+    job.obsidianPostPublish = result?.obsidianPostPublish || null
     job.lastRun = lastRun
     job.statusText = job.syncMode === 'publish-with-summary'
       ? `发布完成，写入 ${job.publishedCount} 条 source，LLM 汇总 ${job.llmConceptCount} 个 concept`
@@ -3627,6 +3629,7 @@ const server = http.createServer(async (req, res) => {
         published: result.published,
         conceptStats,
         propertySync: result.propertySync || null,
+        obsidianPostPublish: result.obsidianPostPublish || null,
         promotionStats: result.promotionStats || null,
         lintStats: result.lintStats || null,
         lastRun,
@@ -3766,6 +3769,27 @@ const server = http.createServer(async (req, res) => {
           : undefined,
         results,
       })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/wiki-vault/create-from-template') {
+      const payload = await readBody(req).catch(() => ({}))
+      const relativePath = normalizeWikiRelativePath(payload?.path || payload?.relativePath || '')
+      if (!relativePath) return send(res, 400, { error: 'path 必填' })
+      const template = normalizeString(payload?.template || '')
+      try {
+        const result = await createVaultNoteFromTemplate({
+          path: relativePath,
+          template,
+        })
+        return send(res, 200, {
+          ok: true,
+          ...result,
+        })
+      } catch (error) {
+        return send(res, 400, {
+          error: String(error?.message || error || 'create-from-template failed'),
+        })
+      }
     }
 
     if (req.method === 'GET' && url.pathname === '/api/wiki-vault/note') {

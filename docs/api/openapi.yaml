@@ -116,6 +116,150 @@ paths:
                 type: object
                 additionalProperties: true
 
+  /api/wiki-vault/publish:
+    post:
+      tags: [Wiki]
+      summary: Publish sessions into Obsidian-facing vault pages
+      description: |
+        触发 source/concept 等页面发布流程。
+        发布完成后会返回 `obsidianPostPublish`，用于标记是否已触发 `open path=index.md` 的 post-hook。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                  description: 指定 provider；传 `all` 或空表示全量。
+                sessionId:
+                  type: string
+                sessionIds:
+                  type: array
+                  items:
+                    type: string
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 5000
+                syncMode:
+                  type: string
+                  enum: [publish-only, publish-with-summary]
+      responses:
+        '200':
+          description: Publish result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, vaultDir, publishedCount, published]
+                properties:
+                  ok:
+                    type: boolean
+                  vaultDir:
+                    type: string
+                  publishedCount:
+                    type: integer
+                  published:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title: { type: string }
+                        provider: { type: string }
+                        sessionId: { type: string }
+                        messageCount: { type: integer }
+                        updatedAt: { type: string }
+                        fileName: { type: string }
+                        relativePath: { type: string }
+                  conceptStats:
+                    type: object
+                    additionalProperties: true
+                  propertySync:
+                    type: object
+                    additionalProperties: true
+                    nullable: true
+                  obsidianPostPublish:
+                    type: object
+                    nullable: true
+                    description: Obsidian post-hook execution result (`open path=index.md`)
+                    properties:
+                      engine:
+                        type: string
+                        example: obsidian-cli
+                      opened:
+                        type: boolean
+                      path:
+                        type: string
+                        example: index.md
+                      reason:
+                        type: string
+                  promotionStats:
+                    type: object
+                    additionalProperties: true
+                    nullable: true
+                  lintStats:
+                    type: object
+                    additionalProperties: true
+                    nullable: true
+                  lastRun:
+                    type: object
+                    additionalProperties: true
+                    nullable: true
+
+  /api/wiki-vault/create-from-template:
+    post:
+      tags: [Wiki]
+      summary: Create a vault note from an Obsidian template
+      description: |
+        通过 Obsidian CLI `create template=<name>` 创建新页面。
+        若 CLI 不可用，会回退到文件系统模板复制。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+                  description: vault 内相对路径，例如 `concepts/my-topic.md`
+                relativePath:
+                  type: string
+                  description: `path` 的别名字段
+                template:
+                  type: string
+                  description: 模板名，例如 `Concept Draft`
+      responses:
+        '200':
+          description: Create result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, engine, created, path, template]
+                properties:
+                  ok:
+                    type: boolean
+                  engine:
+                    type: string
+                    example: obsidian-cli
+                  created:
+                    type: boolean
+                  path:
+                    type: string
+                  template:
+                    type: string
+                  mode:
+                    type: string
+                    enum: [obsidian-cli, filesystem-fallback]
+                  reason:
+                    type: string
+        '400':
+          $ref: '#/components/responses/Error400'
+
   /api/wiki-vault/search:
     post:
       tags: [Wiki]

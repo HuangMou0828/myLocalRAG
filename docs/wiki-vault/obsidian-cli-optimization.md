@@ -258,6 +258,18 @@ obsidian vault=vault base:query file=sources-index view="By Provider" format=jso
 | P2 | `deadends` + `wordcount` 新 lint 维度 | 新能力 | 更全面的健康检查 | 小 |
 | P2 | `outline` 验证页面结构 | 新能力 | 发布质量保障 | 小 |
 | P2 | `backlinks` 替换 inboundCounts | 替换 | 简化 lintWikiVault | 小 |
+
+---
+
+## 实施进展（2026-04-17）
+
+- M1：已完成（`unresolved` / `orphans` 已接入 lint）。
+- M2：已完成（`search` / `search:context` 已接入 `/api/wiki-vault/search`）。
+- M3：进行中，已完成以下子项：
+  - `append`：已替换 log 全量读写。
+  - `property:set`：已接入发布后属性同步。
+  - `create template=<name>`：已接入模板创建能力（新接口：`POST /api/wiki-vault/create-from-template`）。
+  - 发布后索引刷新：已接入 `open path=index.md` post-hook，并在 `/api/wiki-vault/publish` 返回 `obsidianPostPublish` 状态。
 | P3 | `create template=` 替换 Markdown 拼接 | 替换 | 模板解耦 | 大 |
 | P3 | `base:query` 动态 index | 新能力 | 需先建 Bases 视图 | 中 |
 
