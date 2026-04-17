@@ -5344,6 +5344,87 @@ async function loadPromotionQueueTaskRefFromMarkdown(paths, token = '') {
   return `${queueRelativePath}:${Number(state.line || 0)}`
 }
 
+async function markPromotionQueueTaskDoneFallback(paths, options = {}) {
+  const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
+  const token = String(options?.token || '').trim()
+  const rawRef = normalizePromotionQueueTaskRef(options?.ref, queueRelativePath)
+  if (!token && !rawRef) {
+    return {
+      engine: 'markdown-fallback',
+      done: false,
+      ref: '',
+      reason: 'fallback-target-missing',
+    }
+  }
+
+  const markdown = await readFile(paths.promotionQueue, 'utf-8').catch(() => '')
+  if (!markdown) {
+    return {
+      engine: 'markdown-fallback',
+      done: false,
+      ref: '',
+      reason: 'queue-markdown-missing',
+    }
+  }
+
+  const lines = String(markdown || '').split(/\r?\n/g)
+  let targetLine = -1
+
+  if (rawRef) {
+    const lineNumber = Number(String(rawRef).split(':').at(-1) || 0)
+    if (lineNumber > 0 && lineNumber <= lines.length) {
+      const candidate = String(lines[lineNumber - 1] || '')
+      if (token) {
+        if (candidate.includes(token)) targetLine = lineNumber - 1
+      } else {
+        targetLine = lineNumber - 1
+      }
+    }
+  }
+
+  if (targetLine < 0 && token) {
+    targetLine = lines.findIndex((line) => String(line || '').includes(token))
+  }
+
+  if (targetLine < 0) {
+    return {
+      engine: 'markdown-fallback',
+      done: false,
+      ref: rawRef || '',
+      reason: 'fallback-target-not-found',
+    }
+  }
+
+  const line = String(lines[targetLine] || '')
+  const taskMatch = line.match(/^(\s*-\s*\[)([ xX])(\]\s+.*)$/)
+  if (!taskMatch) {
+    return {
+      engine: 'markdown-fallback',
+      done: false,
+      ref: `${queueRelativePath}:${targetLine + 1}`,
+      reason: 'fallback-line-not-task',
+    }
+  }
+
+  if (String(taskMatch[2] || '').toLowerCase() === 'x') {
+    return {
+      engine: 'markdown-fallback',
+      done: true,
+      ref: `${queueRelativePath}:${targetLine + 1}`,
+      mode: 'already-checked',
+    }
+  }
+
+  lines[targetLine] = `${taskMatch[1]}x${taskMatch[3]}`
+  await writeFile(paths.promotionQueue, `${lines.join('\n')}\n`, 'utf-8')
+  return {
+    engine: 'markdown-fallback',
+    done: true,
+    ref: `${queueRelativePath}:${targetLine + 1}`,
+    mode: 'token-mark',
+  }
+}
+
 async function markPromotionQueueTaskDone(payload = {}) {
   if (!isObsidianCliEnabled()) return { engine: 'legacy', done: false }
   if (String(payload?.decision || '').trim() === 'revoke') return { engine: 'obsidian-cli', done: false, reason: 'revoke-skipped' }
@@ -5369,6 +5450,16 @@ async function markPromotionQueueTaskDone(payload = {}) {
   }
   const refs = dedupeList([payloadRef, tokenTodoRef, tokenMarkdownRef], 3).filter(Boolean)
   if (!refs.length) {
+    const fallback = await markPromotionQueueTaskDoneFallback(paths, {
+      token,
+      ref: payloadRef || tokenMarkdownRef || '',
+    }).catch(() => null)
+    if (fallback?.done) {
+      return {
+        ...fallback,
+        token,
+      }
+    }
     return {
       engine: 'obsidian-cli',
       done: false,
@@ -5394,6 +5485,16 @@ async function markPromotionQueueTaskDone(payload = {}) {
       }
     } catch {
       // Try the next ref candidate. Obsidian task indexing can lag right after queue rewrites.
+    }
+  }
+  const fallback = await markPromotionQueueTaskDoneFallback(paths, {
+    token,
+    ref: refs[0] || payloadRef || tokenMarkdownRef || '',
+  }).catch(() => null)
+  if (fallback?.done) {
+    return {
+      ...fallback,
+      token,
     }
   }
   return {
