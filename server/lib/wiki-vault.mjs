@@ -5191,6 +5191,17 @@ function normalizePromotionQueueTaskRef(value = '', queueRelativePath = '') {
   return `${file}:${line}`
 }
 
+async function loadPromotionQueueTaskRefFromMarkdown(paths, token = '') {
+  const normalizedToken = String(token || '').trim()
+  if (!normalizedToken) return ''
+  const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
+  const existingMarkdown = await readFile(paths.promotionQueue, 'utf-8').catch(() => '')
+  const stateByToken = parsePromotionQueueTaskStatesFromMarkdown(existingMarkdown)
+  const state = stateByToken.get(normalizedToken)
+  if (!state?.line) return ''
+  return `${queueRelativePath}:${Number(state.line || 0)}`
+}
+
 async function markPromotionQueueTaskDone(payload = {}) {
   if (!isObsidianCliEnabled()) return { engine: 'legacy', done: false }
   if (String(payload?.decision || '').trim() === 'revoke') return { engine: 'obsidian-cli', done: false, reason: 'revoke-skipped' }
@@ -5198,19 +5209,32 @@ async function markPromotionQueueTaskDone(payload = {}) {
   const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
   const payloadRef = normalizePromotionQueueTaskRef(payload?.taskRef, queueRelativePath)
   const token = buildPromotionQueueTaskToken(payload)
-  let tokenRef = ''
-  if (!payloadRef && token) {
-    const refsByToken = await loadPromotionQueueTaskOpenRefs(paths, {
-      ensureReady: true,
-      autoLaunch: true,
-      timeoutMs: 4200,
-      readyTimeoutMs: 5000,
-      probeTimeoutMs: 1200,
-    }).catch(() => new Map())
-    tokenRef = String(refsByToken.get(token) || '').trim()
+  let tokenTodoRef = ''
+  let tokenMarkdownRef = ''
+  if (token) {
+    const [refsByToken, markdownRef] = await Promise.all([
+      loadPromotionQueueTaskOpenRefs(paths, {
+        ensureReady: true,
+        autoLaunch: true,
+        timeoutMs: 4200,
+        readyTimeoutMs: 5000,
+        probeTimeoutMs: 1200,
+      }).catch(() => new Map()),
+      loadPromotionQueueTaskRefFromMarkdown(paths, token).catch(() => ''),
+    ])
+    tokenTodoRef = String(refsByToken.get(token) || '').trim()
+    tokenMarkdownRef = normalizePromotionQueueTaskRef(markdownRef, queueRelativePath)
   }
-  const refs = dedupeList([payloadRef, tokenRef], 2).filter(Boolean)
-  if (!refs.length) return { engine: 'obsidian-cli', done: false, token, ref: payloadRef || tokenRef }
+  const refs = dedupeList([payloadRef, tokenTodoRef, tokenMarkdownRef], 3).filter(Boolean)
+  if (!refs.length) {
+    return {
+      engine: 'obsidian-cli',
+      done: false,
+      token,
+      ref: payloadRef || tokenTodoRef || tokenMarkdownRef,
+      reason: 'task-ref-missing',
+    }
+  }
   for (const ref of refs) {
     try {
       await runObsidianCli(['task', 'done', `ref=${ref}`], {
@@ -5234,7 +5258,7 @@ async function markPromotionQueueTaskDone(payload = {}) {
     engine: 'obsidian-cli',
     done: false,
     token,
-    ref: refs[0] || '',
+    ref: refs[0] || payloadRef || tokenTodoRef || tokenMarkdownRef || '',
     error: 'task-done-failed',
   }
 }

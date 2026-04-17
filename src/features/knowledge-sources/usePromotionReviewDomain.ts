@@ -109,7 +109,7 @@ export function usePromotionReviewDomain(options: UsePromotionReviewDomainOption
     if (!itemKey || promotionApplyingKey.value) return
     promotionApplyingKey.value = itemKey
     try {
-      await options.wikiService.decidePromotion({
+      const decisionResult = await options.wikiService.decidePromotion({
         decision,
         kind: item.kind,
         title: item.title,
@@ -144,6 +144,14 @@ export function usePromotionReviewDomain(options: UsePromotionReviewDomainOption
         options.notify('已驳回自动候选', 'success')
       } else {
         options.notify('已撤销人工确认，候选会回到自动判断态', 'success')
+      }
+      const taskSync = decisionResult?.taskSync
+      if (
+        decision !== 'revoke'
+        && String(taskSync?.engine || '') === 'obsidian-cli'
+        && taskSync?.done === false
+      ) {
+        options.notify('候选已处理，但 Obsidian 任务未自动勾选，可在 promotion-queue 手动确认一次。', 'warning')
       }
     } catch (error) {
       const fallbackMessage = decision === 'approve'
