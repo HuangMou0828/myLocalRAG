@@ -139,6 +139,77 @@ function extractBrokenTarget(detail: unknown) {
   return String(match?.[1] || '').trim()
 }
 
+const WIKI_SEARCH_SPACES = new Set([
+  'root',
+  'projects',
+  'patterns',
+  'issues',
+  'syntheses',
+  'concepts',
+  'sources',
+  'providers',
+  'entities',
+  'templates',
+  'inbox',
+])
+
+function normalizeSearchSpace(value: unknown) {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (!normalized) return ''
+  if (normalized === 'project') return 'projects'
+  if (normalized === 'pattern') return 'patterns'
+  if (normalized === 'issue') return 'issues'
+  if (normalized === 'synthesis') return 'syntheses'
+  if (normalized === 'concept') return 'concepts'
+  if (normalized === 'source') return 'sources'
+  if (normalized === 'provider') return 'providers'
+  if (normalized === 'entity') return 'entities'
+  if (normalized === 'template') return 'templates'
+  return WIKI_SEARCH_SPACES.has(normalized) ? normalized : ''
+}
+
+function normalizeSearchSpaces(values: unknown) {
+  const list = Array.isArray(values) ? values : [values]
+  const result: string[] = []
+  const seen = new Set<string>()
+  for (const item of list) {
+    const normalized = normalizeSearchSpace(item)
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    result.push(normalized)
+  }
+  return result
+}
+
+function inferSearchSpacesFromBrokenTarget(target: unknown) {
+  const normalized = normalizeWikiLinkTarget(target).replace(/\.md$/i, '')
+  if (!normalized) return []
+  const [head] = normalized.split('/').filter(Boolean)
+  const inferred = normalizeSearchSpace(head || 'root')
+  return inferred ? [inferred] : []
+}
+
+function scoreHealthSuggestionCandidate(
+  result: WikiSearchResult,
+  context: { targetPath?: string; targetLabel?: string; preferredSpaces?: string[] },
+) {
+  let rankScore = Number(result?.score || 0)
+  const targetPath = normalizeWikiLinkTarget(context?.targetPath || '')
+  const resultPath = normalizeWikiLinkTarget(result?.path || '')
+  const targetLabel = String(context?.targetLabel || '').trim().toLowerCase()
+  const resultBase = basenameWithoutMarkdown(result?.path || '').toLowerCase()
+  const resultTitle = String(result?.title || '').trim().toLowerCase()
+  const preferredSpaces = normalizeSearchSpaces(context?.preferredSpaces || [])
+  const resultSpace = normalizeSearchSpace(result?.space || '')
+
+  if (targetPath && resultPath && resultPath === targetPath) rankScore += 1200
+  if (targetLabel && resultBase === targetLabel) rankScore += 520
+  if (targetLabel && resultTitle.includes(targetLabel)) rankScore += 180
+  if (preferredSpaces.length && resultSpace && preferredSpaces.includes(resultSpace)) rankScore += 260
+
+  return rankScore
+}
+
 export function useWikiHealthDomain(options: UseWikiHealthDomainOptions) {
   const healthLoading = ref(false)
   const wikiHealth = ref<Awaited<ReturnType<WikiVaultApi['fetchLint']>> | null>(null)
@@ -346,6 +417,8 @@ export function useWikiHealthDomain(options: UseWikiHealthDomainOptions) {
     description,
     query,
     spaces = [],
+    fallbackToDefaultSpaces = false,
+    rankingContext = {},
     hintBuilder,
   }: {
     item: HealthFinding | null | undefined
@@ -354,6 +427,12 @@ export function useWikiHealthDomain(options: UseWikiHealthDomainOptions) {
     description: string
     query: string
     spaces?: string[]
+    fallbackToDefaultSpaces?: boolean
+    rankingContext?: {
+      targetPath?: string
+      targetLabel?: string
+      preferredSpaces?: string[]
+    }
     hintBuilder: (result: WikiSearchResult, index: number) => string
   }) {
     const findingKey = getHealthFindingKey(item)
@@ -367,18 +446,32 @@ export function useWikiHealthDomain(options: UseWikiHealthDomainOptions) {
     healthSuggestionDescription.value = description
     healthSuggestionQuery.value = normalizedQuery
     try {
-      const response = await options.wikiService.search({
-        query: normalizedQuery,
-        topK: 6,
-        spaces: Array.isArray(spaces) ? spaces : [],
-      })
-      healthSuggestionResults.value = (Array.isArray(response?.results) ? response.results : [])
-        .filter((result) => String(result?.path || '').trim() !== String(item?.relativePath || '').trim())
-        .map((result, index) => ({
-          ...result,
-          hint: hintBuilder(result, index),
-        }))
-        .slice(0, 6)
+      const preferredSpaces = normalizeSearchSpaces(spaces)
+      async function querySuggestions(spaceScope: string[]) {
+        const response = await options.wikiService.search({
+          query: normalizedQuery,
+          topK: 8,
+          spaces: spaceScope,
+        })
+        const mapped = (Array.isArray(response?.results) ? response.results : [])
+          .filter((result) => String(result?.path || '').trim() !== String(item?.relativePath || '').trim())
+          .map((result, index) => ({
+            ...result,
+            hint: hintBuilder(result, index),
+            rankScore: scoreHealthSuggestionCandidate(result, {
+              ...rankingContext,
+              preferredSpaces: preferredSpaces.length ? preferredSpaces : rankingContext?.preferredSpaces,
+            }),
+          }))
+        mapped.sort((a, b) => Number(b.rankScore || 0) - Number(a.rankScore || 0))
+        return mapped.slice(0, 6)
+      }
+
+      let suggestions = await querySuggestions(preferredSpaces)
+      if (!suggestions.length && fallbackToDefaultSpaces && preferredSpaces.length) {
+        suggestions = await querySuggestions([])
+      }
+      healthSuggestionResults.value = suggestions
       if (!healthSuggestionResults.value.length) {
         healthSuggestionError.value = '没有找到足够接近的候选页面。'
       }
@@ -393,6 +486,8 @@ export function useWikiHealthDomain(options: UseWikiHealthDomainOptions) {
   async function loadHealthRepairSuggestions(item: HealthFinding | null | undefined) {
     const brokenTarget = extractBrokenTarget(item?.detail)
     const targetLabel = basenameWithoutMarkdown(brokenTarget)
+    const preferredSpaces = inferSearchSpacesFromBrokenTarget(brokenTarget)
+    const normalizedTarget = normalizeWikiLinkTarget(brokenTarget)
     const query = dedupeStrings([
       targetLabel,
       ...tokenizeForSearch(targetLabel),
@@ -406,9 +501,18 @@ export function useWikiHealthDomain(options: UseWikiHealthDomainOptions) {
         ? `根据缺失目标 "${brokenTarget}" 搜索最接近的现有页面，先确认最可能的替换路径。`
         : '根据当前 finding 的缺失目标搜索最接近的现有页面。',
       query,
+      spaces: preferredSpaces,
+      fallbackToDefaultSpaces: true,
+      rankingContext: {
+        targetPath: normalizedTarget,
+        targetLabel,
+        preferredSpaces,
+      },
       hintBuilder(result, index) {
         const resultBase = basenameWithoutMarkdown(result.path)
         if (targetLabel && resultBase === targetLabel) return '路径名完全接近，可优先检查'
+        if (normalizedTarget && normalizeWikiLinkTarget(result.path) === normalizedTarget) return '路径完全匹配，可直接替换'
+        if (preferredSpaces.length && preferredSpaces.includes(normalizeSearchSpace(result.space || ''))) return '同空间候选，优先核对'
         if (targetLabel && String(result.title || '').toLowerCase().includes(targetLabel.toLowerCase())) return '标题接近缺失目标'
         if (index === 0) return '搜索分最高，适合作为第一候选'
         return '可作为替换目标的备选页'

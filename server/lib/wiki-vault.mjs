@@ -1380,6 +1380,40 @@ function dedupeBrokenLinks(items = []) {
   return Array.from(unique.values())
 }
 
+function collectMissingProviderTargetsForLint(notes = [], noteByWikiPath = new Map()) {
+  const missing = new Set()
+  for (const note of Array.isArray(notes) ? notes : []) {
+    const outboundLinks = Array.isArray(note?.outboundLinks) ? note.outboundLinks : []
+    for (const target of outboundLinks) {
+      const normalizedTarget = toWikiPath(target)
+      if (!normalizedTarget || !normalizedTarget.startsWith('providers/')) continue
+      if (noteByWikiPath.has(normalizedTarget)) continue
+      if (normalizedTarget === 'providers/README.md') continue
+      missing.add(normalizedTarget)
+    }
+  }
+  return Array.from(missing)
+}
+
+async function runLintProviderHubCalibration(missingProviderTargets = []) {
+  const targets = Array.isArray(missingProviderTargets)
+    ? missingProviderTargets.map((item) => String(item || '').trim()).filter(Boolean)
+    : []
+  if (!targets.length) {
+    return { attempted: false, applied: false, targets: [] }
+  }
+  try {
+    const sourceEvidences = await loadPublishedSourceEvidences()
+    const promotionState = await loadPromotionState()
+    const knowledgeEvidences = await loadKnowledgePromotionEvidences({ writeEvidence: false })
+    const approvedKnowledgeEvidences = filterApprovedKnowledgeEvidences(knowledgeEvidences, promotionState)
+    await rebuildProviderPages([...sourceEvidences, ...approvedKnowledgeEvidences])
+    return { attempted: true, applied: true, targets }
+  } catch {
+    return { attempted: true, applied: false, targets }
+  }
+}
+
 async function loadObsidianLintSnapshot() {
   if (!isObsidianCliEnabled()) return null
   try {
@@ -6729,8 +6763,16 @@ async function loadLintNotes() {
 
 export async function lintWikiVault(options = {}) {
   const paths = await ensureVaultScaffold()
-  const notes = await loadLintNotes()
-  const noteByWikiPath = new Map(notes.map((item) => [item.wikiPath, item]))
+  let notes = await loadLintNotes()
+  let noteByWikiPath = new Map(notes.map((item) => [item.wikiPath, item]))
+  const missingProviderTargets = collectMissingProviderTargetsForLint(notes, noteByWikiPath)
+  if (missingProviderTargets.length) {
+    const calibration = await runLintProviderHubCalibration(missingProviderTargets)
+    if (calibration.applied) {
+      notes = await loadLintNotes()
+      noteByWikiPath = new Map(notes.map((item) => [item.wikiPath, item]))
+    }
+  }
   const inboundCounts = new Map(notes.map((item) => [item.wikiPath, 0]))
   const readerFirstInboundCounts = new Map(notes.map((item) => [item.wikiPath, 0]))
   const findings = []
