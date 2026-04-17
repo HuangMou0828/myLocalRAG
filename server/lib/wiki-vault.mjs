@@ -5179,42 +5179,63 @@ function attachPromotionQueueTaskMetadata(items = [], metadata = {}) {
   })
 }
 
+function normalizePromotionQueueTaskRef(value = '', queueRelativePath = '') {
+  const raw = String(value || '').trim()
+  const match = raw.match(/^(.+):(\d+)$/)
+  if (!match) return ''
+  const file = normalizeVaultRelativePath(match[1])
+  const line = Number(match[2] || 0)
+  if (!file || line <= 0) return ''
+  const queuePath = normalizeVaultRelativePath(queueRelativePath)
+  if (queuePath && file !== queuePath) return ''
+  return `${file}:${line}`
+}
+
 async function markPromotionQueueTaskDone(payload = {}) {
   if (!isObsidianCliEnabled()) return { engine: 'legacy', done: false }
   if (String(payload?.decision || '').trim() === 'revoke') return { engine: 'obsidian-cli', done: false, reason: 'revoke-skipped' }
   const paths = await ensureVaultScaffold()
-  const refsByToken = await loadPromotionQueueTaskOpenRefs(paths, {
-    ensureReady: true,
-    autoLaunch: true,
-    timeoutMs: 4200,
-    readyTimeoutMs: 5000,
-    probeTimeoutMs: 1200,
-  }).catch(() => new Map())
+  const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
+  const payloadRef = normalizePromotionQueueTaskRef(payload?.taskRef, queueRelativePath)
   const token = buildPromotionQueueTaskToken(payload)
-  const ref = token ? String(refsByToken.get(token) || '').trim() : ''
-  if (!token || !ref) return { engine: 'obsidian-cli', done: false, token, ref }
-  try {
-    await runObsidianCli(['task', 'done', `ref=${ref}`], {
+  let tokenRef = ''
+  if (!payloadRef && token) {
+    const refsByToken = await loadPromotionQueueTaskOpenRefs(paths, {
       ensureReady: true,
       autoLaunch: true,
-      timeoutMs: 5000,
+      timeoutMs: 4200,
       readyTimeoutMs: 5000,
       probeTimeoutMs: 1200,
-    })
-    return {
-      engine: 'obsidian-cli',
-      done: true,
-      token,
-      ref,
+    }).catch(() => new Map())
+    tokenRef = String(refsByToken.get(token) || '').trim()
+  }
+  const refs = dedupeList([payloadRef, tokenRef], 2).filter(Boolean)
+  if (!refs.length) return { engine: 'obsidian-cli', done: false, token, ref: payloadRef || tokenRef }
+  for (const ref of refs) {
+    try {
+      await runObsidianCli(['task', 'done', `ref=${ref}`], {
+        ensureReady: true,
+        autoLaunch: true,
+        timeoutMs: 5000,
+        readyTimeoutMs: 5000,
+        probeTimeoutMs: 1200,
+      })
+      return {
+        engine: 'obsidian-cli',
+        done: true,
+        token,
+        ref,
+      }
+    } catch {
+      // Try the next ref candidate. Obsidian task indexing can lag right after queue rewrites.
     }
-  } catch {
-    return {
-      engine: 'obsidian-cli',
-      done: false,
-      token,
-      ref,
-      error: 'task-done-failed',
-    }
+  }
+  return {
+    engine: 'obsidian-cli',
+    done: false,
+    token,
+    ref: refs[0] || '',
+    error: 'task-done-failed',
   }
 }
 
@@ -6317,6 +6338,7 @@ export async function decidePromotionCandidate(payload = {}) {
     title,
     currentPath: kind === 'issue-review' ? relativePath : '',
     targetPath: kind === 'issue-review' ? '' : relativePath,
+    taskRef: String(payload?.taskRef || '').trim(),
     decision,
   })
 

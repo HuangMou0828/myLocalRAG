@@ -13,6 +13,7 @@ type PromotionQueueItem = {
   evidenceItems: string[]
   sourceKind?: string
   sourceLabel?: string
+  taskRef?: string
   updatedAt?: string
   /** 原始采集条目 ID，用于 approve 后回写 promotionRef 链路 */
   sourceKnowledgeItemId?: string
@@ -117,6 +118,7 @@ export function usePromotionReviewDomain(options: UsePromotionReviewDomainOption
         segmentId: item.segmentId,
         sourceKind: item.sourceKind,
         sourceLabel: item.sourceLabel,
+        taskRef: item.taskRef,
         project: item.project,
         summary: item.summary,
         evidenceItems: Array.isArray(item.evidenceItems) ? item.evidenceItems : [],

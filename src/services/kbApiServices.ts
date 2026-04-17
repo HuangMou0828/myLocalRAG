@@ -758,6 +758,7 @@ export interface WikiVaultApi {
     segmentId?: string
     sourceKind?: string
     sourceLabel?: string
+    taskRef?: string
     question?: string
     project?: string
     summary?: string
@@ -797,6 +798,7 @@ export interface WikiVaultApi {
     segmentId?: string
     sourceKind?: string
     sourceLabel?: string
+    taskRef?: string
     question?: string
     project?: string
     summary?: string
