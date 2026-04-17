@@ -33,6 +33,7 @@ import { buildEffectiveFeishuProjectSettings, buildFeishuProjectSettingsView, me
 import { askModel } from './lib/ask-model.mjs'
 import { buildEffectiveModelSettings, buildModelCapabilityList } from './lib/model-settings.mjs'
 import { generateGroundedAnswer, rewriteRetrieveQuery } from './lib/rag.mjs'
+import { isObsidianCliEnabled, runObsidianCliJson } from './lib/obsidian-cli.mjs'
 import { applyPromotionCandidate, buildPromotionCandidatePreview, buildPromotionQueue, buildWikiVaultSyncPreview, cleanSynthesisEvidenceItems, decidePromotionCandidate, ensureVaultScaffold, getVaultPaths, lintWikiVault, publishSessionsToVault, rebuildVaultIndex } from './lib/wiki-vault.mjs'
 import { importOpenClawKnowledge, previewOpenClawKnowledge } from '../scripts/openclaw-knowledge.mjs'
 import {
@@ -3120,6 +3121,166 @@ function createWikiExcerpt(markdownText = '', query = '', maxChars = 220) {
   return `${start > 0 ? '...' : ''}${excerpt}${end < body.length ? '...' : ''}`
 }
 
+function normalizeObsidianSearchPath(value = '') {
+  const normalized = normalizeWikiRelativePath(
+    String(value || '')
+      .replace(/^vault\//i, '')
+      .replace(/#.*$/g, ''),
+  )
+  if (!normalized) return ''
+  return normalized.endsWith('.md') ? normalized : `${normalized}.md`
+}
+
+function pickObsidianSearchText(input = {}, keys = []) {
+  for (const key of keys) {
+    const value = String(input?.[key] || '').trim()
+    if (value) return value
+  }
+  return ''
+}
+
+function parseObsidianSearchResults(payload) {
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.results)
+      ? payload.results
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload?.matches)
+          ? payload.matches
+          : []
+  const parsed = []
+  for (const [index, item] of list.entries()) {
+    if (typeof item === 'string') {
+      const pathValue = normalizeObsidianSearchPath(item)
+      if (!pathValue) continue
+      parsed.push({
+        path: pathValue,
+        title: '',
+        summary: '',
+        excerpt: '',
+        score: Math.max(1, list.length - index),
+        matchedTerms: [],
+      })
+      continue
+    }
+    const pathValue = normalizeObsidianSearchPath(pickObsidianSearchText(item, ['path', 'file', 'filePath', 'relativePath', 'notePath', 'note']))
+    if (!pathValue) continue
+    const matchedTerms = Array.isArray(item?.matchedTerms)
+      ? item.matchedTerms.map((term) => String(term || '').trim()).filter(Boolean).slice(0, 8)
+      : []
+    parsed.push({
+      path: pathValue,
+      title: pickObsidianSearchText(item, ['title', 'name', 'heading']),
+      summary: pickObsidianSearchText(item, ['summary', 'description']),
+      excerpt: pickObsidianSearchText(item, ['excerpt', 'preview', 'snippet', 'context', 'match', 'text']),
+      score: Number(item?.score || item?.rank || item?.relevance || Math.max(1, list.length - index)),
+      matchedTerms,
+    })
+  }
+  return parsed
+}
+
+function parseObsidianContextMap(payload) {
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.results)
+      ? payload.results
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload?.matches)
+          ? payload.matches
+          : []
+  const contextByPath = new Map()
+  for (const item of list) {
+    const pathValue = normalizeObsidianSearchPath(
+      typeof item === 'string' ? item : pickObsidianSearchText(item, ['path', 'file', 'filePath', 'relativePath', 'notePath', 'note']),
+    )
+    if (!pathValue) continue
+    if (typeof item === 'string') continue
+    const excerpt = normalizeString([
+      pickObsidianSearchText(item, ['context', 'excerpt', 'preview', 'snippet', 'match', 'text']),
+      ...(Array.isArray(item?.lines) ? item.lines.map((line) => String(line || '').trim()) : []),
+    ].filter(Boolean).join('\n'))
+    if (!excerpt) continue
+    contextByPath.set(pathValue, excerpt)
+  }
+  return contextByPath
+}
+
+async function searchWikiVaultViaObsidianCli({ query = '', spaces = [], topK = 20, includeMarkdown = false } = {}) {
+  if (!isObsidianCliEnabled()) return null
+  const rawSearch = await runObsidianCliJson(['search', `query=${query}`, 'format=json'], {
+    ensureReady: false,
+    autoLaunch: false,
+    timeoutMs: 2200,
+  }).catch(() => null)
+  if (!rawSearch) return null
+
+  const parsed = parseObsidianSearchResults(rawSearch)
+  if (!parsed.length) {
+    return {
+      engine: 'obsidian-cli',
+      totalNotes: Number(rawSearch?.totalNotes || rawSearch?.total || 0),
+      totalMatched: 0,
+      results: [],
+    }
+  }
+
+  const rawContext = await runObsidianCliJson(['search:context', `query=${query}`, 'format=json'], {
+    ensureReady: false,
+    autoLaunch: false,
+    timeoutMs: 2600,
+  }).catch(() => null)
+  const contextByPath = rawContext ? parseObsidianContextMap(rawContext) : new Map()
+  const spaceSet = new Set(normalizeWikiSpaces(spaces))
+  const candidates = []
+  const seen = new Set()
+
+  for (const item of parsed) {
+    if (seen.has(item.path)) continue
+    const space = getWikiSpaceFromRelativePath(item.path)
+    if (spaceSet.size && !spaceSet.has(space)) continue
+    seen.add(item.path)
+    candidates.push(item)
+  }
+
+  candidates.sort((a, b) => Number(b.score || 0) - Number(a.score || 0))
+  const picked = candidates.slice(0, Math.max(1, topK))
+  const results = []
+  for (const item of picked) {
+    const note = await loadWikiNoteByRelativePath(item.path)
+    const title = item.title || note?.title || path.basename(item.path, '.md')
+    const summary = normalizeString(item.summary || note?.summary || '')
+    const excerpt = normalizeString(
+      contextByPath.get(item.path)
+      || item.excerpt
+      || (note ? createWikiExcerpt(note.markdown, query) : ''),
+    )
+    results.push({
+      path: item.path,
+      space: getWikiSpaceFromRelativePath(item.path),
+      audience: getWikiAudienceForPath(item.path),
+      title,
+      type: String(note?.type || ''),
+      project: String(note?.project || ''),
+      updatedAt: String(note?.updatedAt || ''),
+      score: Number(item.score || 0),
+      matchedTerms: Array.isArray(item.matchedTerms) ? item.matchedTerms : [],
+      summary,
+      excerpt,
+      markdown: includeMarkdown ? note?.markdown : undefined,
+    })
+  }
+
+  return {
+    engine: 'obsidian-cli',
+    totalNotes: Number(rawSearch?.totalNotes || rawSearch?.total || 0),
+    totalMatched: candidates.length,
+    results,
+  }
+}
+
 function buildWikiSearchScore(note, query = '') {
   const normalizedQuery = normalizeString(query).toLowerCase()
   if (!normalizedQuery) return { score: 0, matchedTerms: [] }
@@ -3465,6 +3626,7 @@ const server = http.createServer(async (req, res) => {
         publishedCount: result.published.length,
         published: result.published,
         conceptStats,
+        propertySync: result.propertySync || null,
         promotionStats: result.promotionStats || null,
         lintStats: result.lintStats || null,
         lastRun,
@@ -3534,6 +3696,31 @@ const server = http.createServer(async (req, res) => {
         openClawSync = await importOpenClawKnowledge({})
         await buildPromotionQueue({ writeReport: true })
       }
+      const cliResult = await searchWikiVaultViaObsidianCli({
+        query,
+        spaces,
+        topK,
+        includeMarkdown,
+      }).catch(() => null)
+
+      if (cliResult) {
+        return send(res, 200, {
+          query,
+          topK,
+          spaces,
+          engine: cliResult.engine,
+          totalNotes: Number(cliResult.totalNotes || 0),
+          totalMatched: Number(cliResult.totalMatched || 0),
+          openClawSync: openClawSync
+            ? {
+                root: openClawSync.root,
+                summary: openClawSync.summary,
+              }
+            : undefined,
+          results: Array.isArray(cliResult.results) ? cliResult.results : [],
+        })
+      }
+
       const notes = await collectWikiVaultNotes(spaces)
       const results = notes
         .map((note) => {
@@ -3568,6 +3755,7 @@ const server = http.createServer(async (req, res) => {
         query,
         topK,
         spaces,
+        engine: 'legacy',
         totalNotes: notes.length,
         totalMatched: results.length,
         openClawSync: openClawSync

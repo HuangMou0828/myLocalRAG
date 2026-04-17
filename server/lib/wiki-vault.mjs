@@ -2,6 +2,7 @@ import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises'
 import { createTwoFilesPatch } from 'diff'
+import { ensureObsidianReady, isObsidianCliEnabled, runObsidianCli, runObsidianCliJson } from './obsidian-cli.mjs'
 import { askModel } from './ask-model.mjs'
 import { listKnowledgeItemsInDb, loadModelSettingsInDb, patchKnowledgeItemMetaInDb } from './db.mjs'
 import { loadIndex } from './scanner.mjs'
@@ -1134,6 +1135,138 @@ function createBrokenWikiLinkFinding(item = {}) {
   })
 }
 
+function normalizeObsidianNotePath(value = '') {
+  const normalized = String(value || '')
+    .replace(/\\/g, '/')
+    .replace(/^\/+/g, '')
+    .replace(/^\.\//g, '')
+    .replace(/^vault\//i, '')
+    .replace(/#.*$/g, '')
+    .trim()
+  if (!normalized) return ''
+  return normalized.endsWith('.md') ? normalized : `${normalized}.md`
+}
+
+function pickFirstString(input = {}, keys = []) {
+  for (const key of keys) {
+    const value = String(input?.[key] || '').trim()
+    if (value) return value
+  }
+  return ''
+}
+
+function parseObsidianPayload(raw = '') {
+  const text = String(raw || '').trim()
+  if (!text) return []
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
+}
+
+function parseObsidianUnresolvedLinks(payload) {
+  const normalizedPayload = typeof payload === 'string' ? parseObsidianPayload(payload) : payload
+  const items = Array.isArray(normalizedPayload)
+    ? normalizedPayload
+    : Array.isArray(normalizedPayload?.results)
+      ? normalizedPayload.results
+      : Array.isArray(normalizedPayload?.items)
+        ? normalizedPayload.items
+        : []
+  if (!items.length && typeof normalizedPayload === 'string') {
+    return String(normalizedPayload || '')
+      .split(/\r?\n/g)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => ({ from: '', target: toWikiPath(normalizeObsidianNotePath(item)) }))
+      .filter((item) => item.target)
+  }
+  const links = []
+  for (const item of items) {
+    if (typeof item === 'string') {
+      const target = toWikiPath(normalizeObsidianNotePath(item))
+      if (target) links.push({ from: '', target })
+      continue
+    }
+    const fromPath = toWikiPath(normalizeObsidianNotePath(pickFirstString(item, ['from', 'source', 'origin', 'file', 'notePath'])))
+    const targetPath = toWikiPath(normalizeObsidianNotePath(pickFirstString(item, ['target', 'link', 'missing', 'unresolved', 'to', 'note', 'path'])))
+    if (!targetPath) continue
+    links.push({
+      from: fromPath,
+      target: targetPath,
+    })
+  }
+  return links
+}
+
+function parseObsidianOrphanNotes(payload) {
+  const normalizedPayload = typeof payload === 'string' ? parseObsidianPayload(payload) : payload
+  const items = Array.isArray(normalizedPayload)
+    ? normalizedPayload
+    : Array.isArray(normalizedPayload?.results)
+      ? normalizedPayload.results
+      : Array.isArray(normalizedPayload?.items)
+        ? normalizedPayload.items
+        : []
+  const paths = new Set()
+  if (!items.length && typeof normalizedPayload === 'string') {
+    for (const line of String(normalizedPayload || '').split(/\r?\n/g)) {
+      const target = toWikiPath(normalizeObsidianNotePath(line))
+      if (target) paths.add(target)
+    }
+    return paths
+  }
+  for (const item of items) {
+    if (typeof item === 'string') {
+      const target = toWikiPath(normalizeObsidianNotePath(item))
+      if (target) paths.add(target)
+      continue
+    }
+    const target = toWikiPath(normalizeObsidianNotePath(pickFirstString(item, ['path', 'file', 'notePath', 'target', 'note', 'source'])))
+    if (target) paths.add(target)
+  }
+  return paths
+}
+
+function dedupeBrokenLinks(items = []) {
+  const unique = new Map()
+  for (const item of Array.isArray(items) ? items : []) {
+    const from = String(item?.from || '').trim()
+    const target = String(item?.target || '').trim()
+    if (!from || !target) continue
+    const key = `${from}::${target}`
+    if (!unique.has(key)) unique.set(key, item)
+  }
+  return Array.from(unique.values())
+}
+
+async function loadObsidianLintSnapshot() {
+  if (!isObsidianCliEnabled()) return null
+  try {
+    const [unresolvedResult, orphansResult] = await Promise.all([
+      runObsidianCli(['unresolved', 'format=json'], {
+        ensureReady: true,
+        autoLaunch: true,
+        timeoutMs: 5000,
+        readyTimeoutMs: 5000,
+      }),
+      runObsidianCli(['orphans', 'format=json'], {
+        ensureReady: true,
+        autoLaunch: true,
+        timeoutMs: 5000,
+        readyTimeoutMs: 5000,
+      }),
+    ])
+    return {
+      unresolved: parseObsidianUnresolvedLinks(unresolvedResult?.stdout || ''),
+      orphanPaths: parseObsidianOrphanNotes(orphansResult?.stdout || ''),
+    }
+  } catch {
+    return null
+  }
+}
+
 function isLintReaderFirstNote(note = {}) {
   const relativePath = String(note?.relativePath || '')
   if (!relativePath || /(^|\/)README\.md$/i.test(relativePath)) return false
@@ -1151,6 +1284,7 @@ function daysSinceIso(isoText = '') {
 
 function buildLintReportMarkdown(report = {}) {
   const generatedAt = String(report.generatedAt || new Date().toISOString())
+  const lintEngine = String(report.lintEngine || 'legacy')
   const summary = report.summary || {}
   const findings = Array.isArray(report.findings) ? report.findings : []
   const grouped = {
@@ -1162,6 +1296,7 @@ function buildLintReportMarkdown(report = {}) {
     '---',
     'type: "vault-lint-report"',
     `generatedAt: "${escapeYamlString(generatedAt)}"`,
+    `lintEngine: "${escapeYamlString(lintEngine)}"`,
     `totalFindings: ${Number(summary.totalFindings || 0)}`,
     `highCount: ${Number(summary.highCount || 0)}`,
     `mediumCount: ${Number(summary.mediumCount || 0)}`,
@@ -3759,6 +3894,7 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
     }
   }
 
+  const propertySync = await syncPublishedSessionPropertiesWithObsidian(published)
   const indexResult = await rebuildVaultIndex({
     conceptSummaryMode,
     onConceptProgress: options.onConceptProgress,
@@ -3778,6 +3914,7 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
     synthesisStats: indexResult.synthesisStats || null,
     promotionStats: indexResult.promotionStats || null,
     lintStats: indexResult.lintStats || null,
+    propertySync,
   }
 }
 
@@ -6100,9 +6237,12 @@ export async function lintWikiVault(options = {}) {
   const inboundCounts = new Map(notes.map((item) => [item.wikiPath, 0]))
   const readerFirstInboundCounts = new Map(notes.map((item) => [item.wikiPath, 0]))
   const findings = []
-  const brokenLinks = []
+  const legacyBrokenLinks = []
   const duplicateTitleGroups = []
   const orphans = []
+  let brokenLinks = []
+  let lintEngine = 'legacy'
+  const obsidianLintSnapshot = await loadObsidianLintSnapshot()
 
   for (const note of notes) {
     if (note.relativePath === 'log.md') continue
@@ -6110,7 +6250,7 @@ export async function lintWikiVault(options = {}) {
     for (const target of uniqueTargets) {
       if (!target || /(?:^|\/)\.\.\.(?:\/|$)/.test(target) || target === '...') continue
       if (!noteByWikiPath.has(target)) {
-        brokenLinks.push({ from: note.relativePath, target, title: note.title })
+        legacyBrokenLinks.push({ from: note.relativePath, target, title: note.title })
       } else if (target !== note.wikiPath) {
         inboundCounts.set(target, Number(inboundCounts.get(target) || 0) + 1)
         if (isLintReaderFirstNote(note)) {
@@ -6118,6 +6258,36 @@ export async function lintWikiVault(options = {}) {
         }
       }
     }
+  }
+
+  if (obsidianLintSnapshot) {
+    lintEngine = 'obsidian-cli'
+    const unresolved = Array.isArray(obsidianLintSnapshot.unresolved) ? obsidianLintSnapshot.unresolved : []
+    const unresolvedTargets = new Set(
+      unresolved
+        .map((item) => String(item?.target || '').trim().toLowerCase())
+        .filter(Boolean),
+    )
+    const unresolvedWithFrom = dedupeBrokenLinks(unresolved
+      .map((item) => {
+        if (!item?.from || !item?.target) return null
+        const source = noteByWikiPath.get(item.from)
+        return {
+          from: item.from,
+          target: item.target,
+          title: source?.title || '',
+        }
+      })
+      .filter(Boolean))
+    if (unresolvedWithFrom.length) {
+      brokenLinks = unresolvedWithFrom
+    } else if (unresolvedTargets.size) {
+      brokenLinks = dedupeBrokenLinks(legacyBrokenLinks.filter((item) => unresolvedTargets.has(String(item?.target || '').trim().toLowerCase())))
+    }
+  }
+
+  if (!brokenLinks.length) {
+    brokenLinks = dedupeBrokenLinks(legacyBrokenLinks)
   }
 
   if (brokenLinks.length) {
@@ -6154,7 +6324,11 @@ export async function lintWikiVault(options = {}) {
     if (!isReaderFirst) continue
 
     const inboundCount = Number(inboundCounts.get(note.wikiPath) || 0)
-    if (inboundCount === 0) {
+    const orphanedByObsidian = obsidianLintSnapshot?.orphanPaths instanceof Set
+      ? obsidianLintSnapshot.orphanPaths.has(note.wikiPath)
+      : null
+    const isOrphan = orphanedByObsidian === null ? inboundCount === 0 : orphanedByObsidian
+    if (isOrphan) {
       orphans.push(note.relativePath)
       findings.push(createLintFinding({
         severity: 'medium',
@@ -6310,6 +6484,7 @@ export async function lintWikiVault(options = {}) {
 
   const report = {
     generatedAt: new Date().toISOString(),
+    lintEngine,
     summary,
     brokenLinks,
     duplicateTitleGroups,
@@ -6327,14 +6502,8 @@ export async function lintWikiVault(options = {}) {
 
 export async function appendVaultLog({ action = 'publish', published = [] } = {}) {
   const paths = await ensureVaultScaffold()
-  const existing = await readFile(paths.log, 'utf-8').catch(() => '# Vault Log\n\n')
   const timestamp = formatIsoLocal(new Date().toISOString())
-  const lines = [
-    existing.trimEnd(),
-    '',
-    `## [${timestamp}] ${action}`,
-    '',
-  ]
+  const lines = [`## [${timestamp}] ${action}`, '']
 
   if (!Array.isArray(published) || !published.length) {
     lines.push('- No files published.')
@@ -6345,6 +6514,61 @@ export async function appendVaultLog({ action = 'publish', published = [] } = {}
     if (published.length > 30) lines.push(`- ...and ${published.length - 30} more`)
   }
 
-  lines.push('')
-  await writeFile(paths.log, lines.join('\n'), 'utf-8')
+  const content = `${lines.join('\n')}\n`
+  if (isObsidianCliEnabled()) {
+    try {
+      await runObsidianCli(['append', 'path=log.md', `content=${content}`], {
+        ensureReady: true,
+        autoLaunch: true,
+        timeoutMs: 6000,
+        readyTimeoutMs: 4000,
+      })
+      return
+    } catch {}
+  }
+
+  const existing = await readFile(paths.log, 'utf-8').catch(() => '# Vault Log\n\n')
+  const fallbackLines = [existing.trimEnd(), '', ...lines, '']
+  await writeFile(paths.log, fallbackLines.join('\n'), 'utf-8')
+}
+
+async function syncPublishedSessionPropertiesWithObsidian(published = []) {
+  if (!isObsidianCliEnabled()) return { engine: 'legacy', synced: 0 }
+  const items = (Array.isArray(published) ? published : [])
+    .map((item) => ({
+      path: String(item?.relativePath || '').trim(),
+      updatedAt: String(item?.updatedAt || '').trim(),
+    }))
+    .filter((item) => item.path.startsWith('sources/'))
+  if (!items.length) return { engine: 'obsidian-cli', synced: 0 }
+  const ready = await ensureObsidianReady({
+    autoLaunch: true,
+    readyTimeoutMs: 2500,
+    probeTimeoutMs: 900,
+  })
+  if (!ready) return { engine: 'legacy', synced: 0 }
+
+  let synced = 0
+  for (const item of items) {
+    try {
+      await runObsidianCli(['property:set', 'name=status', 'value=published', `path=${item.path}`], {
+        ensureReady: false,
+        autoLaunch: false,
+        timeoutMs: 4000,
+      })
+      if (item.updatedAt) {
+        await runObsidianCli(['property:set', 'name=updatedAt', `value=${item.updatedAt}`, `path=${item.path}`], {
+          ensureReady: false,
+          autoLaunch: false,
+          timeoutMs: 3000,
+        })
+      }
+      synced += 1
+    } catch {}
+  }
+
+  return {
+    engine: 'obsidian-cli',
+    synced,
+  }
 }
