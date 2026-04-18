@@ -20,9 +20,9 @@ Actions that require explicit approval:
 
 - Create or switch task branches.
 - Commit or create WIP snapshots.
-- Merge `main` into a task branch, or rebase a task branch on `main`.
-- Merge a task branch back to `main`.
+- Fast-forward `main` to a task branch.
 - Push branches, tags, or create/update pull requests.
+- Update the remote default HEAD (`git remote set-head`).
 - Include unrelated user changes in a commit.
 
 ## Baseline
@@ -38,7 +38,8 @@ Runtime data and local caches are intentionally ignored, including SQLite databa
 - Create a task branch before meaningful edits.
 - Use the `codex/` prefix for agent-driven work.
 - Prefer branch names like `codex/YYYYMMDD-short-task-name`.
-- Keep `main` as the integration branch.
+- Keep `main` as a stability anchor. `main` is only advanced by a fast-forward to a verified task branch at milestone or release boundaries, not by day-to-day merges.
+- Day-to-day task branches chain on top of the most recent completed task branch (not on `main`), so active work stays linear and avoids premature integration.
 - Do not work directly on `main` unless the change is a tiny documentation or housekeeping fix.
 
 Recommend a new branch when:
@@ -171,33 +172,29 @@ Finish a task:
 npm run git:task:finish
 ```
 
-## Main Sync And Merge
+## Main Sync And Advance
 
-There are two different merge moments:
+`main` in this project is a stability anchor rather than a constantly-integrating trunk. Task branches chain on top of each other; `main` moves forward only when a slice is ready to be marked as the new stable baseline.
 
-- Sync `main` into the task branch when the task branch is long-lived, `main` has advanced, or conflicts are likely.
-- Merge the task branch back to `main` when the task is complete.
+Branch chaining model:
 
-Recommend syncing from `main` when:
+- A new task branch is cut from the HEAD of the previous completed task branch, so active work stays a linear chain.
+- `main` is kept strictly behind the chain and only advances via fast-forward to a specific verified task branch.
+- There is no routine "merge `main` into task branch" step, because task branches already build on the newest chain tip.
 
-- Starting work from a branch that is behind `main`.
-- Finishing a branch after other work landed on `main`.
-- A change touches shared files that have recently changed on `main`.
+Recommend advancing `main` (fast-forward) when:
 
-Recommend merging back to `main` when:
+- A milestone, release, or large feature slice has been verified (`npm run typecheck` and, when relevant, `npm run build`).
+- The user explicitly marks a task branch as the new stable baseline.
+- The chosen task branch has been reviewed and any follow-up fixes are already folded in.
 
-- The task has one or more clean commits.
-- `npm run git:task:finish` or equivalent checks pass.
-- The final diff and commit list have been summarized.
-- The user approves the merge.
+Default advance style:
 
-Default merge style:
+- Use fast-forward only (`git merge --ff-only <task-branch>` or `git branch -f main <task-branch>`). No merge commits on `main`.
+- Avoid rebasing or squashing the task branch just to keep `main` linear; the chain already is linear.
+- If a fast-forward is not possible, stop and reconcile on the task branch first instead of forcing `main`.
 
-- Use a normal merge commit for multi-commit task branches that should preserve task history.
-- Use fast-forward when possible for a single linear task.
-- Avoid squashing unless the user asks for a single commit.
-
-After merging to `main`, ask before pushing.
+After advancing `main`, ask before pushing `main` and before updating the remote default HEAD.
 
 ## Multi-Agent Coordination
 

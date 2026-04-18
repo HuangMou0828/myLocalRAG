@@ -7,7 +7,9 @@ These rules keep repository history useful while allowing fast iteration.
 - Check the current branch and `git status --short` before making edits.
 - Use `codex/` branches for agent-driven tasks, but ask before creating, switching, merging, pushing, or making a commit unless the user has already approved that exact task-level action.
 - Prefer `npm run git:task:start -- "task name"` for new work.
-- Keep `main` as an integration branch; avoid direct implementation work on `main`.
+- Keep `main` as a stability anchor that fast-forwards to a verified `codex/*` branch at milestone or release boundaries; avoid direct implementation work on `main`.
+- Daily task work happens on `codex/<YYYYMMDD>-<task>` branches that chain on top of the previous task branch's HEAD, not on `main`.
+- Before creating a new task branch, confirm the base is the latest completed task branch or `main`, whichever is newer.
 - Do not commit ignored runtime data, local databases, generated builds, `.env`, or vault content.
 - Do not revert or overwrite user changes unless explicitly asked.
 - If unrelated changes are present, keep commits scoped or ask before including them.
