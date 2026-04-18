@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogScrollContent, DialogTitle } from '@/components/ui/dialog'
+import MarkdownContent from '@/components/MarkdownContent.vue'
 import {
   ChevronDown,
   ChevronUp,
@@ -77,7 +78,6 @@ const {
   setFlowNodeRef,
   openPromptScoreModal,
   openTagModal,
-  renderMarkdown,
   getAssistantDisplayChunks,
 } = props.ctx
 
@@ -835,11 +835,11 @@ watch(
                 </div>
 
                 <div class="flow-body" v-if="node.role !== 'assistant'">
-                  <div
+                  <MarkdownContent
                     v-for="(chunk, idx) in node.chunks"
                     :key="`${node.id}-${idx}`"
                     class="md-content"
-                    v-html="renderMarkdown(chunk.content)"
+                    :content="chunk.content"
                   />
                 </div>
 
@@ -849,14 +849,14 @@ watch(
                     <div class="assistant-reasoning-body">
                       <div class="assistant-step assistant-step-reasoning" v-for="(chunk, idx) in node.reasoningChunks" :key="`${node.id}-reason-${idx}`">
                         <span class="assistant-dot" />
-                        <div class="md-content" v-html="renderMarkdown(chunk.content)" />
+                        <MarkdownContent class="md-content" :content="chunk.content" />
                       </div>
                     </div>
                   </details>
 
                   <div class="assistant-step" v-for="(chunk, idx) in getAssistantDisplayChunks(node)" :key="`${node.id}-${idx}`">
                     <span class="assistant-dot" />
-                    <div class="md-content" v-html="renderMarkdown(chunk.content)" />
+                    <MarkdownContent class="md-content" :content="chunk.content" />
                   </div>
                 </div>
               </article>

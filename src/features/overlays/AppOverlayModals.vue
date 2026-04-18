@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, unref, watch } from 'vue'
 import CodeSyntaxBlock from '@/components/CodeSyntaxBlock.vue'
+import MarkdownContent from '@/components/MarkdownContent.vue'
 import { IconBug, IconCopy, IconLink2, IconSparkles } from '@/components/icons/app-icons'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogScrollContent, DialogTitle } from '@/components/ui/dialog'
@@ -156,7 +157,6 @@ const {
   promptOptimizeResult,
   promptOptimizeError,
   formatTime,
-  renderMarkdown,
   stripOuterCodeFence,
   collectPromptSources,
   getSourceRadar,
@@ -1791,15 +1791,15 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
             <p class="warn" v-if="promptOptimizeResult.mode === 'fallback' && promptOptimizeResult.meta?.fallbackReason">
               {{ promptOptimizeResult.meta?.fallbackReason }}
             </p>
-            <div
+            <MarkdownContent
               class="prompt-preview optimized-preview md-content"
-              v-html="renderMarkdown(stripOuterCodeFence(promptOptimizeResult.optimizedPrompt))"
+              :content="stripOuterCodeFence(promptOptimizeResult.optimizedPrompt)"
             />
             <div class="prompt-score-block" v-if="promptOptimizeResult.changes?.length">
               <strong>改写点</strong>
               <ul class="score-fix-list">
                 <li v-for="(item, idx) in promptOptimizeResult.changes" :key="`opt-change-${idx}`">
-                  <div class="md-content compact-md" v-html="renderMarkdown(item)" />
+                  <MarkdownContent class="md-content compact-md" :content="item" />
                 </li>
               </ul>
             </div>
@@ -1807,7 +1807,7 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
               <strong>原因说明</strong>
               <ul class="score-fix-list">
                 <li v-for="(item, idx) in promptOptimizeResult.rationale" :key="`opt-rationale-${idx}`">
-                  <div class="md-content compact-md" v-html="renderMarkdown(item)" />
+                  <MarkdownContent class="md-content compact-md" :content="item" />
                 </li>
               </ul>
             </div>

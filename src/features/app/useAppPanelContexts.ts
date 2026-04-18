@@ -118,7 +118,6 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
     bugTraceConversationDetailLoadingKey: bugTraceDomain.bugTraceConversationDetailLoadingKey,
     getConversationDetail: bugTraceDomain.getConversationDetail,
     getVisibleConversationTurns: bugTraceDomain.getVisibleConversationTurns,
-    renderMarkdown: displayFormatDomain.renderMarkdown,
     prepareBugTracePatch: bugTraceDomain.prepareBugTracePatch,
     toggleBugTracePatch: bugTraceDomain.toggleBugTracePatch,
     bugTraceExpandedPatch: bugTraceDomain.bugTraceExpandedPatch,
@@ -388,7 +387,6 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
     healthBatchActionLoading: knowledgeSourcesDomain.healthBatchActionLoading,
     healthBatchActionLabel: knowledgeSourcesDomain.healthBatchActionLabel,
     healthRepairApplyingTarget: knowledgeSourcesDomain.healthRepairApplyingTarget,
-    renderMarkdown: displayFormatDomain.renderMarkdown,
     setWorkbenchTab: knowledgeSourcesDomain.setWorkbenchTab,
     loadKnowledgeItems: knowledgeSourcesDomain.loadKnowledgeItems,
     loadTaskReviewSessions: knowledgeSourcesDomain.loadTaskReviewSessions,
@@ -519,7 +517,6 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
     setFlowNodeRef: sessionFlowDomain.setFlowNodeRef,
     openPromptScoreModal: promptScoreDomain.openPromptScoreModal,
     openTagModal: messageTagDomain.openTagModal,
-    renderMarkdown: displayFormatDomain.renderMarkdown,
     getAssistantDisplayChunks: sessionFlowDomain.getAssistantDisplayChunks,
   }
 
@@ -674,7 +671,6 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
     promptOptimizeResult: promptScoreDomain.promptOptimizeResult,
     promptOptimizeError: promptScoreDomain.promptOptimizeError,
     formatTime: displayFormatDomain.formatTime,
-    renderMarkdown: displayFormatDomain.renderMarkdown,
     stripOuterCodeFence: promptScoreDomain.stripOuterCodeFence,
     collectPromptSources: promptScoreDomain.collectPromptSources,
     getSourceRadar: promptScoreDomain.getSourceRadar,

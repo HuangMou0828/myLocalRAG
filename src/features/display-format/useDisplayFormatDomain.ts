@@ -1,23 +1,4 @@
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
-
 export function useDisplayFormatDomain() {
-  function renderMarkdown(content: string): string {
-    const raw = String(content || '').trim()
-    if (!raw) return ''
-
-    const parsed = marked.parse(raw, {
-      gfm: true,
-      breaks: true,
-      async: false,
-    })
-
-    const html = typeof parsed === 'string' ? parsed : ''
-    return DOMPurify.sanitize(html, {
-      USE_PROFILES: { html: true },
-    })
-  }
-
   function formatTime(value?: string | null): string {
     if (!value) return '-'
     const raw = String(value).trim()
@@ -41,7 +22,6 @@ export function useDisplayFormatDomain() {
   }
 
   return {
-    renderMarkdown,
     formatTime,
     formatScore,
   }

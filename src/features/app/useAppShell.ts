@@ -643,7 +643,6 @@ export function useAppShell() {
       resetImportSelection: importDomain.resetImportSelection,
     },
     displayFormatDomain: {
-      renderMarkdown: displayFormatDomain.renderMarkdown,
       formatTime: displayFormatDomain.formatTime,
       formatScore: displayFormatDomain.formatScore,
     },

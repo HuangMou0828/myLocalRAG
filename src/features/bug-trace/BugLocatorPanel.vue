@@ -3,6 +3,7 @@ import 'diff2html/bundles/css/diff2html.min.css'
 import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue'
 import { Check, ChevronLeft, ChevronRight, Copy, Eye, EyeOff } from 'lucide-vue-next'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import MarkdownContent from '@/components/MarkdownContent.vue'
 import type { BugTraceCodeMirrorModel, BugTraceResultItem } from '@/features/bug-trace/useBugTraceDomain'
 
 type BugTraceSubMenu = 'trace' | 'inbox'
@@ -54,7 +55,6 @@ const {
   bugTraceConversationDetailLoadingKey,
   getConversationDetail,
   getVisibleConversationTurns,
-  renderMarkdown,
   prepareBugTracePatch,
   getBugTraceParsedFiles,
   getSelectedBugTraceFile,
@@ -299,12 +299,6 @@ function getVisibleConversationTurnsSafe(item: BugTraceResultItem): Conversation
   const fn = resolveMaybeFunction<(row: BugTraceResultItem) => ConversationTurnView[]>(getVisibleConversationTurns)
   const rows = fn ? fn(item) : []
   return Array.isArray(rows) ? rows : []
-}
-
-function renderMarkdownSafe(content: string): string {
-  const fn = resolveMaybeFunction<(value: string) => string>(renderMarkdown)
-  if (fn) return String(fn(content) || '')
-  return `<pre>${escapeHtml(content)}</pre>`
 }
 
 function getParsedDiffFiles(item: BugTraceResultItem): ParsedDiffFileView[] {
@@ -821,10 +815,10 @@ async function onSubmitBugInboxDescription() {
                     class="bug-trace-conv-msg-body"
                   >
                     <h5 :class="reply.role === 'assistant' ? 'role-assistant' : ''">{{ reply.role }}</h5>
-                    <div
+                    <MarkdownContent
                       v-if="reply.role === 'assistant'"
                       class="md-content role-assistant-content"
-                      v-html="renderMarkdownSafe(reply.content)"
+                      :content="reply.content"
                     />
                     <pre v-else>{{ reply.content }}</pre>
                   </div>
@@ -833,7 +827,7 @@ async function onSubmitBugInboxDescription() {
               <p v-else class="warn">未读取到会话内容。</p>
             </div>
           </div>
-          <div v-else class="md-content" v-html="renderMarkdownSafe('**会话定位：** 未在 Cursor 目录找到对应 transcript')" />
+          <MarkdownContent v-else class="md-content" content="**会话定位：** 未在 Cursor 目录找到对应 transcript" />
         </div>
 
         <div class="bug-trace-action-row">

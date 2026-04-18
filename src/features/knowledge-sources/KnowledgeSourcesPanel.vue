@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, unref } from 'vue'
 import CodeSyntaxBlock from '@/components/CodeSyntaxBlock.vue'
+import MarkdownContent from '@/components/MarkdownContent.vue'
 import { AppDrawer } from '@/components/ui/drawer'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogScrollContent, DialogTitle } from '@/components/ui/dialog'
 import {
@@ -135,7 +136,6 @@ const {
   healthBatchActionLoading,
   healthBatchActionLabel,
   healthRepairApplyingTarget,
-  renderMarkdown,
   setWorkbenchTab,
   loadKnowledgeItems,
   loadTaskReviewSessions,
@@ -1138,22 +1138,14 @@ function escapeHtml(value: string) {
     .replace(/>/g, '&gt;')
 }
 
-function renderTaskMarkdown(content: string) {
+function resolveTaskMarkdownSource(content: unknown): string {
   const source = String(content || '').trim()
-  const fallback = source || '最近回答较短，建议回看原会话。'
-  if (typeof renderMarkdown === 'function') {
-    return String(renderMarkdown(fallback) || '')
-  }
-  return `<pre>${escapeHtml(fallback)}</pre>`
+  return source || '最近回答较短，建议回看原会话。'
 }
 
-function renderKnowledgeMarkdown(content: string) {
+function resolveKnowledgeMarkdownSource(content: unknown): string {
   const source = String(content || '').trim()
-  if (!source) return '<p>还没有内容，适合先把 Markdown、网页摘录、聊天片段或终端输出粘进来。</p>'
-  if (typeof renderMarkdown === 'function') {
-    return String(renderMarkdown(source) || '')
-  }
-  return `<pre>${escapeHtml(source)}</pre>`
+  return source || '还没有内容，适合先把 Markdown、网页摘录、聊天片段或终端输出粘进来。'
 }
 
 function compactMarkdownPreview(value: unknown, limit = 420) {
@@ -1562,10 +1554,10 @@ function focusTaskReviewBySummary(cardId: string) {
                     class="app-textarea knowledge-editor-textarea"
                     placeholder="支持 Markdown。可以粘贴网页摘录、聊天片段、命令输出或自己的想法"
                   />
-                  <div
+                  <MarkdownContent
                     v-else
                     class="knowledge-editor-markdown-preview md-content compact-md"
-                    v-html="renderKnowledgeMarkdown(editorContent)"
+                    :content="resolveKnowledgeMarkdownSource(editorContent)"
                   />
                 </div>
               </div>
@@ -2215,9 +2207,9 @@ function focusTaskReviewBySummary(cardId: string) {
                 <IconLink2 :size="16" />
                 <strong>{{ selectedTaskReviewItemResolved.isAnswerEssence ? '回答精华摘要' : '最近回答摘要' }}</strong>
               </div>
-              <div
+              <MarkdownContent
                 class="md-content compact-md"
-                v-html="renderTaskMarkdown(selectedTaskReviewItemResolved.bestAssistantAnswer || selectedTaskReviewItemResolved.latestAssistantReply)"
+                :content="resolveTaskMarkdownSource(selectedTaskReviewItemResolved.bestAssistantAnswer || selectedTaskReviewItemResolved.latestAssistantReply)"
               />
               <small>
                 审核状态：{{ formatReviewStatusLabel(selectedTaskReviewItemResolved.reviewStatus) }}
