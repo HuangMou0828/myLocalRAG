@@ -11,3 +11,6 @@ __pycache__/
 .env
 .env.local
 vault/
+
+# Local agent config
+.claude/

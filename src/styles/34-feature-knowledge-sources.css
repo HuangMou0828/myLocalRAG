@@ -3313,6 +3313,7 @@
 .knowledge-evidence-section {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 .knowledge-evidence-meta-card {
@@ -3341,6 +3342,8 @@
   margin: 0;
   color: #c4d8ef;
   line-height: 1.6;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .knowledge-review-actions {
@@ -3408,7 +3411,15 @@
 
 .knowledge-health-layout {
   grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
-  align-items: start;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.knowledge-health-section {
+  min-height: 0;
+  max-height: min(68vh, 760px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .knowledge-health-code {
@@ -3514,8 +3525,7 @@
 }
 
 .knowledge-health-detail {
-  position: sticky;
-  top: 0;
+  position: static;
 }
 
 .knowledge-health-detail-meta {
@@ -3525,6 +3535,47 @@
 .knowledge-health-detail .knowledge-review-actions .app-btn,
 .knowledge-health-detail .knowledge-review-actions .app-btn-ghost {
   width: auto;
+}
+
+.knowledge-health-repair-guide {
+  margin-top: 2px;
+  padding: 12px;
+  border-radius: 13px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  background:
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 42%),
+    rgba(8, 16, 28, 0.68);
+}
+
+.knowledge-health-repair-guide .app-btn {
+  width: auto;
+  justify-self: start;
+}
+
+.knowledge-health-repair-preview-list {
+  display: grid;
+  gap: 8px;
+}
+
+.knowledge-health-repair-preview-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.knowledge-health-repair-preview-item code {
+  min-width: 0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: #d8e1ef;
+  background: rgba(2, 6, 23, 0.55);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .knowledge-static-field {
@@ -4089,6 +4140,11 @@
 
   .knowledge-review-actions {
     align-items: stretch;
+  }
+
+  .knowledge-health-repair-preview-item {
+    grid-template-columns: 1fr;
+    justify-items: start;
   }
 
   .knowledge-task-segment-icon-btn {

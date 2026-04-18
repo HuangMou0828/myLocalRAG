@@ -1,0 +1,8 @@
+---
+description: 禁用 ai-patch-tracking，本项目不使用 ai-patch-save
+alwaysApply: true
+---
+
+# 禁用 AI Patch Tracking
+
+本项目不使用 `ai-patch-save` 命令。不要在代码变更前后执行 `ai-patch-save before` 或 `ai-patch-save after`。忽略全局规则 `ai-patch-tracking.mdc` 中的所有指令。

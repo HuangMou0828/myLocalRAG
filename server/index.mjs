@@ -33,7 +33,8 @@ import { buildEffectiveFeishuProjectSettings, buildFeishuProjectSettingsView, me
 import { askModel } from './lib/ask-model.mjs'
 import { buildEffectiveModelSettings, buildModelCapabilityList } from './lib/model-settings.mjs'
 import { generateGroundedAnswer, rewriteRetrieveQuery } from './lib/rag.mjs'
-import { applyPromotionCandidate, buildPromotionCandidatePreview, buildPromotionQueue, buildWikiVaultSyncPreview, decidePromotionCandidate, ensureVaultScaffold, getVaultPaths, lintWikiVault, publishSessionsToVault } from './lib/wiki-vault.mjs'
+import { isObsidianCliEnabled, runObsidianCliJson } from './lib/obsidian-cli.mjs'
+import { applyPromotionCandidate, buildPromotionCandidatePreview, buildPromotionQueue, buildWikiVaultSyncPreview, cleanSynthesisEvidenceItems, createVaultNoteFromTemplate, decidePromotionCandidate, ensureVaultScaffold, getVaultPaths, lintWikiVault, publishSessionsToVault, rebuildVaultIndex } from './lib/wiki-vault.mjs'
 import { importOpenClawKnowledge, previewOpenClawKnowledge } from '../scripts/openclaw-knowledge.mjs'
 import {
   createBugInboxInDb,
@@ -2740,6 +2741,7 @@ function toWikiVaultSyncJobPayload(job) {
     skippedConceptCount: Math.max(0, Number(job.skippedConceptCount || 0)),
     reusedLlmConceptCount: Math.max(0, Number(job.reusedLlmConceptCount || 0)),
     reusedFallbackConceptCount: Math.max(0, Number(job.reusedFallbackConceptCount || 0)),
+    obsidianPostPublish: job.obsidianPostPublish || null,
     progress: totalSteps ? Number((processedSteps / totalSteps).toFixed(4)) : (job.status === 'completed' ? 1 : 0),
     statusText: String(job.statusText || ''),
     error: job.error || null,
@@ -2804,6 +2806,7 @@ async function runWikiVaultSyncJob(job, { sessions = [] } = {}) {
     job.skippedConceptCount = Number(conceptStats.skippedConceptCount || 0)
     job.reusedLlmConceptCount = Number(conceptStats.reusedLlmConceptCount || 0)
     job.reusedFallbackConceptCount = Number(conceptStats.reusedFallbackConceptCount || 0)
+    job.obsidianPostPublish = result?.obsidianPostPublish || null
     job.lastRun = lastRun
     job.statusText = job.syncMode === 'publish-with-summary'
       ? `发布完成，写入 ${job.publishedCount} 条 source，LLM 汇总 ${job.llmConceptCount} 个 concept`
@@ -3013,6 +3016,73 @@ function replaceWikiLinkTarget(markdownText = '', fromTarget = '', toTarget = ''
   }
 }
 
+function buildWikiLinkRepairSamples(markdownText = '', fromTarget = '', toTarget = '', limit = 6) {
+  const source = String(markdownText || '')
+  const normalizedFrom = normalizeWikiLinkTarget(fromTarget)
+  const normalizedTo = normalizeWikiLinkTarget(toTarget)
+  if (!normalizedFrom || !normalizedTo || normalizedFrom === normalizedTo) return []
+
+  const samples = []
+  const lines = source.split(/\r?\n/g)
+  for (let index = 0; index < lines.length; index += 1) {
+    if (samples.length >= limit) break
+    const line = String(lines[index] || '')
+    const pattern = /\[\[([^\]]+)\]\]/g
+    let matched = pattern.exec(line)
+    while (matched) {
+      if (samples.length >= limit) break
+      const full = String(matched[0] || '')
+      const content = String(matched[1] || '')
+      const [targetPart, ...labelParts] = content.split('|')
+      const [targetOnly, ...anchorParts] = String(targetPart || '').split('#')
+      if (normalizeWikiLinkTarget(targetOnly) === normalizedFrom) {
+        const labelSuffix = labelParts.length ? `|${labelParts.join('|')}` : ''
+        const anchorSuffix = anchorParts.length ? `#${anchorParts.join('#')}` : ''
+        samples.push({
+          line: index + 1,
+          text: line.trim().slice(0, 220),
+          before: full,
+          after: `[[${normalizedTo}${anchorSuffix}${labelSuffix}]]`,
+        })
+      }
+      matched = pattern.exec(line)
+    }
+  }
+  return samples
+}
+
+// Insert a wikilink into a candidate page's Related/My Notes section.
+// Returns { markdown, insertedAt } where insertedAt is the section heading used.
+function insertAnchorLinkIntoMarkdown(markdownText = '', orphanTarget = '') {
+  const source = String(markdownText || '')
+  const target = normalizeWikiLinkTarget(orphanTarget)
+  if (!target) return { markdown: source, insertedAt: null }
+
+  // Avoid duplicate insertion
+  const alreadyLinked = new RegExp(`\\[\\[${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\|[^\\]]*)?\\]\\]`)
+  if (alreadyLinked.test(source)) return { markdown: source, insertedAt: null }
+
+  const lines = source.split(/\r?\n/)
+  // Prefer ## Related* sections, fallback to ## My Notes, then append before EOF
+  const sectionPatterns = [/^## Related/i, /^## My Notes/i]
+  for (const pattern of sectionPatterns) {
+    const idx = lines.findIndex((l) => pattern.test(l))
+    if (idx === -1) continue
+    // Insert after the heading (skip blank lines)
+    let insertIdx = idx + 1
+    while (insertIdx < lines.length && lines[insertIdx].trim() === '') insertIdx++
+    lines.splice(insertIdx, 0, `- [[${target}]]`)
+    return { markdown: lines.join('\n'), insertedAt: lines[idx] }
+  }
+
+  // No matching section — append a Related section before end
+  const trimmed = source.trimEnd()
+  return {
+    markdown: `${trimmed}\n\n## Related\n\n- [[${target}]]\n`,
+    insertedAt: '## Related',
+  }
+}
+
 function stripMarkdownForSearch(markdownText = '') {
   return normalizeString(
     stripWikiFrontmatter(markdownText)
@@ -3051,6 +3121,166 @@ function createWikiExcerpt(markdownText = '', query = '', maxChars = 220) {
   const end = Math.min(body.length, index + normalizedQuery.length + 120)
   const excerpt = body.slice(start, end)
   return `${start > 0 ? '...' : ''}${excerpt}${end < body.length ? '...' : ''}`
+}
+
+function normalizeObsidianSearchPath(value = '') {
+  const normalized = normalizeWikiRelativePath(
+    String(value || '')
+      .replace(/^vault\//i, '')
+      .replace(/#.*$/g, ''),
+  )
+  if (!normalized) return ''
+  return normalized.endsWith('.md') ? normalized : `${normalized}.md`
+}
+
+function pickObsidianSearchText(input = {}, keys = []) {
+  for (const key of keys) {
+    const value = String(input?.[key] || '').trim()
+    if (value) return value
+  }
+  return ''
+}
+
+function parseObsidianSearchResults(payload) {
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.results)
+      ? payload.results
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload?.matches)
+          ? payload.matches
+          : []
+  const parsed = []
+  for (const [index, item] of list.entries()) {
+    if (typeof item === 'string') {
+      const pathValue = normalizeObsidianSearchPath(item)
+      if (!pathValue) continue
+      parsed.push({
+        path: pathValue,
+        title: '',
+        summary: '',
+        excerpt: '',
+        score: Math.max(1, list.length - index),
+        matchedTerms: [],
+      })
+      continue
+    }
+    const pathValue = normalizeObsidianSearchPath(pickObsidianSearchText(item, ['path', 'file', 'filePath', 'relativePath', 'notePath', 'note']))
+    if (!pathValue) continue
+    const matchedTerms = Array.isArray(item?.matchedTerms)
+      ? item.matchedTerms.map((term) => String(term || '').trim()).filter(Boolean).slice(0, 8)
+      : []
+    parsed.push({
+      path: pathValue,
+      title: pickObsidianSearchText(item, ['title', 'name', 'heading']),
+      summary: pickObsidianSearchText(item, ['summary', 'description']),
+      excerpt: pickObsidianSearchText(item, ['excerpt', 'preview', 'snippet', 'context', 'match', 'text']),
+      score: Number(item?.score || item?.rank || item?.relevance || Math.max(1, list.length - index)),
+      matchedTerms,
+    })
+  }
+  return parsed
+}
+
+function parseObsidianContextMap(payload) {
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.results)
+      ? payload.results
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload?.matches)
+          ? payload.matches
+          : []
+  const contextByPath = new Map()
+  for (const item of list) {
+    const pathValue = normalizeObsidianSearchPath(
+      typeof item === 'string' ? item : pickObsidianSearchText(item, ['path', 'file', 'filePath', 'relativePath', 'notePath', 'note']),
+    )
+    if (!pathValue) continue
+    if (typeof item === 'string') continue
+    const excerpt = normalizeString([
+      pickObsidianSearchText(item, ['context', 'excerpt', 'preview', 'snippet', 'match', 'text']),
+      ...(Array.isArray(item?.lines) ? item.lines.map((line) => String(line || '').trim()) : []),
+    ].filter(Boolean).join('\n'))
+    if (!excerpt) continue
+    contextByPath.set(pathValue, excerpt)
+  }
+  return contextByPath
+}
+
+async function searchWikiVaultViaObsidianCli({ query = '', spaces = [], topK = 20, includeMarkdown = false } = {}) {
+  if (!isObsidianCliEnabled()) return null
+  const rawSearch = await runObsidianCliJson(['search', `query=${query}`, 'format=json'], {
+    ensureReady: false,
+    autoLaunch: false,
+    timeoutMs: 2200,
+  }).catch(() => null)
+  if (!rawSearch) return null
+
+  const parsed = parseObsidianSearchResults(rawSearch)
+  if (!parsed.length) {
+    return {
+      engine: 'obsidian-cli',
+      totalNotes: Number(rawSearch?.totalNotes || rawSearch?.total || 0),
+      totalMatched: 0,
+      results: [],
+    }
+  }
+
+  const rawContext = await runObsidianCliJson(['search:context', `query=${query}`, 'format=json'], {
+    ensureReady: false,
+    autoLaunch: false,
+    timeoutMs: 2600,
+  }).catch(() => null)
+  const contextByPath = rawContext ? parseObsidianContextMap(rawContext) : new Map()
+  const spaceSet = new Set(normalizeWikiSpaces(spaces))
+  const candidates = []
+  const seen = new Set()
+
+  for (const item of parsed) {
+    if (seen.has(item.path)) continue
+    const space = getWikiSpaceFromRelativePath(item.path)
+    if (spaceSet.size && !spaceSet.has(space)) continue
+    seen.add(item.path)
+    candidates.push(item)
+  }
+
+  candidates.sort((a, b) => Number(b.score || 0) - Number(a.score || 0))
+  const picked = candidates.slice(0, Math.max(1, topK))
+  const results = []
+  for (const item of picked) {
+    const note = await loadWikiNoteByRelativePath(item.path)
+    const title = item.title || note?.title || path.basename(item.path, '.md')
+    const summary = normalizeString(item.summary || note?.summary || '')
+    const excerpt = normalizeString(
+      contextByPath.get(item.path)
+      || item.excerpt
+      || (note ? createWikiExcerpt(note.markdown, query) : ''),
+    )
+    results.push({
+      path: item.path,
+      space: getWikiSpaceFromRelativePath(item.path),
+      audience: getWikiAudienceForPath(item.path),
+      title,
+      type: String(note?.type || ''),
+      project: String(note?.project || ''),
+      updatedAt: String(note?.updatedAt || ''),
+      score: Number(item.score || 0),
+      matchedTerms: Array.isArray(item.matchedTerms) ? item.matchedTerms : [],
+      summary,
+      excerpt,
+      markdown: includeMarkdown ? note?.markdown : undefined,
+    })
+  }
+
+  return {
+    engine: 'obsidian-cli',
+    totalNotes: Number(rawSearch?.totalNotes || rawSearch?.total || 0),
+    totalMatched: candidates.length,
+    results,
+  }
 }
 
 function buildWikiSearchScore(note, query = '') {
@@ -3398,6 +3628,8 @@ const server = http.createServer(async (req, res) => {
         publishedCount: result.published.length,
         published: result.published,
         conceptStats,
+        propertySync: result.propertySync || null,
+        obsidianPostPublish: result.obsidianPostPublish || null,
         promotionStats: result.promotionStats || null,
         lintStats: result.lintStats || null,
         lastRun,
@@ -3467,6 +3699,31 @@ const server = http.createServer(async (req, res) => {
         openClawSync = await importOpenClawKnowledge({})
         await buildPromotionQueue({ writeReport: true })
       }
+      const cliResult = await searchWikiVaultViaObsidianCli({
+        query,
+        spaces,
+        topK,
+        includeMarkdown,
+      }).catch(() => null)
+
+      if (cliResult) {
+        return send(res, 200, {
+          query,
+          topK,
+          spaces,
+          engine: cliResult.engine,
+          totalNotes: Number(cliResult.totalNotes || 0),
+          totalMatched: Number(cliResult.totalMatched || 0),
+          openClawSync: openClawSync
+            ? {
+                root: openClawSync.root,
+                summary: openClawSync.summary,
+              }
+            : undefined,
+          results: Array.isArray(cliResult.results) ? cliResult.results : [],
+        })
+      }
+
       const notes = await collectWikiVaultNotes(spaces)
       const results = notes
         .map((note) => {
@@ -3501,6 +3758,7 @@ const server = http.createServer(async (req, res) => {
         query,
         topK,
         spaces,
+        engine: 'legacy',
         totalNotes: notes.length,
         totalMatched: results.length,
         openClawSync: openClawSync
@@ -3511,6 +3769,27 @@ const server = http.createServer(async (req, res) => {
           : undefined,
         results,
       })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/wiki-vault/create-from-template') {
+      const payload = await readBody(req).catch(() => ({}))
+      const relativePath = normalizeWikiRelativePath(payload?.path || payload?.relativePath || '')
+      if (!relativePath) return send(res, 400, { error: 'path 必填' })
+      const template = normalizeString(payload?.template || '')
+      try {
+        const result = await createVaultNoteFromTemplate({
+          path: relativePath,
+          template,
+        })
+        return send(res, 200, {
+          ok: true,
+          ...result,
+        })
+      } catch (error) {
+        return send(res, 400, {
+          error: String(error?.message || error || 'create-from-template failed'),
+        })
+      }
     }
 
     if (req.method === 'GET' && url.pathname === '/api/wiki-vault/note') {
@@ -3573,6 +3852,91 @@ const server = http.createServer(async (req, res) => {
           summary: refreshed.summary,
           updatedAt: refreshed.updatedAt,
         } : null,
+      })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/wiki-vault/repair-link-preview') {
+      const payload = await readBody(req).catch(() => ({}))
+      const relativePath = normalizeWikiRelativePath(payload?.path || '')
+      const fromTarget = normalizeWikiLinkTarget(payload?.fromTarget || '')
+      const toTarget = normalizeWikiLinkTarget(payload?.toTarget || '')
+      if (!relativePath) return send(res, 400, { error: 'path 必填' })
+      if (!fromTarget) return send(res, 400, { error: 'fromTarget 必填' })
+      if (!toTarget) return send(res, 400, { error: 'toTarget 必填' })
+      if (fromTarget === toTarget) return send(res, 400, { error: 'fromTarget / toTarget 不能相同' })
+
+      const note = await loadWikiNoteByRelativePath(relativePath)
+      if (!note) return send(res, 404, { error: '未找到 note' })
+
+      const repaired = replaceWikiLinkTarget(note.markdown, fromTarget, toTarget)
+      const samples = buildWikiLinkRepairSamples(note.markdown, fromTarget, toTarget, 6)
+      return send(res, 200, {
+        ok: true,
+        path: relativePath,
+        fromTarget,
+        toTarget,
+        replacedCount: repaired.replacedCount,
+        samples,
+      })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/wiki-vault/rebuild-index') {
+      const startedAt = new Date().toISOString()
+      const result = await rebuildVaultIndex({ conceptSummaryMode: 'fallback' })
+      return send(res, 200, {
+        ok: true,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        totalConcepts: result?.totalConcepts ?? null,
+        totalProjects: result?.totalProjects ?? null,
+      })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/wiki-vault/clean-synthesis-evidence') {
+      const payload = await readBody(req).catch(() => ({}))
+      const targetPath = normalizeWikiRelativePath(payload?.path || '')
+      if (!targetPath) return send(res, 400, { error: 'path 必填' })
+      const result = await cleanSynthesisEvidenceItems(targetPath)
+      return send(res, 200, result)
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/wiki-vault/anchor-link-preview') {
+      const payload = await readBody(req).catch(() => ({}))
+      const candidatePath = normalizeWikiRelativePath(payload?.candidatePath || '')
+      const orphanTarget = normalizeWikiLinkTarget(payload?.orphanTarget || '')
+      if (!candidatePath) return send(res, 400, { error: 'candidatePath 必填' })
+      if (!orphanTarget) return send(res, 400, { error: 'orphanTarget 必填' })
+      const note = await loadWikiNoteByRelativePath(candidatePath)
+      if (!note) return send(res, 404, { error: '未找到候选页面' })
+      const result = insertAnchorLinkIntoMarkdown(note.markdown, orphanTarget)
+      return send(res, 200, {
+        ok: true,
+        candidatePath,
+        orphanTarget,
+        insertedAt: result.insertedAt,
+        alreadyLinked: result.insertedAt === null,
+      })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/wiki-vault/anchor-link') {
+      const payload = await readBody(req).catch(() => ({}))
+      const candidatePath = normalizeWikiRelativePath(payload?.candidatePath || '')
+      const orphanTarget = normalizeWikiLinkTarget(payload?.orphanTarget || '')
+      if (!candidatePath) return send(res, 400, { error: 'candidatePath 必填' })
+      if (!orphanTarget) return send(res, 400, { error: 'orphanTarget 必填' })
+      const note = await loadWikiNoteByRelativePath(candidatePath)
+      if (!note?.absolutePath) return send(res, 404, { error: '未找到候选页面' })
+      const result = insertAnchorLinkIntoMarkdown(note.markdown, orphanTarget)
+      if (result.insertedAt === null) return send(res, 400, { error: '链接已存在，无需重复插入' })
+      const timestamp = new Date().toISOString()
+      const nextMarkdown = updateWikiFrontmatterValue(result.markdown, 'updatedAt', timestamp)
+      await writeFile(note.absolutePath, nextMarkdown, 'utf-8')
+      return send(res, 200, {
+        ok: true,
+        candidatePath,
+        orphanTarget,
+        insertedAt: result.insertedAt,
+        updatedAt: timestamp,
       })
     }
 

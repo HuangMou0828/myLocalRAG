@@ -541,6 +541,7 @@ export interface WikiVaultApi {
       approvedIssueCount?: number
       approvedPatternCount?: number
       approvedSynthesisCount?: number
+      openTaskCount?: number
     }
     issueReviews: Array<{
       kind: string
@@ -557,6 +558,9 @@ export interface WikiVaultApi {
       summary: string
       suggestedActions: string[]
       evidenceItems: string[]
+      taskToken?: string
+      taskChecked?: boolean
+      taskRef?: string
     }>
     patternCandidates: Array<{
       kind: string
@@ -572,6 +576,9 @@ export interface WikiVaultApi {
       summary: string
       suggestedActions: string[]
       evidenceItems: string[]
+      taskToken?: string
+      taskChecked?: boolean
+      taskRef?: string
     }>
     synthesisCandidates: Array<{
       kind: string
@@ -588,6 +595,9 @@ export interface WikiVaultApi {
       suggestedActions: string[]
       evidenceItems: string[]
       updatedAt?: string
+      taskToken?: string
+      taskChecked?: boolean
+      taskRef?: string
     }>
     approvedIssues: Array<{
       kind: string
@@ -690,6 +700,56 @@ export interface WikiVaultApi {
       updatedAt: string
     } | null
   }>
+  previewRepairLink(payload: {
+    path: string
+    fromTarget: string
+    toTarget: string
+  }): Promise<{
+    ok: boolean
+    path: string
+    fromTarget: string
+    toTarget: string
+    replacedCount: number
+    samples: Array<{
+      line: number
+      text: string
+      before: string
+      after: string
+    }>
+  }>
+  previewAnchorLink(payload: {
+    candidatePath: string
+    orphanTarget: string
+  }): Promise<{
+    ok: boolean
+    candidatePath: string
+    orphanTarget: string
+    insertedAt: string | null
+    alreadyLinked: boolean
+  }>
+  insertAnchorLink(payload: {
+    candidatePath: string
+    orphanTarget: string
+  }): Promise<{
+    ok: boolean
+    candidatePath: string
+    orphanTarget: string
+    insertedAt: string
+    updatedAt: string
+  }>
+  rebuildWikiIndex(): Promise<{
+    ok: boolean
+    startedAt: string
+    finishedAt: string
+    totalConcepts: number | null
+    totalProjects: number | null
+  }>
+  cleanSynthesisEvidence(payload: { path: string }): Promise<{
+    ok: boolean
+    targetPath: string
+    removed: string[]
+    rebuilt: boolean
+  }>
   applyPromotion(payload: {
     kind: 'issue-review' | 'pattern-candidate' | 'synthesis-candidate'
     title: string
@@ -698,6 +758,7 @@ export interface WikiVaultApi {
     segmentId?: string
     sourceKind?: string
     sourceLabel?: string
+    taskRef?: string
     question?: string
     project?: string
     summary?: string
@@ -719,6 +780,14 @@ export interface WikiVaultApi {
         totalFindings: number
       }
     }
+    taskSync?: {
+      engine?: string
+      done?: boolean
+      token?: string
+      ref?: string
+      reason?: string
+      error?: string
+    }
   }>
   decidePromotion(payload: {
     decision: 'approve' | 'dismiss' | 'revoke'
@@ -729,6 +798,7 @@ export interface WikiVaultApi {
     segmentId?: string
     sourceKind?: string
     sourceLabel?: string
+    taskRef?: string
     question?: string
     project?: string
     summary?: string
@@ -738,6 +808,14 @@ export interface WikiVaultApi {
     decision: string
     kind: string
     relativePath: string
+    taskSync?: {
+      engine?: string
+      done?: boolean
+      token?: string
+      ref?: string
+      reason?: string
+      error?: string
+    }
   }>
   previewPromotion(payload: {
     kind: 'issue-review' | 'pattern-candidate' | 'synthesis-candidate'
@@ -1202,6 +1280,40 @@ export function createWikiVaultApi(request: JsonRequest): WikiVaultApi {
     },
     repairLink(payload) {
       return request('/api/wiki-vault/repair-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+    },
+    previewRepairLink(payload) {
+      return request('/api/wiki-vault/repair-link-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+    },
+    previewAnchorLink(payload) {
+      return request('/api/wiki-vault/anchor-link-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+    },
+    insertAnchorLink(payload) {
+      return request('/api/wiki-vault/anchor-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+    },
+    rebuildWikiIndex() {
+      return request('/api/wiki-vault/rebuild-index', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    },
+    cleanSynthesisEvidence(payload) {
+      return request('/api/wiki-vault/clean-synthesis-evidence', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

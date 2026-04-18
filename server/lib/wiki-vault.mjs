@@ -2,6 +2,7 @@ import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises'
 import { createTwoFilesPatch } from 'diff'
+import { ensureObsidianReady, isObsidianCliEnabled, runObsidianCli } from './obsidian-cli.mjs'
 import { askModel } from './ask-model.mjs'
 import { listKnowledgeItemsInDb, loadModelSettingsInDb, patchKnowledgeItemMetaInDb } from './db.mjs'
 import { loadIndex } from './scanner.mjs'
@@ -47,6 +48,8 @@ function stableSha1(input) {
 
 const CONCEPT_PAGE_SCHEMA_VERSION = '2'
 const READER_PAGE_SCHEMA_VERSION = '1'
+const OBSIDIAN_TEMPLATE_AUTO_CREATE_ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.KB_OBSIDIAN_TEMPLATE_AUTO_CREATE_ENABLED || '1').trim())
+const OBSIDIAN_POST_PUBLISH_OPEN_ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.KB_OBSIDIAN_POST_PUBLISH_OPEN_ENABLED || '1').trim())
 
 function toFileSlug(input, fallback = 'untitled') {
   const normalized = String(input || '')
@@ -341,6 +344,92 @@ function normalizeVaultRelativePath(value = '') {
     .replace(/\\/g, '/')
     .replace(/^\/+/g, '')
     .trim()
+}
+
+function resolveGeneratedNoteTemplateName(relativePath = '') {
+  const normalized = normalizeVaultRelativePath(relativePath)
+  if (!normalized) return ''
+  if (normalized.startsWith('sources/')) return 'Source Conversation'
+  if (normalized.startsWith('issues/')) return 'Issue Note'
+  if (normalized.startsWith('patterns/')) return 'Coding Pattern'
+  if (normalized.startsWith('projects/')) return 'Project Hub'
+  if (normalized.startsWith('syntheses/')) return 'Synthesis Note'
+  if (normalized.startsWith('concepts/')) return 'Concept Draft'
+  if (normalized.startsWith('entities/')) return 'Entity Note'
+  return ''
+}
+
+async function seedVaultNoteFromTemplate(relativePath = '', templateName = '') {
+  const normalizedPath = normalizeVaultRelativePath(relativePath)
+  const normalizedTemplate = String(templateName || resolveGeneratedNoteTemplateName(normalizedPath)).trim()
+  if (!normalizedPath || !normalizedTemplate) {
+    return { engine: 'legacy', seeded: false, path: normalizedPath, template: normalizedTemplate }
+  }
+  if (!OBSIDIAN_TEMPLATE_AUTO_CREATE_ENABLED || !isObsidianCliEnabled()) {
+    return { engine: 'legacy', seeded: false, path: normalizedPath, template: normalizedTemplate }
+  }
+
+  const ready = await ensureObsidianReady({
+    autoLaunch: true,
+    readyTimeoutMs: 3000,
+    probeTimeoutMs: 1000,
+  })
+  if (!ready) {
+    return { engine: 'legacy', seeded: false, path: normalizedPath, template: normalizedTemplate, reason: 'obsidian-not-ready' }
+  }
+
+  try {
+    await runObsidianCli(['create', `path=${normalizedPath}`, `template=${normalizedTemplate}`], {
+      ensureReady: false,
+      autoLaunch: false,
+      timeoutMs: 4500,
+    })
+    return { engine: 'obsidian-cli', seeded: true, path: normalizedPath, template: normalizedTemplate }
+  } catch {
+    return { engine: 'obsidian-cli', seeded: false, path: normalizedPath, template: normalizedTemplate, reason: 'create-failed' }
+  }
+}
+
+async function readExistingMarkdownWithTemplateSeed(relativePath = '', filePath = '', templateName = '') {
+  let markdown = await readFile(filePath, 'utf-8').catch(() => '')
+  if (markdown) return { markdown, seeded: false }
+
+  const seedResult = await seedVaultNoteFromTemplate(relativePath, templateName)
+  if (!seedResult.seeded) return { markdown: '', seeded: false, seedResult }
+
+  markdown = await readFile(filePath, 'utf-8').catch(() => '')
+  return {
+    markdown,
+    seeded: Boolean(markdown),
+    seedResult,
+  }
+}
+
+async function runObsidianPostPublishRefresh(pathToOpen = 'index.md') {
+  const targetPath = normalizeVaultRelativePath(pathToOpen) || 'index.md'
+  if (!OBSIDIAN_POST_PUBLISH_OPEN_ENABLED || !isObsidianCliEnabled()) {
+    return { engine: 'legacy', opened: false, path: targetPath }
+  }
+
+  const ready = await ensureObsidianReady({
+    autoLaunch: true,
+    readyTimeoutMs: 3000,
+    probeTimeoutMs: 1000,
+  })
+  if (!ready) {
+    return { engine: 'legacy', opened: false, path: targetPath, reason: 'obsidian-not-ready' }
+  }
+
+  try {
+    await runObsidianCli(['open', `path=${targetPath}`], {
+      ensureReady: false,
+      autoLaunch: false,
+      timeoutMs: 4500,
+    })
+    return { engine: 'obsidian-cli', opened: true, path: targetPath }
+  } catch {
+    return { engine: 'obsidian-cli', opened: false, path: targetPath, reason: 'open-failed' }
+  }
 }
 
 function createEmptyPromotionState() {
@@ -1041,6 +1130,57 @@ export async function ensureVaultScaffold() {
   return paths
 }
 
+export async function createVaultNoteFromTemplate({ path: relativePath = '', template = '' } = {}) {
+  const normalizedPath = normalizeVaultRelativePath(relativePath)
+  if (!normalizedPath || normalizedPath.includes('..')) {
+    throw new Error('Invalid vault path')
+  }
+
+  const paths = await ensureVaultScaffold()
+  const templateName = String(template || resolveGeneratedNoteTemplateName(normalizedPath)).trim()
+  if (!templateName) throw new Error('template 必填')
+
+  const absolutePath = path.join(paths.root, normalizedPath)
+  const existing = await readFile(absolutePath, 'utf-8').catch(() => '')
+  if (existing) {
+    return {
+      engine: 'legacy',
+      created: false,
+      path: normalizedPath,
+      template: templateName,
+      reason: 'already-exists',
+    }
+  }
+
+  const seeded = await seedVaultNoteFromTemplate(normalizedPath, templateName)
+  if (seeded.seeded) {
+    return {
+      engine: seeded.engine,
+      created: true,
+      path: normalizedPath,
+      template: templateName,
+      mode: 'obsidian-cli',
+    }
+  }
+
+  const fallbackTemplatePath = path.join(paths.templatesDir, `${templateName}.md`)
+  const fallbackTemplateContent = await readFile(fallbackTemplatePath, 'utf-8').catch(() => '')
+  const fallbackTitle = path.posix.basename(normalizedPath, '.md').replace(/[-_]+/g, ' ').trim() || 'Untitled'
+  await mkdir(path.dirname(absolutePath), { recursive: true })
+  await writeFile(
+    absolutePath,
+    fallbackTemplateContent || `# ${fallbackTitle}\n\n`,
+    'utf-8',
+  )
+  return {
+    engine: 'legacy',
+    created: true,
+    path: normalizedPath,
+    template: templateName,
+    mode: 'filesystem-fallback',
+  }
+}
+
 function buildSessionFileName(session) {
   const provider = toFileSlug(session?.provider || 'session', 'session')
   const title = toFileSlug(session?.title || '', 'untitled')
@@ -1134,6 +1274,172 @@ function createBrokenWikiLinkFinding(item = {}) {
   })
 }
 
+function normalizeObsidianNotePath(value = '') {
+  const normalized = String(value || '')
+    .replace(/\\/g, '/')
+    .replace(/^\/+/g, '')
+    .replace(/^\.\//g, '')
+    .replace(/^vault\//i, '')
+    .replace(/#.*$/g, '')
+    .trim()
+  if (!normalized) return ''
+  return normalized.endsWith('.md') ? normalized : `${normalized}.md`
+}
+
+function pickFirstString(input = {}, keys = []) {
+  for (const key of keys) {
+    const value = String(input?.[key] || '').trim()
+    if (value) return value
+  }
+  return ''
+}
+
+function parseObsidianPayload(raw = '') {
+  const text = String(raw || '').trim()
+  if (!text) return []
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
+}
+
+function parseObsidianUnresolvedLinks(payload) {
+  const normalizedPayload = typeof payload === 'string' ? parseObsidianPayload(payload) : payload
+  const items = Array.isArray(normalizedPayload)
+    ? normalizedPayload
+    : Array.isArray(normalizedPayload?.results)
+      ? normalizedPayload.results
+      : Array.isArray(normalizedPayload?.items)
+        ? normalizedPayload.items
+        : []
+  if (!items.length && typeof normalizedPayload === 'string') {
+    return String(normalizedPayload || '')
+      .split(/\r?\n/g)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => ({ from: '', target: toWikiPath(normalizeObsidianNotePath(item)) }))
+      .filter((item) => item.target)
+  }
+  const links = []
+  for (const item of items) {
+    if (typeof item === 'string') {
+      const target = toWikiPath(normalizeObsidianNotePath(item))
+      if (target) links.push({ from: '', target })
+      continue
+    }
+    const fromPath = toWikiPath(normalizeObsidianNotePath(pickFirstString(item, ['from', 'source', 'origin', 'file', 'notePath'])))
+    const targetPath = toWikiPath(normalizeObsidianNotePath(pickFirstString(item, ['target', 'link', 'missing', 'unresolved', 'to', 'note', 'path'])))
+    if (!targetPath) continue
+    links.push({
+      from: fromPath,
+      target: targetPath,
+    })
+  }
+  return links
+}
+
+function parseObsidianOrphanNotes(payload) {
+  const normalizedPayload = typeof payload === 'string' ? parseObsidianPayload(payload) : payload
+  const items = Array.isArray(normalizedPayload)
+    ? normalizedPayload
+    : Array.isArray(normalizedPayload?.results)
+      ? normalizedPayload.results
+      : Array.isArray(normalizedPayload?.items)
+        ? normalizedPayload.items
+        : []
+  const paths = new Set()
+  if (!items.length && typeof normalizedPayload === 'string') {
+    for (const line of String(normalizedPayload || '').split(/\r?\n/g)) {
+      const target = toWikiPath(normalizeObsidianNotePath(line))
+      if (target) paths.add(target)
+    }
+    return paths
+  }
+  for (const item of items) {
+    if (typeof item === 'string') {
+      const target = toWikiPath(normalizeObsidianNotePath(item))
+      if (target) paths.add(target)
+      continue
+    }
+    const target = toWikiPath(normalizeObsidianNotePath(pickFirstString(item, ['path', 'file', 'notePath', 'target', 'note', 'source'])))
+    if (target) paths.add(target)
+  }
+  return paths
+}
+
+function dedupeBrokenLinks(items = []) {
+  const unique = new Map()
+  for (const item of Array.isArray(items) ? items : []) {
+    const from = String(item?.from || '').trim()
+    const target = String(item?.target || '').trim()
+    if (!from || !target) continue
+    const key = `${from}::${target}`
+    if (!unique.has(key)) unique.set(key, item)
+  }
+  return Array.from(unique.values())
+}
+
+function collectMissingProviderTargetsForLint(notes = [], noteByWikiPath = new Map()) {
+  const missing = new Set()
+  for (const note of Array.isArray(notes) ? notes : []) {
+    const outboundLinks = Array.isArray(note?.outboundLinks) ? note.outboundLinks : []
+    for (const target of outboundLinks) {
+      const normalizedTarget = toWikiPath(target)
+      if (!normalizedTarget || !normalizedTarget.startsWith('providers/')) continue
+      if (noteByWikiPath.has(normalizedTarget)) continue
+      if (normalizedTarget === 'providers/README.md') continue
+      missing.add(normalizedTarget)
+    }
+  }
+  return Array.from(missing)
+}
+
+async function runLintProviderHubCalibration(missingProviderTargets = []) {
+  const targets = Array.isArray(missingProviderTargets)
+    ? missingProviderTargets.map((item) => String(item || '').trim()).filter(Boolean)
+    : []
+  if (!targets.length) {
+    return { attempted: false, applied: false, targets: [] }
+  }
+  try {
+    const sourceEvidences = await loadPublishedSourceEvidences()
+    const promotionState = await loadPromotionState()
+    const knowledgeEvidences = await loadKnowledgePromotionEvidences({ writeEvidence: false })
+    const approvedKnowledgeEvidences = filterApprovedKnowledgeEvidences(knowledgeEvidences, promotionState)
+    await rebuildProviderPages([...sourceEvidences, ...approvedKnowledgeEvidences])
+    return { attempted: true, applied: true, targets }
+  } catch {
+    return { attempted: true, applied: false, targets }
+  }
+}
+
+async function loadObsidianLintSnapshot() {
+  if (!isObsidianCliEnabled()) return null
+  try {
+    const [unresolvedResult, orphansResult] = await Promise.all([
+      runObsidianCli(['unresolved', 'format=json'], {
+        ensureReady: true,
+        autoLaunch: true,
+        timeoutMs: 5000,
+        readyTimeoutMs: 5000,
+      }),
+      runObsidianCli(['orphans', 'format=json'], {
+        ensureReady: true,
+        autoLaunch: true,
+        timeoutMs: 5000,
+        readyTimeoutMs: 5000,
+      }),
+    ])
+    return {
+      unresolved: parseObsidianUnresolvedLinks(unresolvedResult?.stdout || ''),
+      orphanPaths: parseObsidianOrphanNotes(orphansResult?.stdout || ''),
+    }
+  } catch {
+    return null
+  }
+}
+
 function isLintReaderFirstNote(note = {}) {
   const relativePath = String(note?.relativePath || '')
   if (!relativePath || /(^|\/)README\.md$/i.test(relativePath)) return false
@@ -1151,6 +1457,7 @@ function daysSinceIso(isoText = '') {
 
 function buildLintReportMarkdown(report = {}) {
   const generatedAt = String(report.generatedAt || new Date().toISOString())
+  const lintEngine = String(report.lintEngine || 'legacy')
   const summary = report.summary || {}
   const findings = Array.isArray(report.findings) ? report.findings : []
   const grouped = {
@@ -1162,6 +1469,7 @@ function buildLintReportMarkdown(report = {}) {
     '---',
     'type: "vault-lint-report"',
     `generatedAt: "${escapeYamlString(generatedAt)}"`,
+    `lintEngine: "${escapeYamlString(lintEngine)}"`,
     `totalFindings: ${Number(summary.totalFindings || 0)}`,
     `highCount: ${Number(summary.highCount || 0)}`,
     `mediumCount: ${Number(summary.mediumCount || 0)}`,
@@ -3715,18 +4023,14 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
   for (const session of list) {
     const fileName = buildSessionFileName(session)
     expectedFileNames.add(fileName)
+    const relativePath = `sources/${fileName}`
     const filePath = path.join(paths.sourcesDir, fileName)
     const existingName = existingBySessionId.get(String(session?.id || '').trim())
     if (existingName && existingName !== fileName) {
       await unlink(path.join(paths.sourcesDir, existingName)).catch(() => {})
     }
-    let manualNotes = '-'
-
-    try {
-      manualNotes = extractManualNotes(await readFile(filePath, 'utf-8'))
-    } catch {
-      manualNotes = '-'
-    }
+    const existingMarkdownResult = await readExistingMarkdownWithTemplateSeed(relativePath, filePath, 'Source Conversation')
+    const manualNotes = extractManualNotes(existingMarkdownResult.markdown)
 
     const markdown = renderSessionMarkdown(session, manualNotes, maxMessages, getPublishedConceptsForSession(session, conceptCatalog))
     await writeFile(filePath, markdown, 'utf-8')
@@ -3738,7 +4042,7 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
       messageCount: Array.isArray(session?.messages) ? session.messages.length : 0,
       updatedAt: String(session?.updatedAt || ''),
       fileName,
-      relativePath: `sources/${fileName}`,
+      relativePath,
     }
     published.push(publishedItem)
     if (typeof options.onSessionPublished === 'function') {
@@ -3759,6 +4063,7 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
     }
   }
 
+  const propertySync = await syncPublishedSessionPropertiesWithObsidian(published)
   const indexResult = await rebuildVaultIndex({
     conceptSummaryMode,
     onConceptProgress: options.onConceptProgress,
@@ -3767,6 +4072,7 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
     action: 'publish-sessions',
     published,
   })
+  const obsidianPostPublish = await runObsidianPostPublishRefresh('index.md')
 
   return {
     vaultDir: paths.root,
@@ -3778,6 +4084,8 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
     synthesisStats: indexResult.synthesisStats || null,
     promotionStats: indexResult.promotionStats || null,
     lintStats: indexResult.lintStats || null,
+    propertySync,
+    obsidianPostPublish,
   }
 }
 
@@ -4141,7 +4449,8 @@ export async function rebuildIssuePages(sourceEvidences = [], options = {}) {
   for (const issue of issues) {
     const relativePath = buildIssueRelativePath(issue.slug)
     const filePath = path.join(paths.root, relativePath)
-    const existingMarkdown = await readFile(filePath, 'utf-8').catch(() => '')
+    const existingMarkdownResult = await readExistingMarkdownWithTemplateSeed(relativePath, filePath, 'Issue Note')
+    const existingMarkdown = existingMarkdownResult.markdown
     const manualNotes = extractManualNotes(existingMarkdown)
     const manualApproval = isApprovedPromotionRecord(promotionState.issues[issue.slug]) ? promotionState.issues[issue.slug] : null
     const issueStatus = issue.evidenceCount <= 1 && !manualApproval ? 'draft' : 'active'
@@ -4273,7 +4582,8 @@ export async function rebuildPatternPages(sourceEvidences = [], options = {}) {
   for (const pattern of patterns) {
     const relativePath = buildPatternRelativePath(pattern.slug)
     const filePath = path.join(paths.root, relativePath)
-    const existingMarkdown = await readFile(filePath, 'utf-8').catch(() => '')
+    const existingMarkdownResult = await readExistingMarkdownWithTemplateSeed(relativePath, filePath, 'Coding Pattern')
+    const existingMarkdown = existingMarkdownResult.markdown
     const manualNotes = extractManualNotes(existingMarkdown)
     const manualApproval = isApprovedPromotionRecord(promotionState.patterns[pattern.slug]) ? promotionState.patterns[pattern.slug] : null
     const lines = [
@@ -4412,7 +4722,8 @@ export async function rebuildProjectPages(sourceEvidences = [], options = {}) {
   for (const project of projects) {
     const relativePath = buildProjectRelativePath(project.key)
     const filePath = path.join(paths.root, relativePath)
-    const existingMarkdown = await readFile(filePath, 'utf-8').catch(() => '')
+    const existingMarkdownResult = await readExistingMarkdownWithTemplateSeed(relativePath, filePath, 'Project Hub')
+    const existingMarkdown = existingMarkdownResult.markdown
     const openQuestions = extractProtectedMarkdownSection(existingMarkdown, 'Open Questions', '-')
     const manualNotes = extractManualNotes(existingMarkdown)
     const lines = [
@@ -4541,8 +4852,10 @@ export async function rebuildConceptPages(entries = [], options = {}) {
       ...item.concept,
       kind: inferConceptKind(item?.concept?.slug || '', new Set(), ''),
     }
-    const filePath = path.join(paths.root, buildConceptRelativePath(concept))
-    const existingMarkdown = await readFile(filePath, 'utf-8').catch(() => '')
+    const relativePath = buildConceptRelativePath(concept)
+    const filePath = path.join(paths.root, relativePath)
+    const existingMarkdownResult = await readExistingMarkdownWithTemplateSeed(relativePath, filePath, 'Concept Draft')
+    const existingMarkdown = existingMarkdownResult.markdown
     const entryDigests = await buildConceptEntryDigests(
       item.entries.slice().sort((a, b) => +new Date(b.updatedAt || 0) - +new Date(a.updatedAt || 0)),
     )
@@ -4875,7 +5188,7 @@ function buildPromotionQueueMarkdown(report = {}) {
     '',
   ]
 
-  const renderQueueSection = (title, items, emptyText) => {
+  const renderQueueSection = (title, items, emptyText, withTasks = false) => {
     lines.push(`## ${title}`)
     lines.push('')
     if (!items.length) {
@@ -4884,29 +5197,37 @@ function buildPromotionQueueMarkdown(report = {}) {
       return
     }
     for (const item of items) {
-      lines.push(`### ${escapeMarkdownText(item.title || 'Untitled Candidate')}`)
+      if (withTasks) {
+        const checked = item?.taskChecked === true ? 'x' : ' '
+        const token = String(item?.taskToken || '').trim()
+        const tokenComment = token ? ` <!-- ${escapeMarkdownText(token)} -->` : ''
+        lines.push(`- [${checked}] ${escapeMarkdownText(item.title || 'Untitled Candidate')}${tokenComment}`)
+      } else {
+        lines.push(`### ${escapeMarkdownText(item.title || 'Untitled Candidate')}`)
+      }
       lines.push('')
-      lines.push(`- Kind: \`${escapeMarkdownText(item.kind || 'candidate')}\``)
-      if (item.sourceLabel) lines.push(`- Source: \`${escapeMarkdownText(item.sourceLabel)}\``)
-      if (item.currentPath) lines.push(`- Current note: ${toWikiLink(item.currentPath, item.currentLabel || item.title || 'Current Note')}`)
-      if (item.targetPath) lines.push(`- Suggested target: \`${escapeMarkdownText(item.targetPath)}\``)
-      if (item.project) lines.push(`- Project: ${toWikiLink(buildProjectRelativePath(item.project), item.project)}`)
-      if (item.confidence !== undefined) lines.push(`- Confidence: \`${Number(item.confidence || 0).toFixed(2)}\``)
-      if (item.reason) lines.push(`- Why queued: ${escapeMarkdownText(item.reason)}`)
-      if (item.summary) lines.push(`- Summary: ${escapeMarkdownText(item.summary)}`)
+      const bulletPrefix = withTasks ? '  -' : '-'
+      lines.push(`${bulletPrefix} Kind: \`${escapeMarkdownText(item.kind || 'candidate')}\``)
+      if (item.sourceLabel) lines.push(`${bulletPrefix} Source: \`${escapeMarkdownText(item.sourceLabel)}\``)
+      if (item.currentPath) lines.push(`${bulletPrefix} Current note: ${toWikiLink(item.currentPath, item.currentLabel || item.title || 'Current Note')}`)
+      if (item.targetPath) lines.push(`${bulletPrefix} Suggested target: \`${escapeMarkdownText(item.targetPath)}\``)
+      if (item.project) lines.push(`${bulletPrefix} Project: ${toWikiLink(buildProjectRelativePath(item.project), item.project)}`)
+      if (item.confidence !== undefined) lines.push(`${bulletPrefix} Confidence: \`${Number(item.confidence || 0).toFixed(2)}\``)
+      if (item.reason) lines.push(`${bulletPrefix} Why queued: ${escapeMarkdownText(item.reason)}`)
+      if (item.summary) lines.push(`${bulletPrefix} Summary: ${escapeMarkdownText(item.summary)}`)
       if (Array.isArray(item.suggestedActions) && item.suggestedActions.length) {
-        lines.push(`- Suggested action: ${escapeMarkdownText(item.suggestedActions.join('；'))}`)
+        lines.push(`${bulletPrefix} Suggested action: ${escapeMarkdownText(item.suggestedActions.join('；'))}`)
       }
       if (Array.isArray(item.evidenceItems) && item.evidenceItems.length) {
-        lines.push(`- Evidence: ${item.evidenceItems.map((entry) => toWikiLink(entry)).join(' · ')}`)
+        lines.push(`${bulletPrefix} Evidence: ${item.evidenceItems.map((entry) => toWikiLink(entry)).join(' · ')}`)
       }
       lines.push('')
     }
   }
 
-  renderQueueSection('Issue Reviews', issueReviews, '_No draft issue reviews right now._')
-  renderQueueSection('Pattern Candidates', patternCandidates, '_No pattern candidates right now._')
-  renderQueueSection('Synthesis Candidates', synthesisCandidates, '_No synthesis candidates right now._')
+  renderQueueSection('Issue Reviews', issueReviews, '_No draft issue reviews right now._', true)
+  renderQueueSection('Pattern Candidates', patternCandidates, '_No pattern candidates right now._', true)
+  renderQueueSection('Synthesis Candidates', synthesisCandidates, '_No synthesis candidates right now._', true)
   renderQueueSection('Approved Issues', approvedIssues, '_No manually approved issue pages right now._')
   renderQueueSection('Approved Patterns', approvedPatterns, '_No manually approved pattern pages right now._')
   renderQueueSection('Approved Syntheses', approvedSyntheses, '_No manually approved synthesis pages right now._')
@@ -4920,6 +5241,333 @@ function buildPromotionQueueIdentity(item = {}) {
   const pathKey = String(item?.currentPath || item?.targetPath || '').trim()
   const titleKey = String(item?.title || '').trim()
   return `${String(item?.kind || '').trim()}::${pathKey || titleKey}`
+}
+
+function buildPromotionQueueTaskToken(item = {}) {
+  const explicitToken = String(item?.taskToken || '').trim()
+  if (/^pq:[A-Za-z0-9_-]+$/.test(explicitToken)) return explicitToken
+  const identity = buildPromotionQueueIdentity(item)
+  if (!identity) return ''
+  return `pq:${Buffer.from(identity, 'utf-8').toString('base64url')}`
+}
+
+function extractPromotionQueueTaskToken(text = '') {
+  const match = String(text || '').match(/\bpq:[A-Za-z0-9_-]+\b/)
+  return String(match?.[0] || '').trim()
+}
+
+function parsePromotionQueueTaskStatesFromMarkdown(markdown = '') {
+  const states = new Map()
+  const lines = String(markdown || '').split(/\r?\n/g)
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = String(lines[index] || '')
+    const match = line.match(/^\s*-\s*\[([ xX])\]\s+(.+)$/)
+    if (!match) continue
+    const token = extractPromotionQueueTaskToken(match[2] || '')
+    if (!token) continue
+    states.set(token, {
+      checked: String(match[1] || '').toLowerCase() === 'x',
+      line: index + 1,
+    })
+  }
+  return states
+}
+
+function parseObsidianTaskTodo(payload = '') {
+  const normalizedPayload = typeof payload === 'string' ? parseObsidianPayload(payload) : payload
+  const items = Array.isArray(normalizedPayload)
+    ? normalizedPayload
+    : Array.isArray(normalizedPayload?.results)
+      ? normalizedPayload.results
+      : Array.isArray(normalizedPayload?.items)
+        ? normalizedPayload.items
+        : []
+  const entries = []
+  for (const item of items) {
+    const text = pickFirstString(item, ['text', 'task', 'lineText'])
+    const token = extractPromotionQueueTaskToken(text)
+    if (!token) continue
+    const file = normalizeVaultRelativePath(pickFirstString(item, ['file', 'path']))
+    const line = Number(pickFirstString(item, ['line', 'lineNumber']) || 0)
+    const status = pickFirstString(item, ['status'])
+    const ref = file && line > 0 ? `${file}:${line}` : ''
+    entries.push({
+      token,
+      ref,
+      file,
+      line,
+      checked: String(status || '').trim().toLowerCase() === 'x',
+      text,
+    })
+  }
+  return entries
+}
+
+async function loadPromotionQueueTaskOpenRefs(paths, options = {}) {
+  if (!isObsidianCliEnabled()) return new Map()
+  const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
+  const result = await runObsidianCli(['tasks', 'todo', `path=${queueRelativePath}`, 'format=json'], {
+    ensureReady: options.ensureReady === true,
+    autoLaunch: options.autoLaunch === true,
+    timeoutMs: Math.max(900, Number(options.timeoutMs || 2600)),
+    readyTimeoutMs: options.readyTimeoutMs,
+    probeTimeoutMs: options.probeTimeoutMs,
+  }).catch(() => null)
+  if (!result?.stdout) return new Map()
+  const entries = parseObsidianTaskTodo(result.stdout)
+  const refs = new Map()
+  for (const entry of entries) {
+    if (!entry?.token || !entry?.ref) continue
+    refs.set(entry.token, entry.ref)
+  }
+  return refs
+}
+
+async function buildPromotionQueueTaskMetadata(paths) {
+  const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
+  const existingMarkdown = await readFile(paths.promotionQueue, 'utf-8').catch(() => '')
+  const stateByToken = parsePromotionQueueTaskStatesFromMarkdown(existingMarkdown)
+  const openRefByToken = await loadPromotionQueueTaskOpenRefs(paths, {
+    ensureReady: false,
+    autoLaunch: false,
+    timeoutMs: 2200,
+  }).catch(() => new Map())
+  return {
+    queueRelativePath,
+    stateByToken,
+    openRefByToken,
+  }
+}
+
+function attachPromotionQueueTaskMetadata(items = [], metadata = {}) {
+  const queueRelativePath = String(metadata?.queueRelativePath || '').trim()
+  const stateByToken = metadata?.stateByToken instanceof Map ? metadata.stateByToken : new Map()
+  const openRefByToken = metadata?.openRefByToken instanceof Map ? metadata.openRefByToken : new Map()
+  return (Array.isArray(items) ? items : []).map((item) => {
+    const token = buildPromotionQueueTaskToken(item)
+    const state = token ? stateByToken.get(token) : null
+    const openRef = token ? String(openRefByToken.get(token) || '').trim() : ''
+    const fallbackRef = state?.line ? `${queueRelativePath}:${Number(state.line || 0)}` : ''
+    return {
+      ...item,
+      taskToken: token || undefined,
+      taskChecked: Boolean(state?.checked),
+      taskRef: openRef || (state?.line ? fallbackRef : undefined),
+    }
+  })
+}
+
+function normalizePromotionQueueTaskRef(value = '', queueRelativePath = '') {
+  const raw = String(value || '').trim()
+  const match = raw.match(/^(.+):(\d+)$/)
+  if (!match) return ''
+  const file = normalizeVaultRelativePath(match[1])
+  const line = Number(match[2] || 0)
+  if (!file || line <= 0) return ''
+  const queuePath = normalizeVaultRelativePath(queueRelativePath)
+  if (queuePath && file !== queuePath) return ''
+  return `${file}:${line}`
+}
+
+async function loadPromotionQueueTaskRefFromMarkdown(paths, token = '') {
+  const normalizedToken = String(token || '').trim()
+  if (!normalizedToken) return ''
+  const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
+  const existingMarkdown = await readFile(paths.promotionQueue, 'utf-8').catch(() => '')
+  const stateByToken = parsePromotionQueueTaskStatesFromMarkdown(existingMarkdown)
+  const state = stateByToken.get(normalizedToken)
+  if (!state?.line) return ''
+  return `${queueRelativePath}:${Number(state.line || 0)}`
+}
+
+async function markPromotionQueueTaskDoneFallback(paths, options = {}) {
+  const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
+  const token = String(options?.token || '').trim()
+  const rawRef = normalizePromotionQueueTaskRef(options?.ref, queueRelativePath)
+  if (!token && !rawRef) {
+    return {
+      engine: 'markdown-fallback',
+      done: false,
+      ref: '',
+      reason: 'fallback-target-missing',
+    }
+  }
+
+  const markdown = await readFile(paths.promotionQueue, 'utf-8').catch(() => '')
+  if (!markdown) {
+    return {
+      engine: 'markdown-fallback',
+      done: false,
+      ref: '',
+      reason: 'queue-markdown-missing',
+    }
+  }
+
+  const lines = String(markdown || '').split(/\r?\n/g)
+  let targetLine = -1
+
+  if (rawRef) {
+    const lineNumber = Number(String(rawRef).split(':').at(-1) || 0)
+    if (lineNumber > 0 && lineNumber <= lines.length) {
+      const candidate = String(lines[lineNumber - 1] || '')
+      if (token) {
+        if (candidate.includes(token)) targetLine = lineNumber - 1
+      } else {
+        targetLine = lineNumber - 1
+      }
+    }
+  }
+
+  if (targetLine < 0 && token) {
+    targetLine = lines.findIndex((line) => String(line || '').includes(token))
+  }
+
+  if (targetLine < 0) {
+    return {
+      engine: 'markdown-fallback',
+      done: false,
+      ref: rawRef || '',
+      reason: 'fallback-target-not-found',
+    }
+  }
+
+  const line = String(lines[targetLine] || '')
+  const taskMatch = line.match(/^(\s*-\s*\[)([ xX])(\]\s+.*)$/)
+  if (!taskMatch) {
+    return {
+      engine: 'markdown-fallback',
+      done: false,
+      ref: `${queueRelativePath}:${targetLine + 1}`,
+      reason: 'fallback-line-not-task',
+    }
+  }
+
+  if (String(taskMatch[2] || '').toLowerCase() === 'x') {
+    return {
+      engine: 'markdown-fallback',
+      done: true,
+      ref: `${queueRelativePath}:${targetLine + 1}`,
+      mode: 'already-checked',
+    }
+  }
+
+  lines[targetLine] = `${taskMatch[1]}x${taskMatch[3]}`
+  await writeFile(paths.promotionQueue, `${lines.join('\n')}\n`, 'utf-8')
+  return {
+    engine: 'markdown-fallback',
+    done: true,
+    ref: `${queueRelativePath}:${targetLine + 1}`,
+    mode: 'token-mark',
+  }
+}
+
+async function markPromotionQueueTaskDone(payload = {}) {
+  const paths = await ensureVaultScaffold()
+  const cliEnabled = isObsidianCliEnabled()
+  const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
+  const payloadRef = normalizePromotionQueueTaskRef(payload?.taskRef, queueRelativePath)
+  const token = buildPromotionQueueTaskToken(payload)
+  if (String(payload?.decision || '').trim() === 'revoke') {
+    return {
+      engine: cliEnabled ? 'obsidian-cli' : 'markdown-fallback',
+      done: false,
+      token,
+      reason: 'revoke-skipped',
+    }
+  }
+
+  if (!cliEnabled) {
+    const fallback = await markPromotionQueueTaskDoneFallback(paths, {
+      token,
+      ref: payloadRef || '',
+    }).catch(() => null)
+    if (fallback?.done) {
+      return {
+        ...fallback,
+        token,
+      }
+    }
+    return {
+      engine: 'markdown-fallback',
+      done: false,
+      token,
+      ref: payloadRef || '',
+      reason: fallback?.reason || 'cli-disabled-and-fallback-failed',
+    }
+  }
+
+  let tokenTodoRef = ''
+  let tokenMarkdownRef = ''
+  if (token) {
+    const [refsByToken, markdownRef] = await Promise.all([
+      loadPromotionQueueTaskOpenRefs(paths, {
+        ensureReady: true,
+        autoLaunch: true,
+        timeoutMs: 4200,
+        readyTimeoutMs: 5000,
+        probeTimeoutMs: 1200,
+      }).catch(() => new Map()),
+      loadPromotionQueueTaskRefFromMarkdown(paths, token).catch(() => ''),
+    ])
+    tokenTodoRef = String(refsByToken.get(token) || '').trim()
+    tokenMarkdownRef = normalizePromotionQueueTaskRef(markdownRef, queueRelativePath)
+  }
+  const refs = dedupeList([payloadRef, tokenTodoRef, tokenMarkdownRef], 3).filter(Boolean)
+  if (!refs.length) {
+    const fallback = await markPromotionQueueTaskDoneFallback(paths, {
+      token,
+      ref: payloadRef || tokenMarkdownRef || '',
+    }).catch(() => null)
+    if (fallback?.done) {
+      return {
+        ...fallback,
+        token,
+      }
+    }
+    return {
+      engine: 'obsidian-cli',
+      done: false,
+      token,
+      ref: payloadRef || tokenTodoRef || tokenMarkdownRef,
+      reason: 'task-ref-missing',
+    }
+  }
+  for (const ref of refs) {
+    try {
+      await runObsidianCli(['task', 'done', `ref=${ref}`], {
+        ensureReady: true,
+        autoLaunch: true,
+        timeoutMs: 5000,
+        readyTimeoutMs: 5000,
+        probeTimeoutMs: 1200,
+      })
+      return {
+        engine: 'obsidian-cli',
+        done: true,
+        token,
+        ref,
+      }
+    } catch {
+      // Try the next ref candidate. Obsidian task indexing can lag right after queue rewrites.
+    }
+  }
+  const fallback = await markPromotionQueueTaskDoneFallback(paths, {
+    token,
+    ref: refs[0] || payloadRef || tokenMarkdownRef || '',
+  }).catch(() => null)
+  if (fallback?.done) {
+    return {
+      ...fallback,
+      token,
+    }
+  }
+  return {
+    engine: 'obsidian-cli',
+    done: false,
+    token,
+    ref: refs[0] || payloadRef || tokenTodoRef || tokenMarkdownRef || '',
+    error: 'task-done-failed',
+  }
 }
 
 function mergePromotionQueueItems(items = []) {
@@ -5642,6 +6290,10 @@ export async function buildPromotionQueue(options = {}) {
     ...manualQueue.synthesisCandidates,
     ...knowledgeQueue.synthesisCandidates,
   ]).sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
+  const taskMetadata = await buildPromotionQueueTaskMetadata(paths)
+  const queueIssueReviews = attachPromotionQueueTaskMetadata(mergedIssueReviews, taskMetadata)
+  const queuePatternCandidates = attachPromotionQueueTaskMetadata(mergedPatternCandidates, taskMetadata)
+  const queueSynthesisCandidates = attachPromotionQueueTaskMetadata(mergedSynthesisCandidates, taskMetadata)
 
   const approvedIssues = approvedIssueRecords
     .map((record) => ({
@@ -5686,20 +6338,23 @@ export async function buildPromotionQueue(options = {}) {
     .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
 
   const summary = {
-    totalItems: mergedIssueReviews.length + mergedPatternCandidates.length + mergedSynthesisCandidates.length,
-    issueReviewCount: mergedIssueReviews.length,
-    patternCandidateCount: mergedPatternCandidates.length,
-    synthesisCandidateCount: mergedSynthesisCandidates.length,
+    totalItems: queueIssueReviews.length + queuePatternCandidates.length + queueSynthesisCandidates.length,
+    issueReviewCount: queueIssueReviews.length,
+    patternCandidateCount: queuePatternCandidates.length,
+    synthesisCandidateCount: queueSynthesisCandidates.length,
     approvedIssueCount: approvedIssues.length,
     approvedPatternCount: approvedPatterns.length,
     approvedSynthesisCount: approvedSyntheses.length,
+    openTaskCount: [...queueIssueReviews, ...queuePatternCandidates, ...queueSynthesisCandidates]
+      .filter((item) => item?.taskChecked !== true)
+      .length,
   }
   const report = {
     generatedAt: new Date().toISOString(),
     summary,
-    issueReviews: mergedIssueReviews,
-    patternCandidates: mergedPatternCandidates,
-    synthesisCandidates: mergedSynthesisCandidates,
+    issueReviews: queueIssueReviews,
+    patternCandidates: queuePatternCandidates,
+    synthesisCandidates: queueSynthesisCandidates,
     approvedIssues,
     approvedPatterns,
     approvedSyntheses,
@@ -5737,7 +6392,8 @@ export async function rebuildSynthesisPages(sourceEvidences = []) {
     if (!targetPath) continue
 
     const filePath = path.join(paths.root, targetPath)
-    const existingMarkdown = await readFile(filePath, 'utf-8').catch(() => '')
+    const existingMarkdownResult = await readExistingMarkdownWithTemplateSeed(targetPath, filePath, 'Synthesis Note')
+    const existingMarkdown = existingMarkdownResult.markdown
     const manualNotes = extractManualNotes(existingMarkdown)
     const evidenceItems = dedupeList(Array.isArray(record.evidenceItems) ? record.evidenceItems : [], 12)
       .map((item) => normalizeVaultRelativePath(item))
@@ -5872,6 +6528,44 @@ async function refreshPromotionArtifacts(options = {}) {
   }
 }
 
+export async function cleanSynthesisEvidenceItems(targetPath = '') {
+  const normalized = normalizeVaultRelativePath(targetPath)
+  if (!normalized || !normalized.startsWith('syntheses/')) {
+    throw new Error('只支持 syntheses/ 路径')
+  }
+
+  const paths = await ensureVaultScaffold()
+  const state = await loadPromotionState()
+  const record = state.syntheses?.[normalized]
+  if (!record) throw new Error(`未找到 synthesis 记录: ${normalized}`)
+
+  const before = Array.isArray(record.evidenceItems) ? record.evidenceItems : []
+  const { access } = await import('node:fs/promises')
+  const alive = []
+  const removed = []
+  for (const item of before) {
+    const abs = path.join(paths.root, normalizeVaultRelativePath(item))
+    const exists = await access(abs).then(() => true).catch(() => false)
+    if (exists) alive.push(item)
+    else removed.push(item)
+  }
+
+  if (!removed.length) return { ok: true, targetPath: normalized, removed: [], rebuilt: false }
+
+  record.evidenceItems = alive
+  record.updatedAt = new Date().toISOString()
+  await savePromotionState(state)
+
+  // Rebuild just this synthesis file
+  const filePath = path.join(paths.root, normalized)
+  const existingMarkdown = await readFile(filePath, 'utf-8').catch(() => '')
+  const evidenceByPath = new Map()
+  const markdown = renderSynthesisMarkdown(record, evidenceByPath, existingMarkdown)
+  await writeFile(filePath, markdown, 'utf-8')
+
+  return { ok: true, targetPath: normalized, removed, rebuilt: true }
+}
+
 export async function decidePromotionCandidate(payload = {}) {
   const kind = String(payload?.kind || '').trim()
   if (!['issue-review', 'pattern-candidate', 'synthesis-candidate'].includes(kind)) {
@@ -5969,6 +6663,17 @@ export async function decidePromotionCandidate(payload = {}) {
     evidenceItems,
     decidedAt: now,
   })
+  const taskSync = await markPromotionQueueTaskDone({
+    kind,
+    sourceKind: String(payload?.sourceKind || '').trim(),
+    segmentId: String(payload?.segmentId || '').trim(),
+    taskToken: String(payload?.taskToken || '').trim(),
+    title,
+    currentPath: kind === 'issue-review' ? relativePath : '',
+    targetPath: kind === 'issue-review' ? '' : relativePath,
+    taskRef: String(payload?.taskRef || '').trim(),
+    decision,
+  })
 
   await savePromotionState(state)
   const refreshed = await refreshPromotionArtifacts({
@@ -5987,6 +6692,7 @@ export async function decidePromotionCandidate(payload = {}) {
     patternStats: refreshed.patternStats,
     synthesisStats: refreshed.synthesisStats,
     knowledgeItems,
+    taskSync,
   }
 }
 
@@ -6057,22 +6763,33 @@ async function loadLintNotes() {
 
 export async function lintWikiVault(options = {}) {
   const paths = await ensureVaultScaffold()
-  const notes = await loadLintNotes()
-  const noteByWikiPath = new Map(notes.map((item) => [item.wikiPath, item]))
+  let notes = await loadLintNotes()
+  let noteByWikiPath = new Map(notes.map((item) => [item.wikiPath, item]))
+  const missingProviderTargets = collectMissingProviderTargetsForLint(notes, noteByWikiPath)
+  if (missingProviderTargets.length) {
+    const calibration = await runLintProviderHubCalibration(missingProviderTargets)
+    if (calibration.applied) {
+      notes = await loadLintNotes()
+      noteByWikiPath = new Map(notes.map((item) => [item.wikiPath, item]))
+    }
+  }
   const inboundCounts = new Map(notes.map((item) => [item.wikiPath, 0]))
   const readerFirstInboundCounts = new Map(notes.map((item) => [item.wikiPath, 0]))
   const findings = []
-  const brokenLinks = []
+  const legacyBrokenLinks = []
   const duplicateTitleGroups = []
   const orphans = []
+  let brokenLinks = []
+  let lintEngine = 'legacy'
+  const obsidianLintSnapshot = await loadObsidianLintSnapshot()
 
   for (const note of notes) {
     if (note.relativePath === 'log.md') continue
     const uniqueTargets = Array.from(new Set(note.outboundLinks))
     for (const target of uniqueTargets) {
-      if (!target || target.includes('...')) continue
+      if (!target || /(?:^|\/)\.\.\.(?:\/|$)/.test(target) || target === '...') continue
       if (!noteByWikiPath.has(target)) {
-        brokenLinks.push({ from: note.relativePath, target, title: note.title })
+        legacyBrokenLinks.push({ from: note.relativePath, target, title: note.title })
       } else if (target !== note.wikiPath) {
         inboundCounts.set(target, Number(inboundCounts.get(target) || 0) + 1)
         if (isLintReaderFirstNote(note)) {
@@ -6080,6 +6797,36 @@ export async function lintWikiVault(options = {}) {
         }
       }
     }
+  }
+
+  if (obsidianLintSnapshot) {
+    lintEngine = 'obsidian-cli'
+    const unresolved = Array.isArray(obsidianLintSnapshot.unresolved) ? obsidianLintSnapshot.unresolved : []
+    const unresolvedTargets = new Set(
+      unresolved
+        .map((item) => String(item?.target || '').trim().toLowerCase())
+        .filter(Boolean),
+    )
+    const unresolvedWithFrom = dedupeBrokenLinks(unresolved
+      .map((item) => {
+        if (!item?.from || !item?.target) return null
+        const source = noteByWikiPath.get(item.from)
+        return {
+          from: item.from,
+          target: item.target,
+          title: source?.title || '',
+        }
+      })
+      .filter(Boolean))
+    if (unresolvedWithFrom.length) {
+      brokenLinks = unresolvedWithFrom
+    } else if (unresolvedTargets.size) {
+      brokenLinks = dedupeBrokenLinks(legacyBrokenLinks.filter((item) => unresolvedTargets.has(String(item?.target || '').trim().toLowerCase())))
+    }
+  }
+
+  if (!brokenLinks.length) {
+    brokenLinks = dedupeBrokenLinks(legacyBrokenLinks)
   }
 
   if (brokenLinks.length) {
@@ -6116,7 +6863,11 @@ export async function lintWikiVault(options = {}) {
     if (!isReaderFirst) continue
 
     const inboundCount = Number(inboundCounts.get(note.wikiPath) || 0)
-    if (inboundCount === 0) {
+    const orphanedByObsidian = obsidianLintSnapshot?.orphanPaths instanceof Set
+      ? obsidianLintSnapshot.orphanPaths.has(note.wikiPath)
+      : null
+    const isOrphan = orphanedByObsidian === null ? inboundCount === 0 : orphanedByObsidian
+    if (isOrphan) {
       orphans.push(note.relativePath)
       findings.push(createLintFinding({
         severity: 'medium',
@@ -6272,6 +7023,7 @@ export async function lintWikiVault(options = {}) {
 
   const report = {
     generatedAt: new Date().toISOString(),
+    lintEngine,
     summary,
     brokenLinks,
     duplicateTitleGroups,
@@ -6289,14 +7041,8 @@ export async function lintWikiVault(options = {}) {
 
 export async function appendVaultLog({ action = 'publish', published = [] } = {}) {
   const paths = await ensureVaultScaffold()
-  const existing = await readFile(paths.log, 'utf-8').catch(() => '# Vault Log\n\n')
   const timestamp = formatIsoLocal(new Date().toISOString())
-  const lines = [
-    existing.trimEnd(),
-    '',
-    `## [${timestamp}] ${action}`,
-    '',
-  ]
+  const lines = [`## [${timestamp}] ${action}`, '']
 
   if (!Array.isArray(published) || !published.length) {
     lines.push('- No files published.')
@@ -6307,6 +7053,61 @@ export async function appendVaultLog({ action = 'publish', published = [] } = {}
     if (published.length > 30) lines.push(`- ...and ${published.length - 30} more`)
   }
 
-  lines.push('')
-  await writeFile(paths.log, lines.join('\n'), 'utf-8')
+  const content = `${lines.join('\n')}\n`
+  if (isObsidianCliEnabled()) {
+    try {
+      await runObsidianCli(['append', 'path=log.md', `content=${content}`], {
+        ensureReady: true,
+        autoLaunch: true,
+        timeoutMs: 6000,
+        readyTimeoutMs: 4000,
+      })
+      return
+    } catch {}
+  }
+
+  const existing = await readFile(paths.log, 'utf-8').catch(() => '# Vault Log\n\n')
+  const fallbackLines = [existing.trimEnd(), '', ...lines, '']
+  await writeFile(paths.log, fallbackLines.join('\n'), 'utf-8')
+}
+
+async function syncPublishedSessionPropertiesWithObsidian(published = []) {
+  if (!isObsidianCliEnabled()) return { engine: 'legacy', synced: 0 }
+  const items = (Array.isArray(published) ? published : [])
+    .map((item) => ({
+      path: String(item?.relativePath || '').trim(),
+      updatedAt: String(item?.updatedAt || '').trim(),
+    }))
+    .filter((item) => item.path.startsWith('sources/'))
+  if (!items.length) return { engine: 'obsidian-cli', synced: 0 }
+  const ready = await ensureObsidianReady({
+    autoLaunch: true,
+    readyTimeoutMs: 2500,
+    probeTimeoutMs: 900,
+  })
+  if (!ready) return { engine: 'legacy', synced: 0 }
+
+  let synced = 0
+  for (const item of items) {
+    try {
+      await runObsidianCli(['property:set', 'name=status', 'value=published', `path=${item.path}`], {
+        ensureReady: false,
+        autoLaunch: false,
+        timeoutMs: 4000,
+      })
+      if (item.updatedAt) {
+        await runObsidianCli(['property:set', 'name=updatedAt', `value=${item.updatedAt}`, `path=${item.path}`], {
+          ensureReady: false,
+          autoLaunch: false,
+          timeoutMs: 3000,
+        })
+      }
+      synced += 1
+    } catch {}
+  }
+
+  return {
+    engine: 'obsidian-cli',
+    synced,
+  }
 }
