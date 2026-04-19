@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import type { SessionDataApi } from '@/services/kbApiServices'
-import type { Issue, SessionItem, SessionRetrieveResponse, SessionReviewStatus } from '@/features/session/types'
+import type { Issue, SessionItem, SessionRetrieveResponse, SessionReviewStatus } from '@/services/sessionContracts'
 import { dedupeStrings } from './knowledgeWorkbenchUtils'
 
 type TaskReviewType =

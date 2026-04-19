@@ -5,7 +5,7 @@ import type {
   SessionDataApi,
   WikiVaultApi,
 } from '@/services/kbApiServices'
-import type { Issue, SessionItem, SessionRetrieveResponse } from '@/features/session/types'
+import type { Issue, SessionItem, SessionRetrieveResponse } from '@/services/sessionContracts'
 import { useRawInboxDomain } from './useRawInboxDomain'
 import { useTaskReviewDomain } from './useTaskReviewDomain'
 import { usePromotionReviewDomain } from './usePromotionReviewDomain'
