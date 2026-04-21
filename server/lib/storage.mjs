@@ -1,7 +1,9 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const DEFAULT_DATA_DIR = path.resolve(process.cwd(), 'server/data')
+const moduleDir = path.dirname(fileURLToPath(import.meta.url))
+const DEFAULT_DATA_DIR = path.resolve(moduleDir, '..', 'data')
 const dataDir = path.resolve(process.env.KB_WORKSPACE || process.env.KB_DATA_DIR || DEFAULT_DATA_DIR)
 
 export const files = {

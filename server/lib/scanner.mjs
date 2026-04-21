@@ -456,40 +456,69 @@ function isCodexEnvironmentContext(content) {
   return /^<environment_context>/i.test(normalized) && /<\/environment_context>$/i.test(normalized)
 }
 
+function isCodexBootstrapContext(content) {
+  const normalized = String(content || '').replace(/\s+/g, ' ').trim().toLowerCase()
+  if (!normalized) return false
+  return (
+    normalized.startsWith('[startup context loaded by runtime]') ||
+    normalized.includes('a new session was started via /new or /reset.')
+  )
+}
+
 function normalizeCodexJsonlMessage(raw, index = 0) {
   if (!raw || typeof raw !== 'object') return null
-  if (String(raw.type || '').toLowerCase() !== 'response_item') return null
+  const itemType = String(raw.type || '').toLowerCase()
+  let role = ''
+  let content = ''
+  let createdAt = null
+  let messageId = ''
 
-  const payload = raw.payload && typeof raw.payload === 'object' ? raw.payload : {}
-  if (String(payload.type || '').toLowerCase() !== 'message') return null
+  if (itemType === 'response_item') {
+    const payload = raw.payload && typeof raw.payload === 'object' ? raw.payload : {}
+    if (String(payload.type || '').toLowerCase() !== 'message') return null
+    role = String(payload.role || '').toLowerCase()
+    content = readCodexMessageText(payload.content || '')
+    createdAt = raw.timestamp || null
+  } else if (itemType === 'message') {
+    const message = raw.message && typeof raw.message === 'object' ? raw.message : {}
+    role = String(message.role || '').toLowerCase()
+    content = readCodexMessageText(message.content || message.text || '')
+    createdAt = raw.timestamp || message.timestamp || null
+    messageId = String(raw.id || '').trim()
+  } else {
+    return null
+  }
 
-  const role = String(payload.role || '').toLowerCase()
   if (role !== 'user' && role !== 'assistant') return null
 
-  const content = readCodexMessageText(payload.content || '')
   if (!content) return null
-  if (role === 'user' && isCodexEnvironmentContext(content)) return null
+  if (role === 'user' && (isCodexEnvironmentContext(content) || isCodexBootstrapContext(content))) return null
   const sanitizedContent = sanitizeScannedContent(content, role)
   if (!sanitizedContent) return null
 
   return {
-    id: `codex_msg_${index}_${id('msg')}`,
+    id: messageId || `codex_msg_${index}_${id('msg')}`,
     role,
     content: sanitizedContent,
-    createdAt: raw.timestamp || null,
+    createdAt,
   }
 }
 
 function inferCodexTitle(messages, filePath) {
   const filename = path.basename(filePath, path.extname(filePath))
-  const firstUser = messages.find((msg) => msg.role === 'user' && !isCodexEnvironmentContext(msg.content))
+  const firstUser = messages.find(
+    (msg) => msg.role === 'user' && !isCodexEnvironmentContext(msg.content) && !isCodexBootstrapContext(msg.content),
+  )
   if (!firstUser?.content) return filename
   return sanitizeScannedTitle(firstUser.content, filename, 48)
 }
 
 function parseCodexJsonl(rawText, source, filePath, fileInfo) {
   const lines = parseJsonlLines(rawText)
-  const sessionMeta = lines.find((item) => String(item?.type || '') === 'session_meta')
+  const sessionMeta = lines.find((item) => {
+    const type = String(item?.type || '').toLowerCase()
+    return type === 'session_meta' || type === 'session'
+  })
   const messages = lines.map((line, index) => normalizeCodexJsonlMessage(line, index)).filter(Boolean)
 
   if (messages.length < 2) return []
@@ -497,10 +526,10 @@ function parseCodexJsonl(rawText, source, filePath, fileInfo) {
   if (!messages.some((m) => m.role === 'assistant')) return []
 
   const codexSessionId =
-    String(sessionMeta?.payload?.id || '').trim() || path.basename(filePath, path.extname(filePath))
+    String(sessionMeta?.payload?.id || sessionMeta?.id || '').trim() || path.basename(filePath, path.extname(filePath))
   const updatedAt =
     messages.at(-1)?.createdAt ||
-    String(sessionMeta?.payload?.timestamp || '').trim() ||
+    String(sessionMeta?.payload?.timestamp || sessionMeta?.timestamp || '').trim() ||
     fileInfo.mtime.toISOString()
 
   return [
@@ -514,7 +543,7 @@ function parseCodexJsonl(rawText, source, filePath, fileInfo) {
       meta: {
         codexSessionId,
         codexTranscriptPath: filePath,
-        codexCwd: String(sessionMeta?.payload?.cwd || '').trim() || undefined,
+        codexCwd: String(sessionMeta?.payload?.cwd || sessionMeta?.cwd || '').trim() || undefined,
       },
       messages,
     },

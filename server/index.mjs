@@ -499,14 +499,15 @@ function validateSource(input) {
 }
 
 async function ensureProviderSources(provider, existingSources = []) {
-  const normalizedProvider = normalizeString(provider || '').toLowerCase()
+  const normalizedProvider = normalizeProviderAlias(provider)
   const currentSources = Array.isArray(existingSources) ? existingSources : []
   if (!normalizedProvider || normalizedProvider === 'all') return currentSources
 
   const hasProvider = currentSources.some(
     (source) => String(source?.provider || '').toLowerCase() === normalizedProvider,
   )
-  if (hasProvider) return currentSources
+  const shouldAugmentExistingProvider = normalizedProvider === 'codex'
+  if (hasProvider && !shouldAugmentExistingProvider) return currentSources
 
   const suggestions = await discoverSourceSuggestions(currentSources)
   const matchedSuggestions = (Array.isArray(suggestions) ? suggestions : []).filter(
@@ -566,6 +567,12 @@ function normalizeString(input) {
     .trim()
 }
 
+function normalizeProviderAlias(input) {
+  const normalized = normalizeString(input).toLowerCase()
+  if (normalized === 'openclaw') return 'codex'
+  return normalized
+}
+
 function normalizeReviewStatus(input) {
   const value = normalizeString(input).toLowerCase()
   if (value === 'kept' || value === 'downgraded' || value === 'hidden') return value
@@ -594,7 +601,7 @@ function buildMissingSyncSession(session) {
 }
 
 function mergeSyncedSessions(currentSessions = [], scannedSessions = [], { provider = '' } = {}) {
-  const normalizedProvider = normalizeString(provider).toLowerCase()
+  const normalizedProvider = normalizeProviderAlias(provider)
   const next = new Map()
   const scannedIdSet = new Set(
     (Array.isArray(scannedSessions) ? scannedSessions : []).map((item) => String(item?.id || '')).filter(Boolean),
@@ -618,6 +625,68 @@ function mergeSyncedSessions(currentSessions = [], scannedSessions = [], { provi
   }
 
   return Array.from(next.values()).sort((a, b) => +new Date(b.updatedAt || 0) - +new Date(a.updatedAt || 0))
+}
+
+async function refreshProviderSessions(provider, options = {}) {
+  const requireSource = options?.requireSource !== false
+  const normalizedProvider = normalizeProviderAlias(provider)
+  if (!normalizedProvider || normalizedProvider === 'all') {
+    throw new Error('provider 必填，且不能为 all')
+  }
+
+  const sources = await ensureProviderSources(normalizedProvider, await loadSources())
+  const targetSources = (Array.isArray(sources) ? sources : []).filter(
+    (source) => String(source?.provider || '').toLowerCase() === normalizedProvider,
+  )
+
+  if (!targetSources.length) {
+    if (requireSource) throw new Error(`未找到 provider=${normalizedProvider} 的数据源配置`)
+    const current = await loadIndex()
+    return {
+      provider: normalizedProvider,
+      scannedSources: 0,
+      refreshed: 0,
+      preservedExisting: false,
+      total: Array.isArray(current?.sessions) ? current.sessions.length : 0,
+      issues: [],
+      updatedAt: current?.updatedAt || new Date().toISOString(),
+      skipped: true,
+    }
+  }
+
+  const current = await loadIndex()
+  const scanned = await scanSources(targetSources, { persist: false })
+  const oldSessions = Array.isArray(current.sessions) ? current.sessions : []
+  const oldProviderSessions = oldSessions.filter((s) => String(s?.provider || '').toLowerCase() === normalizedProvider)
+  const scannedSessions = Array.isArray(scanned.sessions) ? scanned.sessions : []
+  const preservedExisting = oldProviderSessions.length > 0 && scannedSessions.length === 0
+  const nextSessions = preservedExisting
+    ? [...oldSessions]
+    : mergeSyncedSessions(oldSessions, scannedSessions, { provider: normalizedProvider })
+
+  const targetSourceIds = new Set(targetSources.map((source) => String(source.id || '')).filter(Boolean))
+  const oldIssues = Array.isArray(current.issues) ? current.issues : []
+  const keptIssues = oldIssues.filter((issue) => !targetSourceIds.has(String(issue?.sourceId || '')))
+  const scannedIssues = Array.isArray(scanned.issues) ? scanned.issues : []
+
+  const index = {
+    updatedAt: new Date().toISOString(),
+    sessions: nextSessions,
+    issues: [...keptIssues, ...scannedIssues],
+  }
+
+  await mergeIndex(index)
+
+  return {
+    provider: normalizedProvider,
+    scannedSources: targetSources.length,
+    refreshed: scannedSessions.length,
+    preservedExisting,
+    total: nextSessions.length,
+    issues: scannedIssues,
+    updatedAt: index.updatedAt,
+    skipped: false,
+  }
 }
 
 function isSessionSearchEnabled(session) {
@@ -4283,49 +4352,15 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/scan-provider') {
       const payload = await readBody(req)
-      const provider = normalizeString(payload.provider || '').toLowerCase()
+      const provider = normalizeProviderAlias(payload.provider || '')
       if (!provider || provider === 'all') return send(res, 400, { error: 'provider 必填，且不能为 all' })
 
-      const sources = await ensureProviderSources(provider, await loadSources())
-      const targetSources = (Array.isArray(sources) ? sources : []).filter(
-        (source) => String(source?.provider || '').toLowerCase() === provider,
-      )
-      if (!targetSources.length) {
-        return send(res, 400, { error: `未找到 provider=${provider} 的数据源配置` })
+      try {
+        const result = await refreshProviderSessions(provider, { requireSource: true })
+        return send(res, 200, result)
+      } catch (error) {
+        return send(res, 400, { error: String(error?.message || error || 'provider 扫描失败') })
       }
-
-      const current = await loadIndex()
-      const scanned = await scanSources(targetSources, { persist: false })
-      const oldSessions = Array.isArray(current.sessions) ? current.sessions : []
-      const oldProviderSessions = oldSessions.filter((s) => String(s?.provider || '').toLowerCase() === provider)
-      const scannedSessions = Array.isArray(scanned.sessions) ? scanned.sessions : []
-      const preservedExisting = oldProviderSessions.length > 0 && scannedSessions.length === 0
-      const nextSessions = preservedExisting
-        ? [...oldSessions]
-        : mergeSyncedSessions(oldSessions, scannedSessions, { provider })
-
-      const targetSourceIds = new Set(targetSources.map((source) => String(source.id || '')).filter(Boolean))
-      const oldIssues = Array.isArray(current.issues) ? current.issues : []
-      const keptIssues = oldIssues.filter((issue) => !targetSourceIds.has(String(issue?.sourceId || '')))
-      const scannedIssues = Array.isArray(scanned.issues) ? scanned.issues : []
-
-      const index = {
-        updatedAt: new Date().toISOString(),
-        sessions: nextSessions,
-        issues: [...keptIssues, ...scannedIssues],
-      }
-
-      await mergeIndex(index)
-
-      return send(res, 200, {
-        provider,
-        scannedSources: targetSources.length,
-        refreshed: scannedSessions.length,
-        preservedExisting,
-        total: nextSessions.length,
-        issues: scannedIssues,
-        updatedAt: index.updatedAt,
-      })
     }
 
     if (req.method === 'POST' && url.pathname === '/api/sessions/review') {
@@ -4858,7 +4893,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/api/sessions') {
       const q = (url.searchParams.get('q') || '').trim().toLowerCase()
-      const provider = (url.searchParams.get('provider') || '').trim().toLowerCase()
+      const provider = normalizeProviderAlias(url.searchParams.get('provider') || '')
       const from = (url.searchParams.get('from') || '').trim()
       const to = (url.searchParams.get('to') || '').trim()
       const conversationId = (url.searchParams.get('conversationId') || '').trim().toLowerCase()
@@ -4916,7 +4951,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/retrieve') {
       const payload = await readBody(req)
       const query = normalizeString(payload.query || '')
-      const provider = normalizeString(payload.provider || '').toLowerCase()
+      const provider = normalizeProviderAlias(payload.provider || '')
       const topK = Math.min(
         MAX_RETRIEVE_TOP_K,
         Math.max(1, Number(payload.topK || DEFAULT_RETRIEVE_TOP_K)),
@@ -5371,10 +5406,22 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/review') {
       const payload = await readBody(req)
-      const provider = normalizeString(payload.provider || '').toLowerCase()
+      const provider = normalizeProviderAlias(payload.provider || '')
+      const autoScan = payload.autoScan !== false
       const recentDays = Math.max(1, Number(payload.recentDays || 30))
       const minRepeatedPrompt = Math.max(2, Number(payload.minRepeatedPrompt || 2))
       const sinceTs = Date.now() - recentDays * 24 * 60 * 60 * 1000
+
+      if (autoScan) {
+        const providersToRefresh = provider && provider !== 'all' ? [provider] : ['codex']
+        for (const targetProvider of providersToRefresh) {
+          try {
+            await refreshProviderSessions(targetProvider, { requireSource: false })
+          } catch {
+            // Best-effort sync before review; keep review endpoint resilient.
+          }
+        }
+      }
 
       const index = await loadIndex()
       const allSessions = Array.isArray(index.sessions) ? index.sessions : []
