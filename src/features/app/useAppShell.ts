@@ -1,5 +1,4 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch, type ShallowRef } from 'vue'
-import type { Issue, SessionItem } from '@/features/session/types'
 import type { BugTraceResultItem } from '@/features/bug-trace/useBugTraceDomain'
 import { createAppApiClients } from '@/features/app/createAppApiClients'
 import { useAppPanelContexts } from '@/features/app/useAppPanelContexts'
@@ -26,6 +25,7 @@ import { useWikiVaultSyncDomain } from '@/features/wiki-vault/useWikiVaultSyncDo
 import { providerCatalog, providerLogoMap, type ProviderId } from '@/features/navigation/providerCatalog'
 import type { AppSidebarConfig, AppSidebarMenuKey, AppToolbarConfig } from '@/features/app/appShellComponentConfigs'
 import { requestJson } from '@/services/httpClient'
+import type { Issue, SessionItem } from '@/services/sessionContracts'
 
 export function useAppShell() {
   const uiState = useAppUiState()

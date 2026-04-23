@@ -314,7 +314,7 @@ export function useSessionDataDomain<
         provider: shouldUseKeywordIndex ? (retrieveProvider || '') : '',
         from: range.from || '',
         to: range.to || '',
-        conversationId: ['cursor', 'codex'].includes(options.activeProvider.value) ? conversationId : '',
+        conversationId: ['cursor', 'codex', 'claude-code'].includes(options.activeProvider.value) ? conversationId : '',
       })
 
       let nextSessions = (data.sessions || [])

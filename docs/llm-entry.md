@@ -67,6 +67,30 @@
 - 公开接口变更后运行公开 API 文档检查。
 - `docs/api/` 被脚本直接引用，除非同步改脚本，否则不要搬目录。
 
+### 新增依赖 / Build 配置变更
+
+触发条件：
+
+- 新增或替换 `dependencies`（production 依赖）。
+- 修改 `vite.config.*`、`build` 或 `quality:check` 相关脚本。
+
+必读：
+
+- [Review Checklist](./workflow/review-checklist.md)
+- [Git Workflow](./workflow/git-workflow.md)
+- [Agent Operating Rules](../AGENTS.md)
+
+必跑检查：
+
+- `npm run build`
+- 体积变化不确定或依赖较重时，额外运行 `npm run build:analyze`
+
+要点：
+
+- 先复用现有依赖，再引入新依赖。
+- 重型库默认使用动态加载（`import()` / `defineAsyncComponent`）。
+- 评审时显式确认主包体积变化是否符合预期。
+
 ### 架构 / Review / Git
 
 必读：

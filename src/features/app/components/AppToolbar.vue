@@ -27,8 +27,13 @@ const feishuScheduleAriaLabel = computed(() =>
     : '刷新飞书待办',
 )
 
-const isSyncProvider = computed(() => config.value.provider.active === 'cursor' || config.value.provider.active === 'codex')
-const syncProviderLabel = computed(() => (config.value.provider.active === 'codex' ? 'Codex' : 'Cursor'))
+const syncProviderLabelMap: Record<string, string> = {
+  codex: 'Codex',
+  cursor: 'Cursor',
+  'claude-code': 'Claude Code',
+}
+const isSyncProvider = computed(() => ['cursor', 'codex', 'claude-code'].includes(config.value.provider.active))
+const syncProviderLabel = computed(() => syncProviderLabelMap[config.value.provider.active] || '当前来源')
 const isKnowledgeProvider = computed(() => String(config.value.provider.active || '').startsWith('knowledge-'))
 const toolbarProviderLabel = computed(() =>
   String(config.value.provider.active || '')
@@ -47,6 +52,7 @@ const showEmbeddingAction = computed(() =>
 const showImportAction = computed(() =>
   config.value.provider.active !== 'cursor'
   && config.value.provider.active !== 'codex'
+  && config.value.provider.active !== 'claude-code'
   && config.value.provider.active !== 'bug-cursor'
   && config.value.provider.active !== 'feishu-master'
   && config.value.provider.active !== 'component-library'

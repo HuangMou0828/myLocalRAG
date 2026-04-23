@@ -51,4 +51,11 @@ Worker agents may edit assigned files, but should not run Git state-changing com
 - Run `npm run build` before broad refactors, merges, or pushes.
 - Report any skipped check with the reason.
 
+## Dependency Governance
+
+- Before adding a new production dependency, check whether an existing library in `package.json` already covers the same category (for example: UI primitives, icon set, table, markdown renderer). Reuse first.
+- Add a new production dependency only when reuse is not viable, and record rationale plus size impact in the commit message (or PR description).
+- Heavy libraries (for example parsers, rich text, charts, diff engines) should default to dynamic loading via `import()` or `defineAsyncComponent`.
+- For dependency additions or build config changes, run `npm run build`, and run `npm run build:analyze` when bundle impact is non-trivial.
+
 See `docs/workflow/git-workflow.md` for the full workflow.

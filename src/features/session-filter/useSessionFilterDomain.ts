@@ -127,7 +127,7 @@ export function useSessionFilterDomain<TSession extends SessionLike = SessionLik
     if (showRightProviderFilter.value && options.providerFilter.value) count += 1
     if (options.timeRangePreset.value !== 'all') count += 1
     if (options.tagFilter.value !== 'all') count += 1
-    if (['cursor', 'codex'].includes(options.activeProvider.value) && options.cursorConversationIdFilter.value.trim()) count += 1
+    if (['cursor', 'codex', 'claude-code'].includes(options.activeProvider.value) && options.cursorConversationIdFilter.value.trim()) count += 1
     return count
   })
 

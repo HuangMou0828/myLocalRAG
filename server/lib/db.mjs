@@ -1028,8 +1028,9 @@ export async function querySessionsFromDb({ q = '', provider = '', from = '', to
   }
   if (convoId) {
     whereParts.push(
-      `(lower(COALESCE(json_extract(meta_json, '$.cursorConversationId'), '')) LIKE ? ESCAPE '\\' OR lower(COALESCE(json_extract(meta_json, '$.codexSessionId'), '')) LIKE ? ESCAPE '\\' OR lower(id) LIKE ? ESCAPE '\\')`,
+      `(lower(COALESCE(json_extract(meta_json, '$.cursorConversationId'), '')) LIKE ? ESCAPE '\\' OR lower(COALESCE(json_extract(meta_json, '$.codexSessionId'), '')) LIKE ? ESCAPE '\\' OR lower(COALESCE(json_extract(meta_json, '$.claudeCodeSessionId'), '')) LIKE ? ESCAPE '\\' OR lower(id) LIKE ? ESCAPE '\\')`,
     )
+    whereParams.push(`%${escapeLike(convoId)}%`)
     whereParams.push(`%${escapeLike(convoId)}%`)
     whereParams.push(`%${escapeLike(convoId)}%`)
     whereParams.push(`%${escapeLike(convoId)}%`)
