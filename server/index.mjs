@@ -570,6 +570,7 @@ function normalizeString(input) {
 function normalizeProviderAlias(input) {
   const normalized = normalizeString(input).toLowerCase()
   if (normalized === 'openclaw') return 'codex'
+  if (normalized === 'claudecode' || normalized === 'claude_code' || normalized === 'claude code') return 'claude-code'
   return normalized
 }
 
@@ -5413,7 +5414,7 @@ const server = http.createServer(async (req, res) => {
       const sinceTs = Date.now() - recentDays * 24 * 60 * 60 * 1000
 
       if (autoScan) {
-        const providersToRefresh = provider && provider !== 'all' ? [provider] : ['codex']
+        const providersToRefresh = provider && provider !== 'all' ? [provider] : ['codex', 'claude-code']
         for (const targetProvider of providersToRefresh) {
           try {
             await refreshProviderSessions(targetProvider, { requireSource: false })

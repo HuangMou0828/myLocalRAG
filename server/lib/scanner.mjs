@@ -550,6 +550,135 @@ function parseCodexJsonl(rawText, source, filePath, fileInfo) {
   ]
 }
 
+function readClaudeCodeBlockText(block) {
+  if (!block || typeof block !== 'object') return ''
+  const type = String(block.type || '').toLowerCase()
+  if (type === 'thinking') return ''
+  if (type === 'text') return toText(block.text || block.content || '')
+  if (type === 'tool_result') return toText(block.content || block.result || block.output || '')
+  // Hide assistant internal tool invocation events; keep user-visible text/result only.
+  if (type === 'tool_use') return ''
+  return toText(block.text || block.content || block.value || '')
+}
+
+function isClaudeCodeToolResultRelay(raw, message, role) {
+  const itemType = String(raw?.type || '').toLowerCase()
+  if (itemType !== 'user' || role !== 'user') return false
+  if (!Array.isArray(message?.content)) return false
+  const blocks = message.content.filter((item) => item && typeof item === 'object')
+  if (!blocks.length) return false
+  return blocks.every((block) => String(block.type || '').toLowerCase() === 'tool_result')
+}
+
+function isClaudeCodeToolResultNoise(content) {
+  const normalized = String(content || '').replace(/\s+/g, ' ').trim().toLowerCase()
+  if (!normalized) return true
+  return (
+    normalized === '(bash completed with no output)' ||
+    normalized.startsWith('command running in background with id:')
+  )
+}
+
+function isClaudeCodeSyntheticUserContent(content) {
+  const normalized = String(content || '').replace(/\s+/g, ' ').trim().toLowerCase()
+  if (!normalized) return false
+  return (
+    normalized.startsWith('<task-notification>') ||
+    normalized.startsWith('<environment_context>')
+  )
+}
+
+function readClaudeCodeMessageText(content) {
+  if (typeof content === 'string') return content.trim()
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === 'string') return item
+        if (item && typeof item === 'object') return readClaudeCodeBlockText(item)
+        return ''
+      })
+      .filter(Boolean)
+      .join('\n')
+      .trim()
+  }
+  if (content && typeof content === 'object') {
+    if (typeof content.text === 'string') return content.text.trim()
+    if (typeof content.content === 'string') return content.content.trim()
+    if (Array.isArray(content.content)) return readClaudeCodeMessageText(content.content)
+  }
+  return ''
+}
+
+function normalizeClaudeCodeJsonlMessage(raw, index = 0) {
+  if (!raw || typeof raw !== 'object') return null
+  const itemType = String(raw.type || '').toLowerCase()
+  if (itemType !== 'user' && itemType !== 'assistant') return null
+
+  const message = raw.message && typeof raw.message === 'object' ? raw.message : {}
+  let role = String(message.role || itemType).toLowerCase()
+  if (role !== 'user' && role !== 'assistant') return null
+  const isToolRelay = isClaudeCodeToolResultRelay(raw, message, role)
+  if (isToolRelay) role = 'assistant'
+
+  const content = readClaudeCodeMessageText(message.content ?? message.text ?? raw.content)
+  if (!content) return null
+  if (isToolRelay && isClaudeCodeToolResultNoise(content)) return null
+  if (role === 'user' && isClaudeCodeSyntheticUserContent(content)) return null
+
+  const sanitizedContent = sanitizeScannedContent(content, role)
+  if (!sanitizedContent) return null
+
+  return {
+    id: String(raw.uuid || raw.id || message.id || '').trim() || `claude_code_msg_${index}_${id('msg')}`,
+    role,
+    content: sanitizedContent,
+    createdAt: raw.timestamp || message.timestamp || null,
+  }
+}
+
+function inferClaudeCodeTitle(messages, filePath) {
+  const filename = path.basename(filePath, path.extname(filePath))
+  const firstUser = messages.find((msg) => msg.role === 'user')
+  if (!firstUser?.content) return filename
+  return sanitizeScannedTitle(firstUser.content, filename, 48)
+}
+
+function parseClaudeCodeJsonl(rawText, source, filePath, fileInfo) {
+  const lines = parseJsonlLines(rawText)
+  const messages = lines.map((line, index) => normalizeClaudeCodeJsonlMessage(line, index)).filter(Boolean)
+
+  if (messages.length < 2) return []
+  if (!messages.some((m) => m.role === 'user')) return []
+  if (!messages.some((m) => m.role === 'assistant')) return []
+
+  const sessionIdLine = lines.find((item) => String(item?.sessionId || '').trim())
+  const cwdLine = lines.find((item) => String(item?.cwd || '').trim())
+  const branchLine = lines.find((item) => String(item?.gitBranch || '').trim())
+  const claudeCodeSessionId =
+    String(sessionIdLine?.sessionId || '').trim() || path.basename(filePath, path.extname(filePath))
+  const updatedAt = messages.at(-1)?.createdAt || fileInfo.mtime.toISOString()
+  const claudeCodeCwd = String(cwdLine?.cwd || '').trim() || undefined
+  const claudeCodeGitBranch = String(branchLine?.gitBranch || '').trim() || undefined
+
+  return [
+    {
+      id: `${source.id}:${path.basename(filePath)}`,
+      sourceId: source.id,
+      provider: source.provider,
+      title: inferClaudeCodeTitle(messages, filePath),
+      updatedAt,
+      tags: [source.provider, 'jsonl', 'event_stream'],
+      meta: {
+        claudeCodeSessionId,
+        claudeCodeTranscriptPath: filePath,
+        claudeCodeCwd,
+        claudeCodeGitBranch,
+      },
+      messages,
+    },
+  ]
+}
+
 function looksLikeMessage(item) {
   if (!item || typeof item !== 'object') return false
   return Boolean(
@@ -943,9 +1072,10 @@ async function parseFile(filePath, source) {
   }
 
   if (JSONL_EXT.has(ext)) {
-    // Cursor/Codex transcripts are stored as jsonl conversation logs.
+    // Cursor/Codex/Claude Code transcripts are stored as jsonl conversation logs.
     if (source.provider === 'cursor') return parseCursorJsonl(raw, source, filePath, info)
     if (source.provider === 'codex') return parseCodexJsonl(raw, source, filePath, info)
+    if (source.provider === 'claude-code') return parseClaudeCodeJsonl(raw, source, filePath, info)
     return []
   }
 

@@ -88,6 +88,7 @@ npm run dev:mcp
 - `chatgpt_export`：ChatGPT 导出的 `conversations.json`
 - `auto`：自动识别目录中的 `*.json`、`*.md`、`*.txt`
   - `cursor` 数据源会自动解析 `*.jsonl`（agent transcripts）
+  - `claude-code` 数据源会自动解析 `~/.claude/projects` 下的 `*.jsonl`（event transcripts）
   - `doubao` 数据源可实验解析 IndexedDB leveldb（`https_www.doubao.com_0.indexeddb.leveldb`）
 
 ## 默认路径探测（macOS）
@@ -97,6 +98,7 @@ npm run dev:mcp
 - `~/Library/Application Support/com.anthropic.claude`
 - `~/Downloads|Desktop|Documents` 下含 `conversations.json` 的子目录
 - `~/.cursor/projects`（Cursor 会话 JSONL）
+- `~/.claude/projects`（Claude Code 会话 JSONL）
 - `~/Library/Containers/com.bot.neotix.doubao/Data/Library/Application Support/Doubao/Default/IndexedDB`
 
 ## 数据存储
