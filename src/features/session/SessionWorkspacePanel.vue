@@ -37,6 +37,7 @@ function readMaybeRef<T>(source: any): T | undefined {
 
 const {
   sessionListCollapsed,
+  sessionOverviewCollapsed,
   keyword,
   useVectorSearch,
   loadSessions,
@@ -469,7 +470,17 @@ watch(
       </Dialog>
 
       <section class="panel-soft session-search-panel">
-        <div class="session-search-head">
+        <div class="session-overview-toggle-row">
+          <button
+            type="button"
+            class="app-btn-ghost session-overview-toggle-btn"
+            @click="sessionOverviewCollapsed = !sessionOverviewCollapsed"
+          >
+            {{ sessionOverviewCollapsed ? '展开概览' : '收起概览' }}
+          </button>
+        </div>
+
+        <div v-show="!sessionOverviewCollapsed" class="session-search-head">
           <div class="session-search-copy">
             <small>Session Workspace</small>
             <h2>会话工作区</h2>

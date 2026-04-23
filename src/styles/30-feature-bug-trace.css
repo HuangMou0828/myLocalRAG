@@ -23,6 +23,7 @@
   flex-direction: column;
   gap: 1.5rem;
   padding: 1rem 0.5rem;
+  padding-top: 0;
   background: transparent;
   border: none;
   backdrop-filter: none;
@@ -327,4 +328,3 @@
   display: flex;
   justify-content: flex-end;
 }
-

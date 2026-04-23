@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type {
   KnowledgeItemDto,
   KnowledgeItemsApi,
@@ -16,6 +16,27 @@ export type { HealthFinding, HealthActionQueueItem, HealthSuggestionMode } from 
 
 type KnowledgeWorkbenchTab = 'raw' | 'task-review' | 'promotion' | 'health'
 
+type WorkbenchHeroCard = {
+  id: string
+  title: string
+  count: number
+  description: string
+}
+
+type WorkbenchHero = {
+  eyebrow: string
+  title: string
+  description: string
+  cards: WorkbenchHeroCard[]
+}
+
+type WorkbenchTabMeta = {
+  id: KnowledgeWorkbenchTab
+  label: string
+  badge: string
+  description: string
+}
+
 interface UseKnowledgeSourcesDomainOptions {
   service: KnowledgeItemsApi
   sessionService: SessionDataApi<SessionItem, Issue, SessionRetrieveResponse>
@@ -28,6 +49,33 @@ const STALE_AFTER_MS = 60_000
 
 export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOptions) {
   const workbenchTab = ref<KnowledgeWorkbenchTab>('raw')
+
+  const workbenchTabs = computed<WorkbenchTabMeta[]>(() => ([
+    {
+      id: 'raw',
+      label: '知识采集',
+      badge: '原料',
+      description: '管理 capture / note / document 原始素材',
+    },
+    {
+      id: 'task-review',
+      label: '任务筛选',
+      badge: '筛选',
+      description: '先按任务视角筛掉噪声和上下文碎片',
+    },
+    {
+      id: 'promotion',
+      label: '升格审核',
+      badge: '候选',
+      description: '集中查看待升格 issue / pattern / synthesis 候选',
+    },
+    {
+      id: 'health',
+      label: '健康巡检',
+      badge: '巡检',
+      description: '查看 lint、知识空洞和长期积压提醒',
+    },
+  ]))
 
   // Deferred cross-domain pointers — wired after all sub-domains are created
   let _loadPromotionQueue: (force?: boolean) => Promise<void> = async () => {}
@@ -75,6 +123,54 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   _getPromotionQueue = () => promotionReview.promotionQueue.value as never
   _openNoteViewer = (paths, title) => promotionReview.openPromotionNoteViewer(paths, title)
 
+  function normalizeWorkbenchHeroCards(value: unknown): WorkbenchHeroCard[] {
+    if (!Array.isArray(value)) return []
+    return value
+      .map((card, index) => ({
+        id: String(card?.id || `summary-${index + 1}`),
+        title: String(card?.title || ''),
+        count: Number(card?.count || 0),
+        description: String(card?.description || ''),
+      }))
+      .filter((card) => card.title || card.description || card.count > 0)
+  }
+
+  const workbenchHero = computed<WorkbenchHero>(() => {
+    if (workbenchTab.value === 'task-review') {
+      return {
+        eyebrow: 'Task Review',
+        title: '先筛掉噪声，再决定哪些任务段保留到主检索',
+        description: '从连续会话里切出任务段，判断检索价值、升格价值和回答沉淀价值。',
+        cards: normalizeWorkbenchHeroCards(taskReview.taskReviewSummaryCards.value),
+      }
+    }
+
+    if (workbenchTab.value === 'promotion') {
+      return {
+        eyebrow: 'Promotion Review',
+        title: '把接近稳定的候选集中审核，避免直接写乱 wiki',
+        description: '对 issue / pattern / synthesis 候选做 approve、dismiss 或 revoke，保持知识层级干净。',
+        cards: normalizeWorkbenchHeroCards(promotionReview.promotionSummaryCards.value),
+      }
+    }
+
+    if (workbenchTab.value === 'health') {
+      return {
+        eyebrow: 'Wiki Health',
+        title: '持续巡检结构风险和知识空洞，让内容长期可维护',
+        description: '优先处理断链、孤儿页、弱摘要与长期积压，再决定是否回流到升格审核。',
+        cards: normalizeWorkbenchHeroCards(wikiHealth.healthSummaryCards.value),
+      }
+    }
+
+    return {
+      eyebrow: 'Raw Inbox',
+      title: '先接住原始片段，再决定后续筛选与升格路径',
+      description: '集中管理 capture / note / document 原料，补齐上下文后再送入任务筛选或升格审核。',
+      cards: normalizeWorkbenchHeroCards(rawInbox.rawSummaryCards.value),
+    }
+  })
+
   /** 切换 workbench tab 并按需加载对应数据 */
   async function setWorkbenchTab(nextTab: KnowledgeWorkbenchTab) {
     workbenchTab.value = nextTab
@@ -99,6 +195,8 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
 
   return {
     workbenchTab,
+    workbenchTabs,
+    workbenchHero,
     setWorkbenchTab,
     saveAndSubmitKnowledgeItem,
 

@@ -12,6 +12,20 @@
   box-sizing: border-box;
 }
 
+.knowledge-overview-toggle-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.knowledge-overview-toggle-btn {
+  height: 1.82rem;
+  min-height: 1.82rem;
+  padding: 0 0.72rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 .knowledge-sources-hero,
 .knowledge-sources-toolbar,
 .knowledge-workbench-tabs,
@@ -301,7 +315,7 @@
   display: grid;
   gap: 14px;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  height: calc(100vh - 240px);
+  height: calc(100vh - 176px);
   min-height: 420px;
   max-height: 960px;
   align-items: stretch;

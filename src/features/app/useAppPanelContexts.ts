@@ -7,6 +7,8 @@ type MaybeRef<T> = Ref<T> | ComputedRef<T>
 
 interface UseAppPanelContextsUiState {
   sessionListCollapsed: unknown
+  sessionOverviewCollapsed: unknown
+  knowledgeOverviewCollapsed: unknown
   keyword: unknown
   useVectorSearch: unknown
   advancedFiltersOpen: unknown
@@ -261,6 +263,7 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
 
   const knowledgeSourcesPanelCtx = {
     isKnowledgeSourcesMode: viewModes.isKnowledgeSourcesMode,
+    knowledgeOverviewCollapsed: uiState.knowledgeOverviewCollapsed,
     workbenchTab: knowledgeSourcesDomain.workbenchTab,
     workbenchTabs: knowledgeSourcesDomain.workbenchTabs,
     workbenchHero: knowledgeSourcesDomain.workbenchHero,
@@ -473,6 +476,7 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
 
   const sessionWorkspaceCtx = {
     sessionListCollapsed: uiState.sessionListCollapsed,
+    sessionOverviewCollapsed: uiState.sessionOverviewCollapsed,
     keyword: uiState.keyword,
     useVectorSearch: uiState.useVectorSearch,
     loadSessions: sessionDataDomain.loadSessions,

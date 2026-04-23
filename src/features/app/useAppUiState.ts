@@ -29,6 +29,8 @@ export function useAppUiState() {
   const modelSettingsSubMenu = ref<'management'>('management')
   const sidebarCollapsed = ref(false)
   const sessionListCollapsed = ref(false)
+  const sessionOverviewCollapsed = ref(true)
+  const knowledgeOverviewCollapsed = ref(true)
 
   return {
     keyword,
@@ -55,5 +57,7 @@ export function useAppUiState() {
     modelSettingsSubMenu,
     sidebarCollapsed,
     sessionListCollapsed,
+    sessionOverviewCollapsed,
+    knowledgeOverviewCollapsed,
   }
 }

@@ -36,6 +36,7 @@ const props = defineProps<{ ctx: Record<string, any> }>()
 
 const {
   isKnowledgeSourcesMode,
+  knowledgeOverviewCollapsed,
   workbenchTab,
   workbenchHero,
   knowledgeItems,
@@ -1294,7 +1295,18 @@ function focusTaskReviewBySummary(cardId: string) {
 
 <template>
   <div v-if="isKnowledgeSourcesModeResolved" class="knowledge-sources-panel">
+    <div class="knowledge-overview-toggle-row">
+      <button
+        type="button"
+        class="app-btn-ghost knowledge-overview-toggle-btn"
+        @click="knowledgeOverviewCollapsed = !knowledgeOverviewCollapsed"
+      >
+        {{ knowledgeOverviewCollapsed ? '展开概览' : '收起概览' }}
+      </button>
+    </div>
+
     <section
+      v-show="!knowledgeOverviewCollapsed"
       class="knowledge-sources-hero"
       :class="{ compact: heroCompactResolved, expanded: heroCanExpandResolved && heroExpanded }"
     >

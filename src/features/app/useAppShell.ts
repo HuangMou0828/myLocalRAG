@@ -427,6 +427,8 @@ export function useAppShell() {
     feishuScheduleDataFilter: bugInboxFeishuDomain.feishuScheduleDataFilter,
     componentSettingsSubMenu: uiState.componentSettingsSubMenu,
     modelSettingsSubMenu: uiState.modelSettingsSubMenu,
+    sessionOverviewCollapsed: uiState.sessionOverviewCollapsed,
+    knowledgeOverviewCollapsed: uiState.knowledgeOverviewCollapsed,
   })
 
   const viewModes = useAppViewModes({
@@ -444,6 +446,8 @@ export function useAppShell() {
   const panelContexts = computed(() => useAppPanelContexts({
     uiState: {
       sessionListCollapsed: uiState.sessionListCollapsed,
+      sessionOverviewCollapsed: uiState.sessionOverviewCollapsed,
+      knowledgeOverviewCollapsed: uiState.knowledgeOverviewCollapsed,
       keyword: uiState.keyword,
       useVectorSearch: uiState.useVectorSearch,
       advancedFiltersOpen: uiState.advancedFiltersOpen,
