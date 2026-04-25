@@ -15,6 +15,7 @@
 | 调用或维护 API | [API 文档维护说明](./api/README.md) |
 | 理解 Knowledge Workbench | [知识工作台 Mock 演练](./knowledge-workbench/mock-runbook.md) |
 | 理解 Wiki / Obsidian / Vault | [Wiki Promotion Pipeline](./wiki-vault/promotion-pipeline.md) |
+| 执行 GBrain V2 对齐 | [GBrain V2 Execution Guide](./wiki-vault/gbrain-v2-execution.md) |
 | 接入 OpenClaw L5 记忆 | [OpenClaw L5 Memory Backend Rules](./openclaw/l5-memory-backend-rules.md) |
 
 ## 按任务找文档
@@ -76,6 +77,10 @@ OpenClaw inbox -> myLocalRAG Raw Inbox -> Promotion Review -> Vault / Obsidian
 - [Wiki Promotion Pipeline](./wiki-vault/promotion-pipeline.md)
 - [Wiki Page Contract](./wiki-vault/page-contract.md)
 - [Obsidian Vault Publication Layer](./wiki-vault/obsidian-syncthing-mvp.md)
+- [GBrain V2 评估方案](./wiki-vault/gbrain-v2-evaluation-plan.md)
+- [GBrain V2 数据契约](./wiki-vault/gbrain-v2-contract.md)
+- [GBrain V2 执行手册](./wiki-vault/gbrain-v2-execution.md)
+- [GBrain V2 Phase B 清单](./wiki-vault/gbrain-v2-phase-b-checklist.md)
 
 这些文档定义了证据如何升格、页面如何写、Vault 如何发布给 Obsidian。
 
@@ -118,6 +123,10 @@ OpenClaw inbox -> myLocalRAG Raw Inbox -> Promotion Review -> Vault / Obsidian
 - [Wiki Promotion Pipeline](./wiki-vault/promotion-pipeline.md)
 - [Wiki Page Contract](./wiki-vault/page-contract.md)
 - [Obsidian Vault Publication Layer](./wiki-vault/obsidian-syncthing-mvp.md)
+- [GBrain V2 评估方案](./wiki-vault/gbrain-v2-evaluation-plan.md)
+- [GBrain V2 数据契约](./wiki-vault/gbrain-v2-contract.md)
+- [GBrain V2 执行手册](./wiki-vault/gbrain-v2-execution.md)
+- [GBrain V2 Phase B 清单](./wiki-vault/gbrain-v2-phase-b-checklist.md)
 
 ### OpenClaw
 

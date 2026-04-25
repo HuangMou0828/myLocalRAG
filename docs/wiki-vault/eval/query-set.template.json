@@ -1,0 +1,28 @@
+{
+  "version": "v1",
+  "generatedAt": "2026-04-25T04:25:14.087Z",
+  "notes": "评估前将本模板复制为 query-set.json，再按真实检索意图补齐 queries。",
+  "queries": [
+    {
+      "id": "issue-001",
+      "intent": "issue",
+      "query": "某模块报错后如何定位根因",
+      "expectedSignals": [
+        "symptom",
+        "rootCause",
+        "fixPattern",
+        "validation"
+      ]
+    },
+    {
+      "id": "pattern-001",
+      "intent": "pattern",
+      "query": "openclaw 导入后如何稳定去重",
+      "expectedSignals": [
+        "recommendedShape",
+        "tradeoffs",
+        "evidenceRefs"
+      ]
+    }
+  ]
+}

@@ -137,11 +137,23 @@ const {
   healthBatchActionLoading,
   healthBatchActionLabel,
   healthRepairApplyingTarget,
+  hasGbrainV2Service,
+  gbrainV2Loading,
+  gbrainV2Saving,
+  gbrainV2Error,
+  gbrainV2FeedStatus,
+  gbrainV2Settings,
+  gbrainRetrieveQuery,
+  gbrainRetrieveLoading,
+  gbrainRetrieveResult,
   setWorkbenchTab,
   loadKnowledgeItems,
   loadTaskReviewSessions,
   loadPromotionQueue,
   loadWikiHealth,
+  loadGbrainV2FeedStatus,
+  saveGbrainV2Settings,
+  runGbrainV2Retrieve,
   selectKnowledgeItem,
   selectTaskReviewSession,
   selectTaskReviewSegment,
@@ -523,6 +535,21 @@ const healthActionQueuesResolved = computed(() => {
   const list = unref(healthActionQueues)
   return Array.isArray(list) ? list : []
 })
+const hasGbrainV2ServiceResolved = computed(() => Boolean(unref(hasGbrainV2Service)))
+const gbrainV2FeedStatusResolved = computed(() => unref(gbrainV2FeedStatus) || null)
+const gbrainV2SettingsResolved = computed(() => unref(gbrainV2Settings) || {
+  enabled: false,
+  readMode: 'v1',
+  feedMode: 'atom-reader-first',
+  includeRawFallback: true,
+  dualWriteEnabled: true,
+  updatedAt: null,
+})
+const gbrainRetrieveResultResolved = computed(() => unref(gbrainRetrieveResult) || null)
+const gbrainRetrieveItemsResolved = computed(() => {
+  const list = gbrainRetrieveResultResolved.value?.results
+  return Array.isArray(list) ? list : []
+})
 const selectedHealthFindingResolved = computed(() => unref(selectedHealthFinding) || null)
 const selectedHealthBrokenTargetResolved = computed(() => extractHealthBrokenTarget(selectedHealthFindingResolved.value?.detail))
 const healthDetailRef = ref<HTMLElement | null>(null)
@@ -796,6 +823,50 @@ function formatDateTime(value: unknown) {
   const timestamp = new Date(normalized)
   if (Number.isNaN(timestamp.getTime())) return normalized
   return timestamp.toLocaleString()
+}
+
+function formatGbrainReadModeLabel(value: string) {
+  if (value === 'v2') return 'V2（只读新链路）'
+  if (value === 'shadow') return 'Shadow（双读对照）'
+  return 'V1（旧链路）'
+}
+
+function formatGbrainFeedModeLabel(value: string) {
+  if (value === 'atom-only') return 'Atom Only'
+  if (value === 'reader-first-only') return 'Reader-first Only'
+  return 'Atom + Reader-first'
+}
+
+async function patchGbrainV2Settings(patch: Record<string, unknown>) {
+  if (!hasGbrainV2ServiceResolved.value) return
+  await saveGbrainV2Settings(patch)
+  await loadGbrainV2FeedStatus(true)
+}
+
+function onGbrainReadModeChange(event: Event) {
+  const target = event.target as HTMLSelectElement
+  const value = String(target.value || 'v1').trim()
+  void patchGbrainV2Settings({ readMode: value })
+}
+
+function onGbrainFeedModeChange(event: Event) {
+  const target = event.target as HTMLSelectElement
+  const value = String(target.value || 'atom-reader-first').trim()
+  void patchGbrainV2Settings({ feedMode: value })
+}
+
+function toggleGbrainEnabled() {
+  const next = !Boolean(gbrainV2SettingsResolved.value.enabled)
+  void patchGbrainV2Settings({ enabled: next })
+}
+
+function toggleGbrainRawFallback() {
+  const next = !Boolean(gbrainV2SettingsResolved.value.includeRawFallback)
+  void patchGbrainV2Settings({ includeRawFallback: next })
+}
+
+function runGbrainRetrievePreview() {
+  void runGbrainV2Retrieve(String(unref(gbrainRetrieveQuery) || '').trim(), 6)
 }
 
 function formatTaskTypeLabel(value: string) {
@@ -2653,6 +2724,135 @@ function focusTaskReviewBySummary(cardId: string) {
               />
             </div>
           </label>
+        </div>
+      </section>
+
+      <section v-if="hasGbrainV2ServiceResolved" class="knowledge-review-section knowledge-health-action-section">
+        <header class="knowledge-list-head">
+          <div>
+            <strong>GBrain V2 工作台</strong>
+            <small>在健康巡检页直接观察 feed、切换读路径，并用同一查询做检索抽检。</small>
+            <small v-if="gbrainV2Error">{{ gbrainV2Error }}</small>
+          </div>
+          <button
+            type="button"
+            class="icon-btn"
+            :disabled="gbrainV2Loading || gbrainV2Saving"
+            @click="loadGbrainV2FeedStatus(true)"
+            :title="gbrainV2Loading ? '刷新中' : '刷新 GBrain V2 状态'"
+            aria-label="刷新 GBrain V2 状态"
+          >
+            <IconRefreshCw v-if="gbrainV2Loading" :size="18" class="animate-spin" />
+            <IconRefreshCw v-else :size="18" />
+          </button>
+        </header>
+
+        <div class="knowledge-evidence-meta knowledge-health-detail-meta">
+          <div class="knowledge-evidence-meta-card">
+            <small>读路径</small>
+            <strong>{{ formatGbrainReadModeLabel(gbrainV2SettingsResolved.readMode) }}</strong>
+          </div>
+          <div class="knowledge-evidence-meta-card">
+            <small>Feed 模式</small>
+            <strong>{{ formatGbrainFeedModeLabel(gbrainV2SettingsResolved.feedMode) }}</strong>
+          </div>
+          <div class="knowledge-evidence-meta-card">
+            <small>Atom 总量</small>
+            <strong>{{ gbrainV2FeedStatusResolved?.atoms?.total ?? 0 }}</strong>
+          </div>
+          <div class="knowledge-evidence-meta-card">
+            <small>Lineage 总量</small>
+            <strong>{{ gbrainV2FeedStatusResolved?.lineage?.total ?? 0 }}</strong>
+          </div>
+        </div>
+
+        <div class="knowledge-filter-group">
+          <label>
+            <small>读路径模式</small>
+            <select
+              class="app-select"
+              :value="gbrainV2SettingsResolved.readMode"
+              :disabled="gbrainV2Saving"
+              @change="onGbrainReadModeChange"
+            >
+              <option value="v1">V1（旧链路）</option>
+              <option value="shadow">Shadow（双读对照）</option>
+              <option value="v2">V2（只读新链路）</option>
+            </select>
+          </label>
+
+          <label>
+            <small>Feed 模式</small>
+            <select
+              class="app-select"
+              :value="gbrainV2SettingsResolved.feedMode"
+              :disabled="gbrainV2Saving"
+              @change="onGbrainFeedModeChange"
+            >
+              <option value="atom-reader-first">Atom + Reader-first</option>
+              <option value="atom-only">Atom Only</option>
+              <option value="reader-first-only">Reader-first Only</option>
+            </select>
+          </label>
+
+          <label class="knowledge-filter-search">
+            <small>检索抽检 Query</small>
+            <div class="knowledge-input-with-icon">
+              <IconSearch :size="16" />
+              <input
+                v-model="gbrainRetrieveQuery"
+                class="app-input"
+                type="text"
+                placeholder="输入问题后点击右侧按钮跑 V2 检索"
+              />
+            </div>
+          </label>
+
+          <button
+            type="button"
+            class="app-btn"
+            :disabled="gbrainRetrieveLoading || !String(gbrainRetrieveQuery || '').trim()"
+            @click="runGbrainRetrievePreview"
+          >
+            <IconSparkles :size="16" />
+            {{ gbrainRetrieveLoading ? '检索中…' : '跑一轮检索' }}
+          </button>
+        </div>
+
+        <div class="knowledge-review-actions">
+          <button
+            type="button"
+            class="app-btn-ghost"
+            :disabled="gbrainV2Saving"
+            @click="toggleGbrainEnabled"
+          >
+            <IconCheck :size="16" />
+            {{ gbrainV2SettingsResolved.enabled ? '已启用 V2，点击关闭' : '启用 V2' }}
+          </button>
+          <button
+            type="button"
+            class="app-btn-ghost"
+            :disabled="gbrainV2Saving"
+            @click="toggleGbrainRawFallback"
+          >
+            <IconDatabase :size="16" />
+            Raw 回源：{{ gbrainV2SettingsResolved.includeRawFallback ? '开启' : '关闭' }}
+          </button>
+          <span class="knowledge-review-path">
+            feed: {{ gbrainV2FeedStatusResolved?.feed?.feedDir || '-' }}
+          </span>
+        </div>
+
+        <div v-if="gbrainRetrieveResultResolved" class="knowledge-evidence-section">
+          <small>
+            检索结果：{{ gbrainRetrieveResultResolved.totalMatched }} / {{ gbrainRetrieveResultResolved.totalScanned }}
+            （mode={{ gbrainRetrieveResultResolved.mode }}）
+          </small>
+          <div v-if="gbrainRetrieveItemsResolved.length" class="knowledge-review-meta">
+            <span v-for="item in gbrainRetrieveItemsResolved.slice(0, 4)" :key="item.atomId">
+              {{ item.title || item.canonicalId }} ({{ Math.round(Number(item.score || 0) * 100) / 100 }})
+            </span>
+          </div>
         </div>
       </section>
 

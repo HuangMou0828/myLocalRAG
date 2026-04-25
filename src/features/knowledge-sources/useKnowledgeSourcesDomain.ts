@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import type {
+  GbrainV2Api,
   KnowledgeItemDto,
   KnowledgeItemsApi,
   SessionDataApi,
@@ -10,6 +11,7 @@ import { useRawInboxDomain } from './useRawInboxDomain'
 import { useTaskReviewDomain } from './useTaskReviewDomain'
 import { usePromotionReviewDomain } from './usePromotionReviewDomain'
 import { useWikiHealthDomain } from './useWikiHealthDomain'
+import { useGbrainV2Domain } from './useGbrainV2Domain'
 
 export type { PromotionQueueItem } from './usePromotionReviewDomain'
 export type { HealthFinding, HealthActionQueueItem, HealthSuggestionMode } from './useWikiHealthDomain'
@@ -39,6 +41,7 @@ type WorkbenchTabMeta = {
 
 interface UseKnowledgeSourcesDomainOptions {
   service: KnowledgeItemsApi
+  gbrainV2Service?: GbrainV2Api | null
   sessionService: SessionDataApi<SessionItem, Issue, SessionRetrieveResponse>
   wikiService: WikiVaultApi
   notify: (message: string, tone?: 'info' | 'success' | 'warning' | 'danger') => void
@@ -115,6 +118,11 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     openNoteViewer: (paths, title) => _openNoteViewer(paths, title),
   })
 
+  const gbrainV2 = useGbrainV2Domain({
+    service: options.gbrainV2Service,
+    notify: options.notify,
+  })
+
   // Wire cross-domain pointers
   _loadPromotionQueue = promotionReview.loadPromotionQueue
   _loadWikiHealth = wikiHealth.loadWikiHealth
@@ -181,7 +189,10 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     }
     if (nextTab === 'task-review') await taskReview.loadTaskReviewSessions(false)
     if (nextTab === 'promotion') await promotionReview.loadPromotionQueue(false)
-    if (nextTab === 'health') await wikiHealth.loadWikiHealth(false)
+    if (nextTab === 'health') {
+      await wikiHealth.loadWikiHealth(false)
+      await gbrainV2.loadGbrainV2FeedStatus(false)
+    }
   }
 
   /** 保存并送审：保存后若 intakeStage 为 wiki-candidate，主动推送 Promotion 队列并跳转 tab */
@@ -360,6 +371,19 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     healthBatchActionLabel: wikiHealth.healthBatchActionLabel,
     healthRepairApplyingTarget: wikiHealth.healthRepairApplyingTarget,
     vaultRebuildLoading: wikiHealth.vaultRebuildLoading,
+    hasGbrainV2Service: gbrainV2.hasGbrainV2Service,
+    gbrainV2Loading: gbrainV2.gbrainV2Loading,
+    gbrainV2Saving: gbrainV2.gbrainV2Saving,
+    gbrainV2Error: gbrainV2.gbrainV2Error,
+    gbrainV2LoadedAt: gbrainV2.gbrainV2LoadedAt,
+    gbrainV2FeedStatus: gbrainV2.gbrainV2FeedStatus,
+    gbrainV2Settings: gbrainV2.gbrainV2Settings,
+    gbrainRetrieveQuery: gbrainV2.gbrainRetrieveQuery,
+    gbrainRetrieveLoading: gbrainV2.gbrainRetrieveLoading,
+    gbrainRetrieveResult: gbrainV2.gbrainRetrieveResult,
+    loadGbrainV2FeedStatus: gbrainV2.loadGbrainV2FeedStatus,
+    saveGbrainV2Settings: gbrainV2.saveGbrainV2Settings,
+    runGbrainV2Retrieve: gbrainV2.runGbrainV2Retrieve,
     loadWikiHealth: wikiHealth.loadWikiHealth,
     selectHealthFinding: wikiHealth.selectHealthFinding,
     loadHealthRepairSuggestions: wikiHealth.loadHealthRepairSuggestions,

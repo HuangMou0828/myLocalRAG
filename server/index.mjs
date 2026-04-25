@@ -40,12 +40,18 @@ import {
   createBugInboxInDb,
   deleteBugInboxInDb,
   deleteKnowledgeItemInDb,
+  getKnowledgeAtomStatsInDb,
   getBugInboxByIdInDb,
+  listKnowledgeAtomsInDb,
+  getKnowledgeLineageStatsInDb,
+  loadGbrainV2SettingsInDb,
   loadFeishuProjectSettingsInDb,
   loadModelSettingsInDb,
   loadWikiVaultBuildStatsInDb,
   listBugInboxInDb,
   listKnowledgeItemsInDb,
+  listKnowledgeLineageInDb,
+  saveGbrainV2SettingsInDb,
   saveFeishuProjectSettingsInDb,
   saveModelSettingsInDb,
   saveWikiVaultBuildStatsInDb,
@@ -72,6 +78,10 @@ const BUG_TRACE_SNIPPET_CONTEXT_LINES = 4
 const API_DOCS_DIR = path.resolve(process.cwd(), 'docs', 'api')
 const OPENAPI_FILE = path.join(API_DOCS_DIR, 'openapi.yaml')
 const OPENAPI_PUBLIC_FILE = path.join(API_DOCS_DIR, 'openapi.public.yaml')
+const GBRAIN_V2_FEED_DIR = path.resolve(process.cwd(), 'vault', '.gbrain-v2-feed')
+const GBRAIN_V2_FEED_MANIFEST = path.join(GBRAIN_V2_FEED_DIR, 'manifest.json')
+const GBRAIN_V2_FEED_RECORDS = path.join(GBRAIN_V2_FEED_DIR, 'records.jsonl')
+const GBRAIN_V2_DUAL_WRITE_ENABLED = process.env.KB_GBRAIN_V2_DUAL_WRITE !== '0'
 const embeddingRebuildJobs = new Map()
 const wikiVaultSyncJobs = new Map()
 
@@ -2056,6 +2066,117 @@ function scoreChunk(chunk, query, tokens) {
   return score
 }
 
+function normalizeGbrainReadMode(mode) {
+  const normalized = normalizeString(mode || 'v1').toLowerCase()
+  if (normalized === 'v2') return 'v2'
+  if (normalized === 'shadow') return 'shadow'
+  return 'v1'
+}
+
+function getKnowledgeAtomScoreProfile(mode) {
+  const readMode = normalizeGbrainReadMode(mode)
+  if (readMode === 'v2') {
+    return {
+      exact: { summary: 8, title: 6, topics: 4, kind: 3, pageId: 2, sourceRefs: 2 },
+      token: { summary: 2.4, title: 1.8, topics: 1.6, kind: 1.2, pageId: 0.8, sourceRefs: 0.6 },
+      quality: { clean: 1.2, suspect: 0.4, legacy: -0.6 },
+    }
+  }
+  if (readMode === 'shadow') {
+    return {
+      exact: { summary: 8, title: 6, topics: 2.8, kind: 1.8, pageId: 1.2, sourceRefs: 1.2 },
+      token: { summary: 2.3, title: 1.7, topics: 1.0, kind: 0.7, pageId: 0.5, sourceRefs: 0.4 },
+      quality: { clean: 0.6, suspect: 0.2, legacy: -0.2 },
+    }
+  }
+  return {
+    exact: { summary: 8, title: 6, topics: 1.2, kind: 0.8, pageId: 0.5, sourceRefs: 0.4 },
+    token: { summary: 2.2, title: 1.6, topics: 0.4, kind: 0.3, pageId: 0.2, sourceRefs: 0.2 },
+    quality: { clean: 0.2, suspect: 0, legacy: 0 },
+  }
+}
+
+function scoreKnowledgeAtom(atom, query, tokens, mode = 'v1') {
+  const readMode = normalizeGbrainReadMode(mode)
+  const q = normalizeString(query).toLowerCase()
+  const title = normalizeString(atom?.title).toLowerCase()
+  const summary = normalizeString(atom?.summary).toLowerCase()
+  const kind = normalizeString(atom?.kind).toLowerCase()
+  const pageId = normalizeString(atom?.pageId).toLowerCase()
+  const topics = Array.isArray(atom?.topics) ? atom.topics.map((item) => normalizeString(item).toLowerCase()).join(' ') : ''
+  const sourceRefs = Array.isArray(atom?.sourceRefs)
+    ? atom.sourceRefs
+      .map((item) => `${normalizeString(item?.type)} ${normalizeString(item?.value)}`.toLowerCase())
+      .join(' ')
+    : ''
+  const profile = getKnowledgeAtomScoreProfile(mode)
+
+  let score = 0
+  if (!q) {
+    score += toTimestamp(atom?.updatedAt) / 1e12
+    return score
+  }
+
+  if (summary.includes(q)) score += profile.exact.summary
+  if (title.includes(q)) score += profile.exact.title
+  if (topics.includes(q)) score += profile.exact.topics
+  if (kind.includes(q)) score += profile.exact.kind
+  if (pageId.includes(q)) score += profile.exact.pageId
+  if (sourceRefs.includes(q)) score += profile.exact.sourceRefs
+
+  for (const token of tokens) {
+    if (summary.includes(token)) score += profile.token.summary
+    if (title.includes(token)) score += profile.token.title
+    if (topics.includes(token)) score += profile.token.topics
+    if (kind.includes(token)) score += profile.token.kind
+    if (pageId.includes(token)) score += profile.token.pageId
+    if (sourceRefs.includes(token)) score += profile.token.sourceRefs
+  }
+
+  const qualityTier = normalizeString(atom?.qualityTier).toLowerCase()
+  if (qualityTier === 'clean') score += profile.quality.clean
+  else if (qualityTier === 'suspect') score += profile.quality.suspect
+  else score += profile.quality.legacy
+
+  // Make mode switch observable in ranking behavior:
+  // v1 leans to broad context, v2 leans to structured issue/pattern/decision/synthesis.
+  if (readMode === 'v1') {
+    if (kind === 'context') score += 0.6
+    if (kind === 'issue' || kind === 'pattern') score -= 0.4
+  } else if (readMode === 'shadow') {
+    if (kind === 'context') score -= 0.1
+    if (kind === 'issue' || kind === 'pattern' || kind === 'decision' || kind === 'synthesis') score += 0.2
+  } else if (readMode === 'v2') {
+    if (kind === 'context') score -= 0.4
+    if (kind === 'issue' || kind === 'pattern' || kind === 'decision' || kind === 'synthesis') score += 0.6
+  }
+
+  score += toTimestamp(atom?.updatedAt) / 1e13
+  return score
+}
+
+function pickKnowledgeAtomSnippet(atom, tokens) {
+  const haystacks = [
+    normalizeString(atom?.summary),
+    Array.isArray(atom?.topics) ? atom.topics.map((item) => normalizeString(item)).filter(Boolean).join(' | ') : '',
+    Array.isArray(atom?.sourceRefs)
+      ? atom.sourceRefs
+        .map((item) => normalizeString(item?.value || item?.type))
+        .filter(Boolean)
+        .join(' | ')
+      : '',
+  ].filter(Boolean)
+
+  for (const haystack of haystacks) {
+    for (const token of tokens) {
+      const snippet = snippetByToken(haystack, token)
+      if (snippet) return snippet
+    }
+  }
+
+  return haystacks[0] ? haystacks[0].slice(0, 220) : ''
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms || 0))))
 }
@@ -3498,6 +3619,132 @@ function buildWikiExplainPayload() {
   }
 }
 
+async function loadGbrainV2FeedStatus() {
+  const status = {
+    dualWriteEnabled: GBRAIN_V2_DUAL_WRITE_ENABLED,
+    feedDir: GBRAIN_V2_FEED_DIR,
+    manifestPath: GBRAIN_V2_FEED_MANIFEST,
+    recordsPath: GBRAIN_V2_FEED_RECORDS,
+    manifestExists: existsSync(GBRAIN_V2_FEED_MANIFEST),
+    recordsExists: existsSync(GBRAIN_V2_FEED_RECORDS),
+    manifest: null,
+    files: {
+      manifestSize: 0,
+      recordsSize: 0,
+      recordsMtime: '',
+      manifestMtime: '',
+    },
+  }
+
+  if (status.manifestExists) {
+    const content = await readFile(GBRAIN_V2_FEED_MANIFEST, 'utf8').catch(() => '')
+    if (content) {
+      try {
+        status.manifest = JSON.parse(content)
+      } catch {
+        status.manifest = null
+      }
+    }
+    const info = await stat(GBRAIN_V2_FEED_MANIFEST).catch(() => null)
+    if (info?.isFile()) {
+      status.files.manifestSize = Number(info.size || 0)
+      status.files.manifestMtime = info.mtime ? info.mtime.toISOString() : ''
+    }
+  }
+
+  if (status.recordsExists) {
+    const info = await stat(GBRAIN_V2_FEED_RECORDS).catch(() => null)
+    if (info?.isFile()) {
+      status.files.recordsSize = Number(info.size || 0)
+      status.files.recordsMtime = info.mtime ? info.mtime.toISOString() : ''
+    }
+  }
+
+  return status
+}
+
+async function runGbrainV2AtomRetrieve({
+  query = '',
+  topK = DEFAULT_RETRIEVE_TOP_K,
+  limit = 300,
+  kind = 'all',
+  qualityTier = 'all',
+  status = 'visible',
+  mode = 'v1',
+} = {}) {
+  const normalizedQuery = normalizeSearchQuery(query)
+  const normalizedTopK = Math.max(1, Math.min(MAX_RETRIEVE_TOP_K, Number(topK || DEFAULT_RETRIEVE_TOP_K)))
+  const normalizedLimit = Math.max(normalizedTopK, Math.min(5000, Number(limit || 300)))
+  const normalizedKind = normalizeString(kind || 'all') || 'all'
+  const normalizedTier = normalizeString(qualityTier || 'all') || 'all'
+  const normalizedStatus = normalizeString(status || 'visible') || 'visible'
+  const normalizedMode = normalizeGbrainReadMode(mode)
+  const tokens = tokenize(normalizedQuery)
+
+  let atomCandidates = await listKnowledgeAtomsInDb({
+    limit: normalizedLimit,
+    kind: normalizedKind,
+    qualityTier: normalizedTier,
+    status: normalizedStatus,
+    q: normalizedQuery,
+  })
+
+  if (!atomCandidates.length && normalizedQuery) {
+    atomCandidates = await listKnowledgeAtomsInDb({
+      limit: Math.max(normalizedLimit, normalizedTopK * 30),
+      kind: normalizedKind,
+      qualityTier: normalizedTier,
+      status: normalizedStatus,
+      q: '',
+    })
+  }
+
+  const ranked = atomCandidates
+    .map((atom) => ({
+      atom,
+      score: scoreKnowledgeAtom(atom, normalizedQuery, tokens, normalizedMode),
+    }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score)
+
+  const results = ranked.slice(0, normalizedTopK).map((item) => {
+    const atom = item.atom
+    return {
+      atomId: atom.atomId,
+      rawId: atom.rawId,
+      canonicalId: atom.canonicalId,
+      pageId: atom.pageId,
+      pageType: atom.pageType,
+      pageBucket: atom.pageBucket,
+      kind: atom.kind,
+      title: atom.title,
+      summary: atom.summary,
+      topics: atom.topics,
+      sourceRefs: atom.sourceRefs,
+      intakeStage: atom.intakeStage,
+      confidence: atom.confidence,
+      qualityTier: atom.qualityTier,
+      qualityScore: atom.qualityScore,
+      qualityIssues: atom.qualityIssues,
+      status: atom.status,
+      createdAt: atom.createdAt,
+      updatedAt: atom.updatedAt,
+      score: Number(item.score.toFixed(4)),
+      snippet: pickKnowledgeAtomSnippet(atom, tokens),
+    }
+  })
+
+  return {
+    query: normalizedQuery,
+    topK: normalizedTopK,
+    tokens: tokens.slice(0, 16),
+    mode: normalizedMode,
+    totalScanned: atomCandidates.length,
+    totalMatched: ranked.length,
+    results,
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   if (!req.url) return send(res, 400, { error: 'Bad request' })
   if (req.method === 'OPTIONS') return send(res, 200, { ok: true })
@@ -4190,6 +4437,104 @@ const server = http.createServer(async (req, res) => {
         q,
       })
       return send(res, 200, result)
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/gbrain-v2/atoms') {
+      const limit = Math.min(5000, Math.max(1, Number(url.searchParams.get('limit') || 200)))
+      const kind = normalizeString(url.searchParams.get('kind') || 'all') || 'all'
+      const qualityTier = normalizeString(url.searchParams.get('qualityTier') || 'all') || 'all'
+      const status = normalizeString(url.searchParams.get('status') || 'visible') || 'visible'
+      const q = String(url.searchParams.get('q') || '').trim()
+      const includeStats = String(url.searchParams.get('includeStats') || '1') !== '0'
+
+      const items = await listKnowledgeAtomsInDb({
+        limit,
+        kind,
+        qualityTier,
+        status,
+        q,
+      })
+      const stats = includeStats ? await getKnowledgeAtomStatsInDb() : null
+      return send(res, 200, {
+        items,
+        stats,
+        filters: { limit, kind, qualityTier, status, q },
+      })
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/gbrain-v2/lineage') {
+      const limit = Math.min(5000, Math.max(1, Number(url.searchParams.get('limit') || 200)))
+      const rawId = normalizeString(url.searchParams.get('rawId') || '')
+      const atomId = normalizeString(url.searchParams.get('atomId') || '')
+      const canonicalId = normalizeString(url.searchParams.get('canonicalId') || '')
+      const pageId = normalizeString(url.searchParams.get('pageId') || '')
+      if (!rawId && !atomId && !canonicalId && !pageId) {
+        return send(res, 400, { error: 'rawId / atomId / canonicalId / pageId 至少提供一个' })
+      }
+      const includeStats = String(url.searchParams.get('includeStats') || '0') === '1'
+      const items = await listKnowledgeLineageInDb({
+        rawId,
+        atomId,
+        canonicalId,
+        pageId,
+        limit,
+      })
+      const stats = includeStats ? await getKnowledgeLineageStatsInDb() : null
+      return send(res, 200, {
+        items,
+        stats,
+        filters: { rawId, atomId, canonicalId, pageId, limit },
+      })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/gbrain-v2/retrieve') {
+      const payload = await readBody(req)
+      const query = normalizeSearchQuery(payload?.query || payload?.q || '')
+      if (!query) return send(res, 400, { error: 'query 必填' })
+      const settings = await loadGbrainV2SettingsInDb()
+      const requestedMode = normalizeString(payload?.readMode || payload?.mode || '')
+      const result = await runGbrainV2AtomRetrieve({
+        query,
+        topK: Number(payload?.topK || payload?.top_k || DEFAULT_RETRIEVE_TOP_K),
+        limit: Number(payload?.limit || 300),
+        kind: payload?.kind || 'all',
+        qualityTier: payload?.qualityTier || 'all',
+        status: payload?.status || 'visible',
+        mode: requestedMode || settings.readMode,
+      })
+      return send(res, 200, result)
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/gbrain-v2/feed-status') {
+      const [feed, atomStats, lineageStats, settings] = await Promise.all([
+        loadGbrainV2FeedStatus(),
+        getKnowledgeAtomStatsInDb(),
+        getKnowledgeLineageStatsInDb(),
+        loadGbrainV2SettingsInDb(),
+      ])
+      return send(res, 200, {
+        feed,
+        settings,
+        atoms: atomStats,
+        lineage: lineageStats,
+      })
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/gbrain-v2/settings') {
+      const settings = await loadGbrainV2SettingsInDb()
+      return send(res, 200, { settings })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/gbrain-v2/settings') {
+      const payload = await readBody(req)
+      const settings = await saveGbrainV2SettingsInDb({
+        enabled: payload?.enabled,
+        readMode: payload?.readMode,
+        feedMode: payload?.feedMode,
+        includeRawFallback: payload?.includeRawFallback,
+        dualWriteEnabled: payload?.dualWriteEnabled,
+      })
+      return send(res, 200, { settings })
     }
 
     if (req.method === 'POST' && url.pathname === '/api/openclaw-knowledge/preview') {
@@ -4941,6 +5286,7 @@ const server = http.createServer(async (req, res) => {
       const rewriteQuery = payload.rewriteQuery === true
       const generateAnswer = payload.generateAnswer === true
       const modelSettings = await loadModelSettingsInDb()
+      const gbrainV2Settings = await loadGbrainV2SettingsInDb()
 
       let queryRewrite = {
         enabled: rewriteQuery,
@@ -5100,9 +5446,43 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
+      let gbrainV2 = null
+      if (
+        query
+        && (
+          gbrainV2Settings.readMode === 'shadow'
+          || gbrainV2Settings.readMode === 'v2'
+          || gbrainV2Settings.enabled
+        )
+      ) {
+        try {
+          const retrieveResult = await runGbrainV2AtomRetrieve({
+            query: retrievalQuery || query,
+            topK,
+            limit: Math.max(topK * 30, 300),
+            kind: 'all',
+            qualityTier: 'all',
+            status: 'visible',
+            mode: gbrainV2Settings.readMode,
+          })
+          gbrainV2 = {
+            settings: gbrainV2Settings,
+            retrieve: retrieveResult,
+          }
+        } catch (error) {
+          gbrainV2 = {
+            settings: gbrainV2Settings,
+            retrieve: null,
+            error: String(error),
+          }
+        }
+      }
+
       return send(res, 200, {
         query,
         retrievalQuery,
+        retrieveMode: 'v1',
+        gbrainV2Mode: gbrainV2Settings.readMode,
         topK,
         totalCandidates: rankedResult.totalCandidates,
         totalChunkCandidates: rankedResult.totalChunkCandidates,
@@ -5112,6 +5492,7 @@ const server = http.createServer(async (req, res) => {
         embedding: rankedResult.embedding,
         queryRewrite,
         answer,
+        gbrainV2,
         results: ranked,
       })
     }

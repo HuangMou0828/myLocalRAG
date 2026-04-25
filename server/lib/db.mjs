@@ -6,8 +6,10 @@ import { files, readJson } from './storage.mjs'
 import { buildSessionChunks, cleanConversationContent } from './embedding.mjs'
 import { mergeFeishuProjectSettings } from './feishu-project-settings.mjs'
 import { buildEffectiveModelSettings } from './model-settings.mjs'
+import { buildAtomFromKnowledgeItem } from './gbrain-v2.mjs'
 
 const SNAPSHOT_ENABLED = process.env.KB_JSON_SNAPSHOT !== '0'
+const GBRAIN_V2_DUAL_WRITE_ENABLED = process.env.KB_GBRAIN_V2_DUAL_WRITE !== '0'
 
 let db = null
 let initialized = false
@@ -85,6 +87,32 @@ function normalizeKnowledgeStatus(value) {
   const normalized = String(value || '').trim().toLowerCase()
   if (normalized === 'active' || normalized === 'archived') return normalized
   return 'draft'
+}
+
+function normalizeKnowledgeTier(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (normalized === 'clean' || normalized === 'suspect') return normalized
+  return 'legacy'
+}
+
+function normalizeKnowledgeAtomKind(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (normalized === 'issue' || normalized === 'pattern' || normalized === 'project' || normalized === 'synthesis' || normalized === 'decision') {
+    return normalized
+  }
+  return 'context'
+}
+
+function normalizeGbrainV2ReadMode(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (normalized === 'v2' || normalized === 'shadow') return normalized
+  return 'v1'
+}
+
+function normalizeGbrainV2FeedMode(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (normalized === 'atom-only' || normalized === 'atom-reader-first' || normalized === 'reader-first-only') return normalized
+  return 'atom-reader-first'
 }
 
 function computeSessionContentHash(session) {
@@ -434,6 +462,61 @@ function initSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_knowledge_items_type_status
     ON knowledge_items(source_type, status);
+
+    CREATE TABLE IF NOT EXISTS knowledge_atoms (
+      atom_id TEXT PRIMARY KEY,
+      raw_id TEXT NOT NULL,
+      canonical_id TEXT NOT NULL,
+      page_id TEXT NOT NULL,
+      page_type TEXT NOT NULL,
+      page_bucket TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      summary TEXT,
+      topics_json TEXT,
+      source_refs_json TEXT,
+      intake_stage TEXT,
+      confidence TEXT,
+      quality_score REAL,
+      quality_tier TEXT,
+      quality_issues_json TEXT,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_atoms_raw_id
+    ON knowledge_atoms(raw_id);
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_atoms_canonical_id
+    ON knowledge_atoms(canonical_id);
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_atoms_page_id
+    ON knowledge_atoms(page_id);
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_atoms_quality_tier
+    ON knowledge_atoms(quality_tier);
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_atoms_updated_at
+    ON knowledge_atoms(updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS knowledge_lineage (
+      raw_id TEXT NOT NULL,
+      atom_id TEXT NOT NULL,
+      canonical_id TEXT NOT NULL,
+      page_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      meta_json TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (raw_id, atom_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_lineage_canonical_id
+    ON knowledge_lineage(canonical_id);
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_lineage_page_id
+    ON knowledge_lineage(page_id);
 
     CREATE TABLE IF NOT EXISTS bug_inbox (
       id TEXT PRIMARY KEY,
@@ -2004,6 +2087,34 @@ export async function saveWikiVaultBuildStatsInDb(record = {}) {
   return payload
 }
 
+export async function loadGbrainV2SettingsInDb() {
+  await ensureReady()
+  const stored = getKv('gbrain_v2_settings', {})
+  return {
+    enabled: Boolean(stored?.enabled),
+    readMode: normalizeGbrainV2ReadMode(stored?.readMode),
+    feedMode: normalizeGbrainV2FeedMode(stored?.feedMode),
+    includeRawFallback: stored?.includeRawFallback !== false,
+    dualWriteEnabled: stored?.dualWriteEnabled !== false,
+    updatedAt: String(stored?.updatedAt || '') || null,
+  }
+}
+
+export async function saveGbrainV2SettingsInDb(record = {}) {
+  await ensureReady()
+  const prev = await loadGbrainV2SettingsInDb()
+  const next = {
+    enabled: record?.enabled === undefined ? prev.enabled : Boolean(record.enabled),
+    readMode: record?.readMode === undefined ? prev.readMode : normalizeGbrainV2ReadMode(record.readMode),
+    feedMode: record?.feedMode === undefined ? prev.feedMode : normalizeGbrainV2FeedMode(record.feedMode),
+    includeRawFallback: record?.includeRawFallback === undefined ? prev.includeRawFallback : Boolean(record.includeRawFallback),
+    dualWriteEnabled: record?.dualWriteEnabled === undefined ? prev.dualWriteEnabled : Boolean(record.dualWriteEnabled),
+    updatedAt: nowIso(),
+  }
+  setKv('gbrain_v2_settings', next)
+  return next
+}
+
 export async function listPatchDirPresetsInDb() {
   await ensureReady()
   const database = getDb()
@@ -2069,19 +2180,27 @@ export async function deletePatchDirPresetInDb(id) {
   return { removed: Number(result?.changes || 0) > 0 }
 }
 
+function parseJsonArray(raw) {
+  try {
+    const parsed = JSON.parse(String(raw || '[]'))
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function parseJsonObject(raw) {
+  try {
+    const parsed = JSON.parse(String(raw || '{}'))
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
 function parseKnowledgeItemRow(row) {
-  let tags = []
-  let meta = {}
-  try {
-    tags = JSON.parse(String(row?.tags_json || '[]'))
-  } catch {
-    tags = []
-  }
-  try {
-    meta = JSON.parse(String(row?.meta_json || '{}'))
-  } catch {
-    meta = {}
-  }
+  const tags = parseJsonArray(row?.tags_json)
+  const meta = parseJsonObject(row?.meta_json)
 
   return {
     id: String(row?.id || ''),
@@ -2095,6 +2214,43 @@ function parseKnowledgeItemRow(row) {
     sourceFile: String(row?.source_file || ''),
     tags: Array.isArray(tags) ? tags.map((item) => String(item || '').trim()).filter(Boolean) : [],
     meta: meta && typeof meta === 'object' ? meta : {},
+    createdAt: String(row?.created_at || ''),
+    updatedAt: String(row?.updated_at || ''),
+  }
+}
+
+function parseKnowledgeAtomRow(row) {
+  const topics = parseJsonArray(row?.topics_json)
+  const sourceRefs = parseJsonArray(row?.source_refs_json)
+  const qualityIssues = parseJsonArray(row?.quality_issues_json)
+  return {
+    atomId: String(row?.atom_id || ''),
+    rawId: String(row?.raw_id || ''),
+    canonicalId: String(row?.canonical_id || ''),
+    pageId: String(row?.page_id || ''),
+    pageType: String(row?.page_type || ''),
+    pageBucket: String(row?.page_bucket || ''),
+    kind: normalizeKnowledgeAtomKind(row?.kind),
+    title: String(row?.title || ''),
+    summary: String(row?.summary || ''),
+    topics: Array.isArray(topics) ? topics.map((item) => String(item || '').trim()).filter(Boolean) : [],
+    sourceRefs: Array.isArray(sourceRefs)
+      ? sourceRefs
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null
+          const type = String(item.type || '').trim()
+          const value = String(item.value || '').trim()
+          if (!type || !value) return null
+          return { type, value }
+        })
+        .filter(Boolean)
+      : [],
+    intakeStage: String(row?.intake_stage || ''),
+    confidence: String(row?.confidence || ''),
+    qualityScore: Number.isFinite(Number(row?.quality_score)) ? Number(row?.quality_score) : 0,
+    qualityTier: normalizeKnowledgeTier(row?.quality_tier),
+    qualityIssues: Array.isArray(qualityIssues) ? qualityIssues.map((item) => String(item || '').trim()).filter(Boolean) : [],
+    status: normalizeKnowledgeStatus(row?.status),
     createdAt: String(row?.created_at || ''),
     updatedAt: String(row?.updated_at || ''),
   }
@@ -2218,6 +2374,390 @@ export async function getKnowledgeItemByIdInDb(id) {
   return row ? parseKnowledgeItemRow(row) : null
 }
 
+export async function listKnowledgeAtomsInDb({ limit = 200, kind = 'all', qualityTier = 'all', status = 'all', q = '' } = {}) {
+  await ensureReady()
+  const database = getDb()
+  const max = Math.max(1, Math.min(5000, Number(limit || 200)))
+  const normalizedKind = String(kind || '').trim().toLowerCase()
+  const normalizedTier = String(qualityTier || '').trim().toLowerCase()
+  const normalizedStatus = String(status || '').trim().toLowerCase()
+  const keyword = String(q || '').trim().toLowerCase()
+
+  const where = []
+  const params = []
+
+  if (normalizedKind && normalizedKind !== 'all') {
+    where.push('kind = ?')
+    params.push(normalizeKnowledgeAtomKind(normalizedKind))
+  }
+
+  if (normalizedTier && normalizedTier !== 'all') {
+    where.push('quality_tier = ?')
+    params.push(normalizeKnowledgeTier(normalizedTier))
+  }
+
+  if (normalizedStatus && normalizedStatus !== 'all') {
+    if (normalizedStatus === 'visible' || normalizedStatus === 'non-archived') {
+      where.push("status != 'archived'")
+    } else {
+      where.push('status = ?')
+      params.push(normalizeKnowledgeStatus(normalizedStatus))
+    }
+  }
+
+  if (keyword) {
+    where.push('(LOWER(title) LIKE ? OR LOWER(summary) LIKE ? OR LOWER(topics_json) LIKE ? OR LOWER(source_refs_json) LIKE ? OR LOWER(canonical_id) LIKE ?)')
+    const likeKeyword = `%${keyword}%`
+    params.push(likeKeyword, likeKeyword, likeKeyword, likeKeyword, likeKeyword)
+  }
+
+  const rows = database
+    .prepare(
+      `SELECT atom_id, raw_id, canonical_id, page_id, page_type, page_bucket, kind, title, summary, topics_json, source_refs_json,
+              intake_stage, confidence, quality_score, quality_tier, quality_issues_json, status, created_at, updated_at
+       FROM knowledge_atoms
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+       ORDER BY datetime(updated_at) DESC
+       LIMIT ?`,
+    )
+    .all(...params, max)
+
+  return rows.map(parseKnowledgeAtomRow)
+}
+
+export async function getKnowledgeAtomStatsInDb() {
+  await ensureReady()
+  const database = getDb()
+  const totals = database
+    .prepare(
+      `SELECT
+         COUNT(*) AS total,
+         SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) AS draft_total,
+         SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_total,
+         SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END) AS archived_total
+       FROM knowledge_atoms`,
+    )
+    .get()
+
+  const byKindRows = database
+    .prepare(
+      `SELECT kind, COUNT(*) AS total
+       FROM knowledge_atoms
+       GROUP BY kind`,
+    )
+    .all()
+
+  const byTierRows = database
+    .prepare(
+      `SELECT quality_tier, COUNT(*) AS total
+       FROM knowledge_atoms
+       GROUP BY quality_tier`,
+    )
+    .all()
+
+  const byKind = {}
+  for (const row of byKindRows) {
+    const key = normalizeKnowledgeAtomKind(row?.kind)
+    byKind[key] = Number(row?.total || 0)
+  }
+
+  const byTier = {
+    clean: 0,
+    suspect: 0,
+    legacy: 0,
+  }
+  for (const row of byTierRows) {
+    const key = normalizeKnowledgeTier(row?.quality_tier)
+    byTier[key] = Number(row?.total || 0)
+  }
+
+  return {
+    total: Number(totals?.total || 0),
+    draft: Number(totals?.draft_total || 0),
+    active: Number(totals?.active_total || 0),
+    archived: Number(totals?.archived_total || 0),
+    byKind,
+    byTier,
+  }
+}
+
+export async function getKnowledgeAtomByIdInDb(atomId) {
+  await ensureReady()
+  const normalizedId = String(atomId || '').trim()
+  if (!normalizedId) return null
+  const database = getDb()
+  const row = database
+    .prepare(
+      `SELECT atom_id, raw_id, canonical_id, page_id, page_type, page_bucket, kind, title, summary, topics_json, source_refs_json,
+              intake_stage, confidence, quality_score, quality_tier, quality_issues_json, status, created_at, updated_at
+       FROM knowledge_atoms
+       WHERE atom_id = ?`,
+    )
+    .get(normalizedId)
+  return row ? parseKnowledgeAtomRow(row) : null
+}
+
+export async function upsertKnowledgeLineageInDb(record = {}) {
+  await ensureReady()
+  const rawId = String(record?.rawId || '').trim()
+  const atomId = String(record?.atomId || '').trim()
+  const canonicalId = String(record?.canonicalId || '').trim()
+  const pageId = String(record?.pageId || '').trim()
+  if (!rawId || !atomId || !canonicalId || !pageId) return null
+
+  const now = nowIso()
+  const database = getDb()
+  const existing = database
+    .prepare(
+      `SELECT created_at
+       FROM knowledge_lineage
+       WHERE raw_id = ? AND atom_id = ?`,
+    )
+    .get(rawId, atomId)
+
+  const createdAt = String(existing?.created_at || '').trim() || now
+  const eventType = String(record?.eventType || 'upsert').trim() || 'upsert'
+  const meta = record?.meta && typeof record.meta === 'object' && !Array.isArray(record.meta)
+    ? record.meta
+    : {}
+
+  database
+    .prepare(
+      `INSERT INTO knowledge_lineage(
+         raw_id, atom_id, canonical_id, page_id, event_type, meta_json, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(raw_id, atom_id) DO UPDATE SET
+         canonical_id=excluded.canonical_id,
+         page_id=excluded.page_id,
+         event_type=excluded.event_type,
+         meta_json=excluded.meta_json,
+         updated_at=excluded.updated_at`,
+    )
+    .run(rawId, atomId, canonicalId, pageId, eventType, JSON.stringify(meta), createdAt, now)
+
+  return {
+    rawId,
+    atomId,
+    canonicalId,
+    pageId,
+    eventType,
+    meta,
+    createdAt,
+    updatedAt: now,
+  }
+}
+
+export async function listKnowledgeLineageByRawIdInDb(rawId) {
+  await ensureReady()
+  const normalizedRawId = String(rawId || '').trim()
+  if (!normalizedRawId) return []
+  const database = getDb()
+  const rows = database
+    .prepare(
+      `SELECT raw_id, atom_id, canonical_id, page_id, event_type, meta_json, created_at, updated_at
+       FROM knowledge_lineage
+       WHERE raw_id = ?
+       ORDER BY datetime(updated_at) DESC`,
+    )
+    .all(normalizedRawId)
+  return rows.map((row) => ({
+    rawId: String(row?.raw_id || ''),
+    atomId: String(row?.atom_id || ''),
+    canonicalId: String(row?.canonical_id || ''),
+    pageId: String(row?.page_id || ''),
+    eventType: String(row?.event_type || ''),
+    meta: parseJsonObject(row?.meta_json),
+    createdAt: String(row?.created_at || ''),
+    updatedAt: String(row?.updated_at || ''),
+  }))
+}
+
+export async function listKnowledgeLineageInDb({ rawId = '', atomId = '', canonicalId = '', pageId = '', limit = 200 } = {}) {
+  await ensureReady()
+  const database = getDb()
+  const max = Math.max(1, Math.min(5000, Number(limit || 200)))
+  const normalizedRawId = String(rawId || '').trim()
+  const normalizedAtomId = String(atomId || '').trim()
+  const normalizedCanonicalId = String(canonicalId || '').trim()
+  const normalizedPageId = String(pageId || '').trim()
+
+  const where = []
+  const params = []
+  if (normalizedRawId) {
+    where.push('raw_id = ?')
+    params.push(normalizedRawId)
+  }
+  if (normalizedAtomId) {
+    where.push('atom_id = ?')
+    params.push(normalizedAtomId)
+  }
+  if (normalizedCanonicalId) {
+    where.push('canonical_id = ?')
+    params.push(normalizedCanonicalId)
+  }
+  if (normalizedPageId) {
+    where.push('page_id = ?')
+    params.push(normalizedPageId)
+  }
+
+  const rows = database
+    .prepare(
+      `SELECT raw_id, atom_id, canonical_id, page_id, event_type, meta_json, created_at, updated_at
+       FROM knowledge_lineage
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+       ORDER BY datetime(updated_at) DESC
+       LIMIT ?`,
+    )
+    .all(...params, max)
+
+  return rows.map((row) => ({
+    rawId: String(row?.raw_id || ''),
+    atomId: String(row?.atom_id || ''),
+    canonicalId: String(row?.canonical_id || ''),
+    pageId: String(row?.page_id || ''),
+    eventType: String(row?.event_type || ''),
+    meta: parseJsonObject(row?.meta_json),
+    createdAt: String(row?.created_at || ''),
+    updatedAt: String(row?.updated_at || ''),
+  }))
+}
+
+export async function getKnowledgeLineageStatsInDb() {
+  await ensureReady()
+  const database = getDb()
+  const totalRow = database
+    .prepare(
+      `SELECT COUNT(*) AS total
+       FROM knowledge_lineage`,
+    )
+    .get()
+  const uniqueRawRow = database
+    .prepare(
+      `SELECT COUNT(DISTINCT raw_id) AS total
+       FROM knowledge_lineage`,
+    )
+    .get()
+  const uniqueAtomRow = database
+    .prepare(
+      `SELECT COUNT(DISTINCT atom_id) AS total
+       FROM knowledge_lineage`,
+    )
+    .get()
+  const uniqueCanonicalRow = database
+    .prepare(
+      `SELECT COUNT(DISTINCT canonical_id) AS total
+       FROM knowledge_lineage`,
+    )
+    .get()
+  const uniquePageRow = database
+    .prepare(
+      `SELECT COUNT(DISTINCT page_id) AS total
+       FROM knowledge_lineage`,
+    )
+    .get()
+
+  return {
+    total: Number(totalRow?.total || 0),
+    uniqueRawIds: Number(uniqueRawRow?.total || 0),
+    uniqueAtomIds: Number(uniqueAtomRow?.total || 0),
+    uniqueCanonicalIds: Number(uniqueCanonicalRow?.total || 0),
+    uniquePageIds: Number(uniquePageRow?.total || 0),
+  }
+}
+
+export async function upsertKnowledgeAtomInDb(record = {}) {
+  await ensureReady()
+  const rawId = String(record?.rawId || '').trim()
+  const atomId = String(record?.atomId || '').trim()
+  const canonicalId = String(record?.canonicalId || '').trim()
+  const pageId = String(record?.pageId || '').trim()
+  if (!rawId || !atomId || !canonicalId || !pageId) return null
+
+  const now = nowIso()
+  const database = getDb()
+  const existing = database
+    .prepare(
+      `SELECT created_at
+       FROM knowledge_atoms
+       WHERE atom_id = ?`,
+    )
+    .get(atomId)
+
+  const createdAt = String(existing?.created_at || '').trim() || String(record?.createdAt || '').trim() || now
+  const updatedAt = String(record?.updatedAt || '').trim() || now
+
+  database
+    .prepare(
+      `INSERT INTO knowledge_atoms(
+         atom_id, raw_id, canonical_id, page_id, page_type, page_bucket, kind, title, summary,
+         topics_json, source_refs_json, intake_stage, confidence, quality_score, quality_tier, quality_issues_json,
+         status, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(atom_id) DO UPDATE SET
+         raw_id=excluded.raw_id,
+         canonical_id=excluded.canonical_id,
+         page_id=excluded.page_id,
+         page_type=excluded.page_type,
+         page_bucket=excluded.page_bucket,
+         kind=excluded.kind,
+         title=excluded.title,
+         summary=excluded.summary,
+         topics_json=excluded.topics_json,
+         source_refs_json=excluded.source_refs_json,
+         intake_stage=excluded.intake_stage,
+         confidence=excluded.confidence,
+         quality_score=excluded.quality_score,
+         quality_tier=excluded.quality_tier,
+         quality_issues_json=excluded.quality_issues_json,
+         status=excluded.status,
+         updated_at=excluded.updated_at`,
+    )
+    .run(
+      atomId,
+      rawId,
+      canonicalId,
+      pageId,
+      String(record?.pageType || '').trim() || 'synthesis-note',
+      String(record?.pageBucket || '').trim() || 'syntheses',
+      normalizeKnowledgeAtomKind(record?.kind),
+      String(record?.title || '').trim() || 'untitled',
+      String(record?.summary || '').trim(),
+      JSON.stringify(Array.isArray(record?.topics) ? record.topics : []),
+      JSON.stringify(Array.isArray(record?.sourceRefs) ? record.sourceRefs : []),
+      String(record?.intakeStage || '').trim(),
+      String(record?.confidence || '').trim(),
+      Number.isFinite(Number(record?.qualityScore)) ? Number(record.qualityScore) : 0,
+      normalizeKnowledgeTier(record?.qualityTier),
+      JSON.stringify(Array.isArray(record?.qualityIssues) ? record.qualityIssues : []),
+      normalizeKnowledgeStatus(record?.status),
+      createdAt,
+      updatedAt,
+    )
+
+  await upsertKnowledgeLineageInDb({
+    rawId,
+    atomId,
+    canonicalId,
+    pageId,
+    eventType: 'upsert',
+    meta: {
+      pageType: String(record?.pageType || '').trim() || 'synthesis-note',
+      pageBucket: String(record?.pageBucket || '').trim() || 'syntheses',
+      qualityTier: normalizeKnowledgeTier(record?.qualityTier),
+    },
+  })
+
+  return getKnowledgeAtomByIdInDb(atomId)
+}
+
+async function syncKnowledgeAtomForItemInDb(item) {
+  if (!GBRAIN_V2_DUAL_WRITE_ENABLED) return null
+  if (!item || typeof item !== 'object') return null
+  const atom = buildAtomFromKnowledgeItem(item)
+  if (!atom?.rawId || !atom?.atomId || !atom?.canonicalId || !atom?.pageId) return null
+  return upsertKnowledgeAtomInDb(atom)
+}
+
 export async function upsertKnowledgeItemInDb(record = {}) {
   await ensureReady()
   const now = nowIso()
@@ -2277,7 +2817,13 @@ export async function upsertKnowledgeItemInDb(record = {}) {
       now,
     )
 
-  return getKnowledgeItemByIdInDb(id)
+  const saved = await getKnowledgeItemByIdInDb(id)
+  try {
+    await syncKnowledgeAtomForItemInDb(saved)
+  } catch {
+    // Keep legacy write path resilient while Phase B dual-write is stabilizing.
+  }
+  return saved
 }
 
 export async function updateKnowledgeItemStatusInDb({ id = '', status = 'draft' } = {}) {
@@ -2295,7 +2841,13 @@ export async function updateKnowledgeItemStatusInDb({ id = '', status = 'draft' 
        WHERE id = ?`,
     )
     .run(nextStatus, nowIso(), knowledgeId)
-  return getKnowledgeItemByIdInDb(knowledgeId)
+  const saved = await getKnowledgeItemByIdInDb(knowledgeId)
+  try {
+    await syncKnowledgeAtomForItemInDb(saved)
+  } catch {
+    // Keep legacy write path resilient while Phase B dual-write is stabilizing.
+  }
+  return saved
 }
 
 export async function patchKnowledgeItemMetaInDb({ id = '', status, metaPatch = {} } = {}) {
@@ -2320,7 +2872,13 @@ export async function patchKnowledgeItemMetaInDb({ id = '', status, metaPatch = 
        WHERE id = ?`,
     )
     .run(nextStatus, JSON.stringify(nextMeta), nowIso(), knowledgeId)
-  return getKnowledgeItemByIdInDb(knowledgeId)
+  const saved = await getKnowledgeItemByIdInDb(knowledgeId)
+  try {
+    await syncKnowledgeAtomForItemInDb(saved)
+  } catch {
+    // Keep legacy write path resilient while Phase B dual-write is stabilizing.
+  }
+  return saved
 }
 
 export async function deleteKnowledgeItemInDb(id) {
@@ -2329,6 +2887,10 @@ export async function deleteKnowledgeItemInDb(id) {
   if (!knowledgeId) return { removed: false }
   const database = getDb()
   const result = database.prepare('DELETE FROM knowledge_items WHERE id = ?').run(knowledgeId)
+  if (Number(result?.changes || 0) > 0) {
+    database.prepare('DELETE FROM knowledge_atoms WHERE raw_id = ?').run(knowledgeId)
+    database.prepare('DELETE FROM knowledge_lineage WHERE raw_id = ?').run(knowledgeId)
+  }
   return { removed: Number(result?.changes || 0) > 0 }
 }
 

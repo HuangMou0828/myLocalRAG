@@ -54,6 +54,7 @@ export function useAppShell() {
     messageTagApi,
     importApi,
     knowledgeItemsApi,
+    gbrainV2Api,
     wikiVaultApi,
     bugTraceApi,
     bugInboxFeishuApi,
@@ -260,6 +261,7 @@ export function useAppShell() {
 
   const knowledgeSourcesDomain = useKnowledgeSourcesDomain({
     service: knowledgeItemsApi,
+    gbrainV2Service: gbrainV2Api,
     sessionService: sessionDataApi,
     wikiService: wikiVaultApi,
     notify: uiToastDomain.showToast,
