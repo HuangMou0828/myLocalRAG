@@ -203,6 +203,7 @@ export interface GbrainV2FeedStatusDto {
     generatedAt?: string
     includeRaw?: boolean
     limit?: number
+    feedMode?: 'atom-only' | 'atom-reader-first' | 'reader-first-only'
     stats?: {
       atoms?: number
       readerFirst?: number
@@ -292,6 +293,28 @@ export interface GbrainV2Api {
   }>
   fetchSettings(): Promise<{ settings: GbrainV2SettingsDto }>
   saveSettings(payload: Partial<GbrainV2SettingsDto>): Promise<{ settings: GbrainV2SettingsDto }>
+  refreshFeed(payload?: {
+    limit?: number
+    includeRaw?: boolean
+    feedMode?: 'atom-only' | 'atom-reader-first' | 'reader-first-only'
+    clean?: boolean
+  }): Promise<{
+    ok: boolean
+    refreshedAt: string
+    feed: {
+      outDir: string
+      recordsPath: string
+      manifestPath: string
+      feedMode: 'atom-only' | 'atom-reader-first' | 'reader-first-only'
+      stats: {
+        atoms: number
+        readerFirst: number
+        raw: number
+        total: number
+      }
+      manifest: Record<string, unknown>
+    }
+  }>
 }
 
 export interface SessionDataApi<TSession, TIssue, TRetrieveResponse> {
@@ -1456,6 +1479,29 @@ export function createGbrainV2Api(request: JsonRequest): GbrainV2Api {
     },
     saveSettings(payload) {
       return request<{ settings: GbrainV2SettingsDto }>('/api/gbrain-v2/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+    },
+    refreshFeed(payload = {}) {
+      return request<{
+        ok: boolean
+        refreshedAt: string
+        feed: {
+          outDir: string
+          recordsPath: string
+          manifestPath: string
+          feedMode: 'atom-only' | 'atom-reader-first' | 'reader-first-only'
+          stats: {
+            atoms: number
+            readerFirst: number
+            raw: number
+            total: number
+          }
+          manifest: Record<string, unknown>
+        }
+      }>('/api/gbrain-v2/feed-refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

@@ -1,0 +1,1383 @@
+{
+  "version": "gbrain-v2-rollback-drill.v1",
+  "generatedAt": "2026-04-25T09:00:09.471Z",
+  "apply": true,
+  "success": true,
+  "targetMode": "v1",
+  "restoreMode": "shadow",
+  "before": {
+    "enabled": true,
+    "readMode": "shadow",
+    "feedMode": "atom-reader-first",
+    "includeRawFallback": true,
+    "dualWriteEnabled": true,
+    "updatedAt": "2026-04-25T08:44:16.984Z"
+  },
+  "switched": {
+    "enabled": true,
+    "readMode": "v1",
+    "feedMode": "atom-reader-first",
+    "includeRawFallback": true,
+    "dualWriteEnabled": true,
+    "updatedAt": "2026-04-25T09:00:09.477Z"
+  },
+  "after": {
+    "enabled": true,
+    "readMode": "shadow",
+    "feedMode": "atom-reader-first",
+    "includeRawFallback": true,
+    "dualWriteEnabled": true,
+    "updatedAt": "2026-04-25T09:00:09.477Z"
+  },
+  "topK": 8,
+  "limit": 5000,
+  "compare": {
+    "querySetPath": "/Users/hm/myLocalRAG/docs/wiki-vault/eval/query-set.template.json",
+    "querySetVersion": "v1",
+    "modes": [
+      {
+        "mode": "shadow",
+        "topK": 8,
+        "limit": 5000,
+        "queries": [
+          {
+            "id": "issue-001",
+            "query": "某模块报错后如何定位根因",
+            "intent": "issue",
+            "expectedSignals": [
+              "symptom",
+              "rootcause",
+              "fixpattern",
+              "validation"
+            ],
+            "signalCoverage": [
+              "rootcause"
+            ],
+            "totalMatched": 66,
+            "results": [
+              {
+                "rank": 1,
+                "atomId": "atom_160490c9acf51a9266b24b7a",
+                "rawId": "openclaw_588a88113cb77923c09a50d58d491d08ccdf6d30",
+                "canonicalId": "canon_222136297fb2f32c6b748834",
+                "pageId": "patterns/批量清理前先查memory记录",
+                "kind": "pattern",
+                "title": "批量清理前先查memory记录",
+                "summary": "When To Use",
+                "topics": [
+                  "openclaw-ops",
+                  "openclaw",
+                  "patterns",
+                  "pattern"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260425-001.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "patterns/LRN-20260425-001.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 0.9777,
+                "snippet": "When To Use",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 2,
+                "atomId": "atom_cf79927d22a46ab075623e46",
+                "rawId": "openclaw_8ed4b4828a99c22f202135c607e4d6143a6787a8",
+                "canonicalId": "canon_10bd3c934a80cf662f245e55",
+                "pageId": "patterns/gateway-sigterm-根因分析与解决方案",
+                "kind": "pattern",
+                "title": "Gateway SIGTERM 根因分析与解决方案",
+                "summary": "撰写时间： 2026 04 21 前置文档： gateway sigterm diagnosis.md 结论： SIGTERM 不是外部进程发的，是 openclaw 自己 在配置文件变化后，通过 triggerOpenClawRestart → cleanStaleGatewayProcessesSync 主动 kill 旧进程触发的\"自杀式重启\"。launchd 的 KeepAlive=true 把它拉起来，下一次配置写入又被杀，循环往复。",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/gateway-sigterm-rootcause-and-fix.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/gateway-sigterm-rootcause-and-fix.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 0.9777,
+                "snippet": "撰写时间： 2026 04 21 前置文档： gateway sigterm diagnosis.md 结论： SIGTERM 不是外部进程发的，是 openclaw 自己 在配置文件变化后，通过 triggerOpenClawRestart → cleanStaleGatewayProcessesSync 主动 kill 旧进程触发的\"自杀式重启\"。launchd 的 KeepAlive=true 把它拉起来，下一次配置写入又被杀，循",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [
+                    "rootcause"
+                  ],
+                  "relevanceScore": 0.2,
+                  "relevant": true
+                }
+              },
+              {
+                "rank": 3,
+                "atomId": "atom_e8853959cbb5daa35cc3a5ae",
+                "rawId": "openclaw_1adc3e94e08633fb024239853cea5b970b3a7302",
+                "canonicalId": "canon_c3c998c4119df5a749f97a07",
+                "pageId": "patterns/openclaw-多副本路径分析与清理方案",
+                "kind": "pattern",
+                "title": "OpenClaw 多副本路径分析与清理方案",
+                "summary": "撰写时间： 2026 04 21 前置文档： openclaw multipath diagnosis.md 结论： 1. 实际 只有 1 套在用 （pnpm 路径）， which openclaw 唯一指向它，LaunchAgent 也指向它， 当前不是问题 。 2. 文档里\"三套副本\"的描述 部分不准确 ——nvm 路径下根本没有 openclaw，所谓的\"npm 残骸\"实际位于 Homebrew 的 npm prefix 。 3. 真正剩下的\"垃圾\"只有一个孤儿目录 /opt/homebrew/lib/...",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/openclaw-multipath-rootcause-and-fix.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/openclaw-multipath-rootcause-and-fix.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 0.9777,
+                "snippet": "撰写时间： 2026 04 21 前置文档： openclaw multipath diagnosis.md 结论： 1. 实际 只有 1 套在用 （pnpm 路径）， which openclaw 唯一指向它，LaunchAgent 也指向它， 当前不是问题 。 2. 文档里\"三套副本\"的描述 部分不准确 ——nvm 路径下根本没有 openclaw，所谓的\"npm 残骸\"实际位于 Homebrew 的 npm prefix 。 3.",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [
+                    "rootcause"
+                  ],
+                  "relevanceScore": 0.2,
+                  "relevant": true
+                }
+              },
+              {
+                "rank": 4,
+                "atomId": "atom_c03694deed8c5eb8a5c62aba",
+                "rawId": "openclaw_22e8c3cb36debc2b066ec04ad397bef0755b5469",
+                "canonicalId": "canon_d1cab38f3afb57fbc3015769",
+                "pageId": "syntheses/untitled",
+                "kind": "decision",
+                "title": "---",
+                "summary": "Decisions",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-21.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-21.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 0.9777,
+                "snippet": "Decisions",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 5,
+                "atomId": "atom_fab7e4fabfff9712c7da881e",
+                "rawId": "openclaw_6e98ac96d734ed62022cfd4ef78bb2ddcae5e3db",
+                "canonicalId": "canon_4b70197b6f3ab97b82a7bd59",
+                "pageId": "issues/关于-mdns-watchdog-是-sigterm-根因-的假设评估",
+                "kind": "issue",
+                "title": "关于 \"mDNS watchdog 是 SIGTERM 根因\" 的假设评估",
+                "summary": "撰写时间： 2026 04 21 前置文档： gateway sigterm rootcause and fix.md 评估对象： 同事提出的新假设—— \"restart 的触发路径只有 3 种：config.patch/apply、update.run、config watcher，watchdog 不直接触发 restart。但 SIGTERM 的真正根因是 watchdog 每 20 30 秒检测 'non announced' 并 re advertise 失败时，可能触发了某种 restart 机制...",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/gateway-sigterm-mdns-hypothesis-review.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/gateway-sigterm-mdns-hypothesis-review.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 0.9777,
+                "snippet": "撰写时间： 2026 04 21 前置文档： gateway sigterm rootcause and fix.md 评估对象： 同事提出的新假设—— \"restart 的触发路径只有 3 种：config.patch/apply、update.run、config watcher，watchdog 不直接触发 restart。但 SIGTERM 的真正根因是 watchdog 每 20 30 秒检测 'non announced' ",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": true,
+                  "signalHits": [
+                    "rootcause"
+                  ],
+                  "relevanceScore": 0.8,
+                  "relevant": true
+                }
+              },
+              {
+                "rank": 6,
+                "atomId": "atom_8ce50ddc62dc64f81342533c",
+                "rawId": "openclaw_7a7c60254144f31dcc506ce5b710ffa8dced82f3",
+                "canonicalId": "canon_af78f8e1e064ef0f0fcba520",
+                "pageId": "patterns/批量清理前先查memory记录",
+                "kind": "pattern",
+                "title": "批量清理前先查memory记录",
+                "summary": "When To Use",
+                "topics": [
+                  "openclaw-ops",
+                  "openclaw",
+                  "patterns",
+                  "pattern"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260415-001.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "patterns/LRN-20260415-001.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 0.9776,
+                "snippet": "When To Use",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 7,
+                "atomId": "atom_a413eaf94017fa64d6946810",
+                "rawId": "openclaw_9a8ffc66cd27355f02885870698137e93e11688c",
+                "canonicalId": "canon_7ce1cf3226fe485120bbb5d1",
+                "pageId": "issues/如何避免清理配置文件夹时未先记录原有内容",
+                "kind": "issue",
+                "title": "如何避免清理配置文件夹时未先记录原有内容？",
+                "summary": "错误教训",
+                "topics": [
+                  "openclaw-config",
+                  "openclaw",
+                  "errors",
+                  "error-lesson"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/errors/ERR-20260413-001.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "errors/ERR-20260413-001.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 88,
+                "score": 0.9776,
+                "snippet": "错误教训",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": true,
+                  "signalHits": [],
+                  "relevanceScore": 0.6,
+                  "relevant": true
+                }
+              },
+              {
+                "rank": 8,
+                "atomId": "atom_538627514ef61a9b940b98cd",
+                "rawId": "openclaw_07728c44307aa96698de3e899938044570ac9884",
+                "canonicalId": "canon_d42d4257166e774bda35cd91",
+                "pageId": "patterns/批量清理前应该如何避免误删关键记忆",
+                "kind": "pattern",
+                "title": "批量清理前应该如何避免误删关键记忆？",
+                "summary": "批量清理前先检查 memory，并把清理意图、保留项和风险点写入记录。",
+                "topics": [
+                  "inbox-protocol-test",
+                  "openclaw",
+                  "patterns",
+                  "pattern",
+                  "test"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/TEST-20260411-001.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "patterns/TEST-20260411-001.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 0.9776,
+                "snippet": "批量清理前先检查 memory，并把清理意图、保留项和风险点写入记录。",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              }
+            ]
+          },
+          {
+            "id": "pattern-001",
+            "query": "openclaw 导入后如何稳定去重",
+            "intent": "pattern",
+            "expectedSignals": [
+              "recommendedshape",
+              "tradeoffs",
+              "evidencerefs"
+            ],
+            "signalCoverage": [],
+            "totalMatched": 66,
+            "results": [
+              {
+                "rank": 1,
+                "atomId": "atom_e8853959cbb5daa35cc3a5ae",
+                "rawId": "openclaw_1adc3e94e08633fb024239853cea5b970b3a7302",
+                "canonicalId": "canon_c3c998c4119df5a749f97a07",
+                "pageId": "patterns/openclaw-多副本路径分析与清理方案",
+                "kind": "pattern",
+                "title": "OpenClaw 多副本路径分析与清理方案",
+                "summary": "撰写时间： 2026 04 21 前置文档： openclaw multipath diagnosis.md 结论： 1. 实际 只有 1 套在用 （pnpm 路径）， which openclaw 唯一指向它，LaunchAgent 也指向它， 当前不是问题 。 2. 文档里\"三套副本\"的描述 部分不准确 ——nvm 路径下根本没有 openclaw，所谓的\"npm 残骸\"实际位于 Homebrew 的 npm prefix 。 3. 真正剩下的\"垃圾\"只有一个孤儿目录 /opt/homebrew/lib/...",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/openclaw-multipath-rootcause-and-fix.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/openclaw-multipath-rootcause-and-fix.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 6.8777,
+                "snippet": "撰写时间： 2026 04 21 前置文档： openclaw multipath diagnosis.md 结论： 1. 实际 只有 1 套在用 （pnpm 路径）， which openclaw 唯一指…",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": true,
+                  "signalHits": [],
+                  "relevanceScore": 0.6,
+                  "relevant": true
+                }
+              },
+              {
+                "rank": 2,
+                "atomId": "atom_fe5935503a81996266d4b16a",
+                "rawId": "openclaw_e1701f940ebe66a377bb4120bda7e7dd49a4c749",
+                "canonicalId": "canon_be00bbf6e396e344d0cad945",
+                "pageId": "syntheses/openclaw-多包管理器路径问题诊断报告",
+                "kind": "context",
+                "title": "OpenClaw 多包管理器路径问题诊断报告",
+                "summary": "撰写时间： 2026 04 21 12:45 Asia/Shanghai 问题： 系统同时存在 npm、pnpm、Homebrew 三种包管理器安装的 OpenClaw副本，路径分散且版本不一致，难以确定哪个真正被使用。",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/openclaw-multipath-diagnosis.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/openclaw-multipath-diagnosis.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 6.5777,
+                "snippet": "…： 2026 04 21 12:45 Asia/Shanghai 问题： 系统同时存在 npm、pnpm、Homebrew 三种包管理器安装的 OpenClaw副本，路径分散且版本不一致，难以确定哪个真正被使用。",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 3,
+                "atomId": "atom_cf79927d22a46ab075623e46",
+                "rawId": "openclaw_8ed4b4828a99c22f202135c607e4d6143a6787a8",
+                "canonicalId": "canon_10bd3c934a80cf662f245e55",
+                "pageId": "patterns/gateway-sigterm-根因分析与解决方案",
+                "kind": "pattern",
+                "title": "Gateway SIGTERM 根因分析与解决方案",
+                "summary": "撰写时间： 2026 04 21 前置文档： gateway sigterm diagnosis.md 结论： SIGTERM 不是外部进程发的，是 openclaw 自己 在配置文件变化后，通过 triggerOpenClawRestart → cleanStaleGatewayProcessesSync 主动 kill 旧进程触发的\"自杀式重启\"。launchd 的 KeepAlive=true 把它拉起来，下一次配置写入又被杀，循环往复。",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/gateway-sigterm-rootcause-and-fix.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/gateway-sigterm-rootcause-and-fix.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 4.6777,
+                "snippet": "…间： 2026 04 21 前置文档： gateway sigterm diagnosis.md 结论： SIGTERM 不是外部进程发的，是 openclaw 自己 在配置文件变化后，通过 triggerOpenClawRestart → cleanStaleGatewayProcessesSync …",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": true,
+                  "signalHits": [],
+                  "relevanceScore": 0.6,
+                  "relevant": true
+                }
+              },
+              {
+                "rank": 4,
+                "atomId": "atom_7ddd05bb8dc0da8b370c8fe9",
+                "rawId": "openclaw_0cb0b4913cfa5264f6bd23a9e9317b57fb337cc7",
+                "canonicalId": "canon_fe12eae523285e370b2f2373",
+                "pageId": "syntheses/light-sleep",
+                "kind": "context",
+                "title": "Light Sleep",
+                "summary": "Light Sleep <! openclaw:dreaming:light:start Candidate: User: Startup context loaded by runtime Bootstrap files like SOUL.md, USER.md, and MEMORY.md are already provided separately when eligible. Recent daily memory was selected and loaded by runtime for th...",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-19.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-19.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 4.3777,
+                "snippet": "Light Sleep <! openclaw:dreaming:light:start Candidate: User: Startup context loaded by runtime…",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 5,
+                "atomId": "atom_125b79a772122ce2f2b25459",
+                "rawId": "openclaw_07912ca6d4a3eeff08c98a7cf16ecace3702a41f",
+                "canonicalId": "canon_a08029f0997dfbcb03eaa242",
+                "pageId": "syntheses/2026-04-18-下午补充",
+                "kind": "context",
+                "title": "2026-04-18 下午补充",
+                "summary": "Light Sleep <! openclaw:dreaming:light:start Candidate: Reflections: Theme: assistant kept surfacing across 932 memories.; confidence: 1.00; evidence: memory/.dreams/session corpus/2026 04 10.txt:2 2, memory/.dreams/session corpus/2026 04 10.txt:4 4, memory...",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-18.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-18.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 4.3777,
+                "snippet": "Light Sleep <! openclaw:dreaming:light:start Candidate: Reflections: Theme: assistant kept surf…",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 6,
+                "atomId": "atom_3a0438f3ca5909a8071fe289",
+                "rawId": "openclaw_e2393534549ca0395d96c9d3701dcc4910d5007e",
+                "canonicalId": "canon_0910bd0720da4ad6a310166a",
+                "pageId": "syntheses/2026-04-16-session-log",
+                "kind": "context",
+                "title": "2026-04-16 Session Log",
+                "summary": "Light Sleep <! openclaw:dreaming:light:start Candidate: L5 Health Check 执行结果: 断链：2个高危（均在 syntheses/功能需求 20260411 001.md ，引用了已删除的 inbox 条目）; Promotion Queue：0 pending，9 approved 待升格 confidence: 0.62 evidence: memory/2026 04 15.md:6 7 recalls: 0 status: stage...",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-16.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-16.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 4.3776,
+                "snippet": "Light Sleep <! openclaw:dreaming:light:start Candidate: L5 Health Check 执行结果: 断链：2个高危（均在 synthe…",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 7,
+                "atomId": "atom_a61dc1408ac70ac37059cdfc",
+                "rawId": "openclaw_41edbc781a8262348fbff8a461243b78bf119eb6",
+                "canonicalId": "canon_ceb1c4fdb2d75d4a59333bda",
+                "pageId": "syntheses/light-sleep",
+                "kind": "context",
+                "title": "Light Sleep",
+                "summary": "Light Sleep <! openclaw:dreaming:light:start Candidate: Reflections: Theme: assistant kept surfacing across 418 memories.; confidence: 1.00; evidence: memory/.dreams/session corpus/2026 04 10.txt:2 2, memory/.dreams/session corpus/2026 04 10.txt:4 4, memory...",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-12.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-12.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 4.3776,
+                "snippet": "Light Sleep <! openclaw:dreaming:light:start Candidate: Reflections: Theme: assistant kept surf…",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 8,
+                "atomId": "atom_160490c9acf51a9266b24b7a",
+                "rawId": "openclaw_588a88113cb77923c09a50d58d491d08ccdf6d30",
+                "canonicalId": "canon_222136297fb2f32c6b748834",
+                "pageId": "patterns/批量清理前先查memory记录",
+                "kind": "pattern",
+                "title": "批量清理前先查memory记录",
+                "summary": "When To Use",
+                "topics": [
+                  "openclaw-ops",
+                  "openclaw",
+                  "patterns",
+                  "pattern"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260425-001.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "patterns/LRN-20260425-001.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 2.3777,
+                "snippet": "openclaw-ops | openclaw | patterns | pattern",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": true,
+                  "signalHits": [],
+                  "relevanceScore": 0.6,
+                  "relevant": true
+                }
+              }
+            ]
+          }
+        ],
+        "summary": {
+          "queryCount": 2,
+          "hitAtK": 100,
+          "avgInvalidRecallRate": 56.25,
+          "avgTraceabilityRate": 100,
+          "avgStructuredShare": 68.75,
+          "avgContextShare": 31.25,
+          "avgCleanShare": 100,
+          "avgSignalCoverage": 12.5,
+          "avgTop1Score": 3.9277
+        }
+      },
+      {
+        "mode": "v1",
+        "topK": 8,
+        "limit": 5000,
+        "queries": [
+          {
+            "id": "issue-001",
+            "query": "某模块报错后如何定位根因",
+            "intent": "issue",
+            "expectedSignals": [
+              "symptom",
+              "rootcause",
+              "fixpattern",
+              "validation"
+            ],
+            "signalCoverage": [],
+            "totalMatched": 59,
+            "results": [
+              {
+                "rank": 1,
+                "atomId": "atom_8bd2f211373f6107d271fdb0",
+                "rawId": "openclaw_35002d065206f0b456559ba4999b34ee2650ccd5",
+                "canonicalId": "canon_559281816c58fd44c30d114d",
+                "pageId": "syntheses/五层记忆体系",
+                "kind": "context",
+                "title": "五层记忆体系",
+                "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+                "topics": [
+                  "openclaw-feature",
+                  "openclaw",
+                  "reference",
+                  "feature-request"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260425-001.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "reference/FR-20260425-001.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 0.9777,
+                "snippet": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 2,
+                "atomId": "atom_f78c5630f7f894c61f68f9de",
+                "rawId": "openclaw_8d0e0f3a393af02fec15c01a50d6fded734e6d54",
+                "canonicalId": "canon_90b974b951958f82640628ae",
+                "pageId": "syntheses/2026-04-24",
+                "kind": "context",
+                "title": "2026-04-24",
+                "summary": "Session 11:50",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-24.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-24.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 0.9777,
+                "snippet": "Session 11:50",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 3,
+                "atomId": "atom_99fe50e212b2fb7552107567",
+                "rawId": "openclaw_55bcf753232c945599b7df367d04593f7509013c",
+                "canonicalId": "canon_0ac42e73e4f18658283e5ae6",
+                "pageId": "syntheses/2026-04-23",
+                "kind": "context",
+                "title": "2026-04-23",
+                "summary": "HEARTBEAT.md 重大更新",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-23.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-23.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 0.9777,
+                "snippet": "HEARTBEAT.md 重大更新",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 4,
+                "atomId": "atom_e24558dbdd4cb1fa9c08ee3f",
+                "rawId": "openclaw_e19310faf4d7fb18495b25a25380c243cf28fc4f",
+                "canonicalId": "canon_80912376cea89a85cab6d093",
+                "pageId": "syntheses/session-2026-04-10-17-21-25-utc",
+                "kind": "context",
+                "title": "Session: 2026-04-10 17:21:25 UTC",
+                "summary": "Session: 2026-04-10 17:21:25 UTC",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-10-config-warnings-fix.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-10-config-warnings-fix.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 88,
+                "score": 0.9777,
+                "snippet": "Session: 2026-04-10 17:21:25 UTC",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 5,
+                "atomId": "atom_867661dede226c19792b7b69",
+                "rawId": "openclaw_6f86c37d27bfacf9a118f9be10d215fbea08516c",
+                "canonicalId": "canon_dad3bee81a08be13d2feda8e",
+                "pageId": "syntheses/2026-04-22",
+                "kind": "context",
+                "title": "2026-04-22",
+                "summary": "2026-04-22",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-22.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-22.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 88,
+                "score": 0.9777,
+                "snippet": "2026-04-22",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 6,
+                "atomId": "atom_fe5935503a81996266d4b16a",
+                "rawId": "openclaw_e1701f940ebe66a377bb4120bda7e7dd49a4c749",
+                "canonicalId": "canon_be00bbf6e396e344d0cad945",
+                "pageId": "syntheses/openclaw-多包管理器路径问题诊断报告",
+                "kind": "context",
+                "title": "OpenClaw 多包管理器路径问题诊断报告",
+                "summary": "撰写时间： 2026 04 21 12:45 Asia/Shanghai 问题： 系统同时存在 npm、pnpm、Homebrew 三种包管理器安装的 OpenClaw副本，路径分散且版本不一致，难以确定哪个真正被使用。",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/openclaw-multipath-diagnosis.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/openclaw-multipath-diagnosis.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 0.9777,
+                "snippet": "撰写时间： 2026 04 21 12:45 Asia/Shanghai 问题： 系统同时存在 npm、pnpm、Homebrew 三种包管理器安装的 OpenClaw副本，路径分散且版本不一致，难以确定哪个真正被使用。",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 7,
+                "atomId": "atom_b4088569c81b9601d8555f4b",
+                "rawId": "openclaw_0cc749af94dad6852fd9533bdd4459d9846314ad",
+                "canonicalId": "canon_289c6d75fa42518e4d59c7fe",
+                "pageId": "syntheses/session-2026-04-21-04-56-57-utc",
+                "kind": "context",
+                "title": "Session: 2026-04-21 04:56:57 UTC",
+                "summary": "Session Key : agent:main:main Session ID : f91a1caf a0dc 4de9 afe4 f6fbb2df04be Source : webchat",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-21-lark-account-config-bug.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-21-lark-account-config-bug.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 0.9777,
+                "snippet": "Session Key : agent:main:main Session ID : f91a1caf a0dc 4de9 afe4 f6fbb2df04be Source : webchat",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 8,
+                "atomId": "atom_733a7654d53f8d512aa61df3",
+                "rawId": "openclaw_644c97e78b0bc0494687675295ef928c5d688aa0",
+                "canonicalId": "canon_f28b6968a8213739632cc85c",
+                "pageId": "syntheses/session-2026-04-21-11-32-13-utc",
+                "kind": "context",
+                "title": "Session: 2026-04-21 11:32:13 UTC",
+                "summary": "Session Key : agent:main:main Session ID : cd816eba c0bc 460e 8a2e b77892c6fd23 Source : webchat",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-21-mcp-architecture.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-21-mcp-architecture.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 0.9777,
+                "snippet": "Session Key : agent:main:main Session ID : cd816eba c0bc 460e 8a2e b77892c6fd23 Source : webchat",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              }
+            ]
+          },
+          {
+            "id": "pattern-001",
+            "query": "openclaw 导入后如何稳定去重",
+            "intent": "pattern",
+            "expectedSignals": [
+              "recommendedshape",
+              "tradeoffs",
+              "evidencerefs"
+            ],
+            "signalCoverage": [],
+            "totalMatched": 66,
+            "results": [
+              {
+                "rank": 1,
+                "atomId": "atom_fe5935503a81996266d4b16a",
+                "rawId": "openclaw_e1701f940ebe66a377bb4120bda7e7dd49a4c749",
+                "canonicalId": "canon_be00bbf6e396e344d0cad945",
+                "pageId": "syntheses/openclaw-多包管理器路径问题诊断报告",
+                "kind": "context",
+                "title": "OpenClaw 多包管理器路径问题诊断报告",
+                "summary": "撰写时间： 2026 04 21 12:45 Asia/Shanghai 问题： 系统同时存在 npm、pnpm、Homebrew 三种包管理器安装的 OpenClaw副本，路径分散且版本不一致，难以确定哪个真正被使用。",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/openclaw-multipath-diagnosis.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/openclaw-multipath-diagnosis.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 5.5777,
+                "snippet": "…： 2026 04 21 12:45 Asia/Shanghai 问题： 系统同时存在 npm、pnpm、Homebrew 三种包管理器安装的 OpenClaw副本，路径分散且版本不一致，难以确定哪个真正被使用。",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 2,
+                "atomId": "atom_e8853959cbb5daa35cc3a5ae",
+                "rawId": "openclaw_1adc3e94e08633fb024239853cea5b970b3a7302",
+                "canonicalId": "canon_c3c998c4119df5a749f97a07",
+                "pageId": "patterns/openclaw-多副本路径分析与清理方案",
+                "kind": "pattern",
+                "title": "OpenClaw 多副本路径分析与清理方案",
+                "summary": "撰写时间： 2026 04 21 前置文档： openclaw multipath diagnosis.md 结论： 1. 实际 只有 1 套在用 （pnpm 路径）， which openclaw 唯一指向它，LaunchAgent 也指向它， 当前不是问题 。 2. 文档里\"三套副本\"的描述 部分不准确 ——nvm 路径下根本没有 openclaw，所谓的\"npm 残骸\"实际位于 Homebrew 的 npm prefix 。 3. 真正剩下的\"垃圾\"只有一个孤儿目录 /opt/homebrew/lib/...",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/openclaw-multipath-rootcause-and-fix.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/openclaw-multipath-rootcause-and-fix.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 4.5777,
+                "snippet": "撰写时间： 2026 04 21 前置文档： openclaw multipath diagnosis.md 结论： 1. 实际 只有 1 套在用 （pnpm 路径）， which openclaw 唯一指…",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": true,
+                  "signalHits": [],
+                  "relevanceScore": 0.6,
+                  "relevant": true
+                }
+              },
+              {
+                "rank": 3,
+                "atomId": "atom_7ddd05bb8dc0da8b370c8fe9",
+                "rawId": "openclaw_0cb0b4913cfa5264f6bd23a9e9317b57fb337cc7",
+                "canonicalId": "canon_fe12eae523285e370b2f2373",
+                "pageId": "syntheses/light-sleep",
+                "kind": "context",
+                "title": "Light Sleep",
+                "summary": "Light Sleep <! openclaw:dreaming:light:start Candidate: User: Startup context loaded by runtime Bootstrap files like SOUL.md, USER.md, and MEMORY.md are already provided separately when eligible. Recent daily memory was selected and loaded by runtime for th...",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-19.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-19.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 3.7777,
+                "snippet": "Light Sleep <! openclaw:dreaming:light:start Candidate: User: Startup context loaded by runtime…",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 4,
+                "atomId": "atom_125b79a772122ce2f2b25459",
+                "rawId": "openclaw_07912ca6d4a3eeff08c98a7cf16ecace3702a41f",
+                "canonicalId": "canon_a08029f0997dfbcb03eaa242",
+                "pageId": "syntheses/2026-04-18-下午补充",
+                "kind": "context",
+                "title": "2026-04-18 下午补充",
+                "summary": "Light Sleep <! openclaw:dreaming:light:start Candidate: Reflections: Theme: assistant kept surfacing across 932 memories.; confidence: 1.00; evidence: memory/.dreams/session corpus/2026 04 10.txt:2 2, memory/.dreams/session corpus/2026 04 10.txt:4 4, memory...",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-18.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-18.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 3.7777,
+                "snippet": "Light Sleep <! openclaw:dreaming:light:start Candidate: Reflections: Theme: assistant kept surf…",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 5,
+                "atomId": "atom_3a0438f3ca5909a8071fe289",
+                "rawId": "openclaw_e2393534549ca0395d96c9d3701dcc4910d5007e",
+                "canonicalId": "canon_0910bd0720da4ad6a310166a",
+                "pageId": "syntheses/2026-04-16-session-log",
+                "kind": "context",
+                "title": "2026-04-16 Session Log",
+                "summary": "Light Sleep <! openclaw:dreaming:light:start Candidate: L5 Health Check 执行结果: 断链：2个高危（均在 syntheses/功能需求 20260411 001.md ，引用了已删除的 inbox 条目）; Promotion Queue：0 pending，9 approved 待升格 confidence: 0.62 evidence: memory/2026 04 15.md:6 7 recalls: 0 status: stage...",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-16.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-16.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 3.7776,
+                "snippet": "Light Sleep <! openclaw:dreaming:light:start Candidate: L5 Health Check 执行结果: 断链：2个高危（均在 synthe…",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 6,
+                "atomId": "atom_a61dc1408ac70ac37059cdfc",
+                "rawId": "openclaw_41edbc781a8262348fbff8a461243b78bf119eb6",
+                "canonicalId": "canon_ceb1c4fdb2d75d4a59333bda",
+                "pageId": "syntheses/light-sleep",
+                "kind": "context",
+                "title": "Light Sleep",
+                "summary": "Light Sleep <! openclaw:dreaming:light:start Candidate: Reflections: Theme: assistant kept surfacing across 418 memories.; confidence: 1.00; evidence: memory/.dreams/session corpus/2026 04 10.txt:2 2, memory/.dreams/session corpus/2026 04 10.txt:4 4, memory...",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-12.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/2026-04-12.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 3.7776,
+                "snippet": "Light Sleep <! openclaw:dreaming:light:start Candidate: Reflections: Theme: assistant kept surf…",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              },
+              {
+                "rank": 7,
+                "atomId": "atom_cf79927d22a46ab075623e46",
+                "rawId": "openclaw_8ed4b4828a99c22f202135c607e4d6143a6787a8",
+                "canonicalId": "canon_10bd3c934a80cf662f245e55",
+                "pageId": "patterns/gateway-sigterm-根因分析与解决方案",
+                "kind": "pattern",
+                "title": "Gateway SIGTERM 根因分析与解决方案",
+                "summary": "撰写时间： 2026 04 21 前置文档： gateway sigterm diagnosis.md 结论： SIGTERM 不是外部进程发的，是 openclaw 自己 在配置文件变化后，通过 triggerOpenClawRestart → cleanStaleGatewayProcessesSync 主动 kill 旧进程触发的\"自杀式重启\"。launchd 的 KeepAlive=true 把它拉起来，下一次配置写入又被杀，循环往复。",
+                "topics": [
+                  "openclaw-daily",
+                  "openclaw",
+                  "daily",
+                  "daily-note"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/daily/gateway-sigterm-rootcause-and-fix.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "daily/gateway-sigterm-rootcause-and-fix.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 2.7777,
+                "snippet": "…间： 2026 04 21 前置文档： gateway sigterm diagnosis.md 结论： SIGTERM 不是外部进程发的，是 openclaw 自己 在配置文件变化后，通过 triggerOpenClawRestart → cleanStaleGatewayProcessesSync …",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": true,
+                  "signalHits": [],
+                  "relevanceScore": 0.6,
+                  "relevant": true
+                }
+              },
+              {
+                "rank": 8,
+                "atomId": "atom_8bd2f211373f6107d271fdb0",
+                "rawId": "openclaw_35002d065206f0b456559ba4999b34ee2650ccd5",
+                "canonicalId": "canon_559281816c58fd44c30d114d",
+                "pageId": "syntheses/五层记忆体系",
+                "kind": "context",
+                "title": "五层记忆体系",
+                "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+                "topics": [
+                  "openclaw-feature",
+                  "openclaw",
+                  "reference",
+                  "feature-request"
+                ],
+                "sourceRefs": [
+                  {
+                    "type": "file",
+                    "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260425-001.md"
+                  },
+                  {
+                    "type": "openclaw-path",
+                    "value": "reference/FR-20260425-001.md"
+                  }
+                ],
+                "qualityTier": "clean",
+                "qualityScore": 100,
+                "score": 1.5777,
+                "snippet": "openclaw-feature | openclaw | reference | feature-request",
+                "traceable": true,
+                "relevance": {
+                  "intentMatch": false,
+                  "signalHits": [],
+                  "relevanceScore": 0,
+                  "relevant": false
+                }
+              }
+            ]
+          }
+        ],
+        "summary": {
+          "queryCount": 2,
+          "hitAtK": 50,
+          "avgInvalidRecallRate": 87.5,
+          "avgTraceabilityRate": 100,
+          "avgStructuredShare": 12.5,
+          "avgContextShare": 87.5,
+          "avgCleanShare": 100,
+          "avgSignalCoverage": 0,
+          "avgTop1Score": 3.2777
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "baseMode": "shadow",
+        "targetMode": "v1",
+        "totalQueries": 2,
+        "top1ChangedRate": 100,
+        "avgOverlapAtK": 38.89,
+        "changedTop1": [
+          {
+            "id": "issue-001",
+            "query": "某模块报错后如何定位根因",
+            "baseTop1": {
+              "key": "canon_222136297fb2f32c6b748834",
+              "title": "批量清理前先查memory记录",
+              "kind": "pattern"
+            },
+            "targetTop1": {
+              "key": "canon_559281816c58fd44c30d114d",
+              "title": "五层记忆体系",
+              "kind": "context"
+            }
+          },
+          {
+            "id": "pattern-001",
+            "query": "openclaw 导入后如何稳定去重",
+            "baseTop1": {
+              "key": "canon_c3c998c4119df5a749f97a07",
+              "title": "OpenClaw 多副本路径分析与清理方案",
+              "kind": "pattern"
+            },
+            "targetTop1": {
+              "key": "canon_be00bbf6e396e344d0cad945",
+              "title": "OpenClaw 多包管理器路径问题诊断报告",
+              "kind": "context"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "name": "query-set-loaded",
+      "ok": true,
+      "detail": "2 queries"
+    },
+    {
+      "name": "switch-to-target",
+      "ok": true,
+      "detail": "readMode=v1"
+    },
+    {
+      "name": "restore-read-mode",
+      "ok": true,
+      "detail": "readMode=shadow"
+    }
+  ]
+}

@@ -36,6 +36,7 @@ import { generateGroundedAnswer, rewriteRetrieveQuery } from './lib/rag.mjs'
 import { isObsidianCliEnabled, runObsidianCliJson } from './lib/obsidian-cli.mjs'
 import { applyPromotionCandidate, buildPromotionCandidatePreview, buildPromotionQueue, buildWikiVaultSyncPreview, cleanSynthesisEvidenceItems, createVaultNoteFromTemplate, decidePromotionCandidate, ensureVaultScaffold, getVaultPaths, lintWikiVault, publishSessionsToVault, rebuildVaultIndex } from './lib/wiki-vault.mjs'
 import { importOpenClawKnowledge, previewOpenClawKnowledge } from '../scripts/openclaw-knowledge.mjs'
+import { exportGbrainV2Feed } from './lib/gbrain-v2-feed.mjs'
 import {
   createBugInboxInDb,
   deleteBugInboxInDb,
@@ -4535,6 +4536,35 @@ const server = http.createServer(async (req, res) => {
         dualWriteEnabled: payload?.dualWriteEnabled,
       })
       return send(res, 200, { settings })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/gbrain-v2/feed-refresh') {
+      const payload = await readBody(req)
+      const settings = await loadGbrainV2SettingsInDb()
+      const limit = Math.max(1, Math.min(5000, Number(payload?.limit || 5000)))
+      const includeRaw = payload?.includeRaw === undefined
+        ? Boolean(settings.includeRawFallback)
+        : Boolean(payload.includeRaw)
+      const feedMode = String(payload?.feedMode || settings.feedMode || 'atom-reader-first')
+      const clean = payload?.clean === undefined ? true : Boolean(payload.clean)
+      const refreshed = await exportGbrainV2Feed({
+        limit,
+        includeRaw,
+        feedMode,
+        clean,
+      })
+      return send(res, 200, {
+        ok: true,
+        refreshedAt: new Date().toISOString(),
+        feed: {
+          outDir: refreshed.outDir,
+          recordsPath: refreshed.recordsPath,
+          manifestPath: refreshed.manifestPath,
+          feedMode: refreshed.feedMode,
+          stats: refreshed.stats,
+          manifest: refreshed.manifest,
+        },
+      })
     }
 
     if (req.method === 'POST' && url.pathname === '/api/openclaw-knowledge/preview') {

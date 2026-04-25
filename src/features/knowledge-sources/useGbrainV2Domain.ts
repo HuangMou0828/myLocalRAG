@@ -14,6 +14,7 @@ export function useGbrainV2Domain(options: UseGbrainV2DomainOptions) {
   const gbrainV2Error = ref('')
   const gbrainV2LoadedAt = ref(0)
   const gbrainV2FeedStatus = ref<Awaited<ReturnType<GbrainV2Api['fetchFeedStatus']>> | null>(null)
+  const gbrainV2FeedRefreshing = ref(false)
   const gbrainV2Settings = ref<GbrainV2SettingsDto>({
     enabled: false,
     readMode: 'v1',
@@ -26,6 +27,10 @@ export function useGbrainV2Domain(options: UseGbrainV2DomainOptions) {
   const gbrainRetrieveQuery = ref('')
   const gbrainRetrieveLoading = ref(false)
   const gbrainRetrieveResult = ref<Awaited<ReturnType<GbrainV2Api['retrieve']>> | null>(null)
+  const gbrainPromotionLoading = ref(false)
+  const gbrainPromotionError = ref('')
+  const gbrainPromotionLoadedAt = ref(0)
+  const gbrainPromotionView = ref<Awaited<ReturnType<GbrainV2Api['fetchAtoms']>> | null>(null)
 
   const hasService = computed(() => Boolean(options.service))
 
@@ -76,6 +81,29 @@ export function useGbrainV2Domain(options: UseGbrainV2DomainOptions) {
     }
   }
 
+  async function refreshGbrainV2Feed(limit = 5000) {
+    if (!options.service) return null
+    gbrainV2FeedRefreshing.value = true
+    gbrainV2Error.value = ''
+    try {
+      const refreshed = await options.service.refreshFeed({
+        limit: Math.max(1, Math.min(5000, Number(limit || 5000))),
+        feedMode: gbrainV2Settings.value.feedMode,
+        includeRaw: Boolean(gbrainV2Settings.value.includeRawFallback),
+        clean: true,
+      })
+      await loadGbrainV2FeedStatus(true)
+      options.notify('GBrain V2 feed 已刷新', 'success')
+      return refreshed
+    } catch (error) {
+      gbrainV2Error.value = String(error || '刷新 GBrain V2 feed 失败')
+      options.notify(gbrainV2Error.value, 'danger')
+      return null
+    } finally {
+      gbrainV2FeedRefreshing.value = false
+    }
+  }
+
   async function runGbrainV2Retrieve(query?: string, topK = 6) {
     if (!options.service) return null
     const text = String((query ?? gbrainRetrieveQuery.value) || '').trim()
@@ -103,6 +131,33 @@ export function useGbrainV2Domain(options: UseGbrainV2DomainOptions) {
     }
   }
 
+  async function loadGbrainV2PromotionView(force = false) {
+    if (!options.service) return null
+    if (!force && gbrainPromotionView.value && gbrainPromotionLoadedAt.value && Date.now() - gbrainPromotionLoadedAt.value < STALE_AFTER_MS) {
+      return gbrainPromotionView.value
+    }
+    gbrainPromotionLoading.value = true
+    gbrainPromotionError.value = ''
+    try {
+      const result = await options.service.fetchAtoms({
+        limit: 800,
+        kind: 'all',
+        qualityTier: 'all',
+        status: 'visible',
+        includeStats: true,
+      })
+      gbrainPromotionView.value = result
+      gbrainPromotionLoadedAt.value = Date.now()
+      return result
+    } catch (error) {
+      gbrainPromotionError.value = String(error || '加载 GBrain V2 Promotion 视图失败')
+      options.notify(gbrainPromotionError.value, 'danger')
+      return null
+    } finally {
+      gbrainPromotionLoading.value = false
+    }
+  }
+
   return {
     hasGbrainV2Service: hasService,
     gbrainV2Loading,
@@ -110,12 +165,19 @@ export function useGbrainV2Domain(options: UseGbrainV2DomainOptions) {
     gbrainV2Error,
     gbrainV2LoadedAt,
     gbrainV2FeedStatus,
+    gbrainV2FeedRefreshing,
     gbrainV2Settings,
     gbrainRetrieveQuery,
     gbrainRetrieveLoading,
     gbrainRetrieveResult,
+    gbrainPromotionLoading,
+    gbrainPromotionError,
+    gbrainPromotionLoadedAt,
+    gbrainPromotionView,
     loadGbrainV2FeedStatus,
     saveGbrainV2Settings,
+    refreshGbrainV2Feed,
     runGbrainV2Retrieve,
+    loadGbrainV2PromotionView,
   }
 }

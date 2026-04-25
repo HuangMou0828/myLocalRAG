@@ -1,0 +1,36 @@
+{
+  "version": "gbrain-v2-governance-guard.v1",
+  "generatedAt": "2026-04-25T09:00:09.575Z",
+  "pass": true,
+  "currentPath": "/Users/hm/myLocalRAG/docs/wiki-vault/eval/governance-report-20260425-085934.json",
+  "baselinePath": null,
+  "thresholds": {
+    "maxLegacyShare": 20,
+    "maxDuplicateShare": 25,
+    "maxLineageMissingShare": 5,
+    "maxStaleDraftShare": 35,
+    "maxDelta": 3
+  },
+  "checks": [
+    {
+      "name": "abs:legacyShare",
+      "pass": true,
+      "detail": "0% <= 20%"
+    },
+    {
+      "name": "abs:duplicateShare",
+      "pass": true,
+      "detail": "22.55% <= 25%"
+    },
+    {
+      "name": "abs:lineageMissingShare",
+      "pass": true,
+      "detail": "0% <= 5%"
+    },
+    {
+      "name": "abs:staleDraftShare",
+      "pass": true,
+      "detail": "0% <= 35%"
+    }
+  ]
+}

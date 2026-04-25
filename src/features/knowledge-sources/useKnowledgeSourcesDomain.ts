@@ -188,7 +188,10 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
       if (isStale) await rawInbox.loadKnowledgeItems()
     }
     if (nextTab === 'task-review') await taskReview.loadTaskReviewSessions(false)
-    if (nextTab === 'promotion') await promotionReview.loadPromotionQueue(false)
+    if (nextTab === 'promotion') {
+      await promotionReview.loadPromotionQueue(false)
+      await gbrainV2.loadGbrainV2PromotionView(false)
+    }
     if (nextTab === 'health') {
       await wikiHealth.loadWikiHealth(false)
       await gbrainV2.loadGbrainV2FeedStatus(false)
@@ -377,11 +380,18 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     gbrainV2Error: gbrainV2.gbrainV2Error,
     gbrainV2LoadedAt: gbrainV2.gbrainV2LoadedAt,
     gbrainV2FeedStatus: gbrainV2.gbrainV2FeedStatus,
+    gbrainV2FeedRefreshing: gbrainV2.gbrainV2FeedRefreshing,
     gbrainV2Settings: gbrainV2.gbrainV2Settings,
     gbrainRetrieveQuery: gbrainV2.gbrainRetrieveQuery,
     gbrainRetrieveLoading: gbrainV2.gbrainRetrieveLoading,
     gbrainRetrieveResult: gbrainV2.gbrainRetrieveResult,
+    gbrainPromotionLoading: gbrainV2.gbrainPromotionLoading,
+    gbrainPromotionError: gbrainV2.gbrainPromotionError,
+    gbrainPromotionLoadedAt: gbrainV2.gbrainPromotionLoadedAt,
+    gbrainPromotionView: gbrainV2.gbrainPromotionView,
     loadGbrainV2FeedStatus: gbrainV2.loadGbrainV2FeedStatus,
+    refreshGbrainV2Feed: gbrainV2.refreshGbrainV2Feed,
+    loadGbrainV2PromotionView: gbrainV2.loadGbrainV2PromotionView,
     saveGbrainV2Settings: gbrainV2.saveGbrainV2Settings,
     runGbrainV2Retrieve: gbrainV2.runGbrainV2Retrieve,
     loadWikiHealth: wikiHealth.loadWikiHealth,

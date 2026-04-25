@@ -142,16 +142,22 @@ const {
   gbrainV2Saving,
   gbrainV2Error,
   gbrainV2FeedStatus,
+  gbrainV2FeedRefreshing,
   gbrainV2Settings,
   gbrainRetrieveQuery,
   gbrainRetrieveLoading,
   gbrainRetrieveResult,
+  gbrainPromotionLoading,
+  gbrainPromotionError,
+  gbrainPromotionView,
   setWorkbenchTab,
   loadKnowledgeItems,
   loadTaskReviewSessions,
   loadPromotionQueue,
   loadWikiHealth,
   loadGbrainV2FeedStatus,
+  refreshGbrainV2Feed,
+  loadGbrainV2PromotionView,
   saveGbrainV2Settings,
   runGbrainV2Retrieve,
   selectKnowledgeItem,
@@ -636,6 +642,54 @@ const activePromotionItemsResolved = computed(() =>
     ? activePromotionApprovedItemsResolved.value
     : activePromotionAutoItemsResolved.value,
 )
+const promotionReadViewMode = ref<'legacy' | 'v2'>('legacy')
+const effectivePromotionReadViewMode = computed(() =>
+  String(gbrainV2SettingsResolved.value.readMode || '') === 'v2'
+    ? 'v2'
+    : promotionReadViewMode.value,
+)
+const gbrainPromotionViewResolved = computed(() => unref(gbrainPromotionView) || { items: [], stats: null })
+const gbrainPromotionAtomsResolved = computed(() => {
+  const list = gbrainPromotionViewResolved.value.items
+  return Array.isArray(list) ? list : []
+})
+const gbrainPromotionSectionBucketsResolved = computed(() => {
+  const buckets = {
+    issues: [] as Array<Record<string, any>>,
+    patterns: [] as Array<Record<string, any>>,
+    syntheses: [] as Array<Record<string, any>>,
+  }
+  for (const atom of gbrainPromotionAtomsResolved.value) {
+    const section = resolveGbrainPromotionSection(String(atom.kind || ''))
+    buckets[section].push(atom)
+  }
+  return buckets
+})
+const gbrainPromotionSectionTabs = computed(() => ([
+  {
+    id: 'issues' as const,
+    label: 'Issue（V2）',
+    description: '标准化证据里的 issue 候选。',
+    count: gbrainPromotionSectionBucketsResolved.value.issues.length,
+  },
+  {
+    id: 'patterns' as const,
+    label: 'Pattern（V2）',
+    description: '标准化证据里的 pattern 候选。',
+    count: gbrainPromotionSectionBucketsResolved.value.patterns.length,
+  },
+  {
+    id: 'syntheses' as const,
+    label: 'Synthesis（V2）',
+    description: '标准化证据里的 synthesis / decision / context。',
+    count: gbrainPromotionSectionBucketsResolved.value.syntheses.length,
+  },
+]))
+const activeGbrainPromotionItemsResolved = computed(() => {
+  if (activePromotionSection.value === 'issues') return gbrainPromotionSectionBucketsResolved.value.issues
+  if (activePromotionSection.value === 'patterns') return gbrainPromotionSectionBucketsResolved.value.patterns
+  return gbrainPromotionSectionBucketsResolved.value.syntheses
+})
 
 function focusPromotionCandidateBySegmentId(segmentId: string) {
   const normalized = String(segmentId || '').trim()
@@ -652,6 +706,13 @@ function focusPromotionCandidateBySegmentId(segmentId: string) {
   activePromotionSection.value = matched.id
   activePromotionSourceSection.value = 'auto'
   return true
+}
+
+function resolveGbrainPromotionSection(kind: string): 'issues' | 'patterns' | 'syntheses' {
+  const normalized = String(kind || '').trim().toLowerCase()
+  if (normalized === 'issue') return 'issues'
+  if (normalized === 'pattern') return 'patterns'
+  return 'syntheses'
 }
 
 function promotionItemKey(item: Record<string, unknown>) {
@@ -869,6 +930,10 @@ function runGbrainRetrievePreview() {
   void runGbrainV2Retrieve(String(unref(gbrainRetrieveQuery) || '').trim(), 6)
 }
 
+function runGbrainFeedRefresh() {
+  void refreshGbrainV2Feed(5000)
+}
+
 function formatTaskTypeLabel(value: string) {
   if (value === 'bug-investigation') return 'Bug'
   if (value === 'coding-task') return '编码任务'
@@ -969,6 +1034,15 @@ function formatPromotionKindLabel(value: string) {
   if (value === 'pattern-candidate') return 'Pattern 候选'
   if (value === 'synthesis-candidate') return 'Synthesis 候选'
   return '升格候选'
+}
+
+function formatGbrainPromotionKindLabel(value: string) {
+  if (value === 'issue') return 'Issue'
+  if (value === 'pattern') return 'Pattern'
+  if (value === 'synthesis') return 'Synthesis'
+  if (value === 'decision') return 'Decision'
+  if (value === 'context') return 'Context'
+  return value || 'Atom'
 }
 
 function formatPromotionApproveLabel(value: string) {
@@ -2438,6 +2512,19 @@ function focusTaskReviewBySummary(cardId: string) {
               <span>{{ promotionQueueResolved.reportPath || 'inbox/promotion-queue.md' }}</span>
             </div>
           </label>
+          <label v-if="hasGbrainV2ServiceResolved">
+            <small>读视图</small>
+            <select v-model="promotionReadViewMode" class="app-select" :disabled="String(gbrainV2SettingsResolved.readMode || '') === 'v2'">
+              <option value="legacy">Legacy Queue</option>
+              <option value="v2">V2 Atoms</option>
+            </select>
+          </label>
+          <label v-if="hasGbrainV2ServiceResolved">
+            <small>V2 候选</small>
+            <div class="knowledge-static-field">
+              <span>{{ gbrainPromotionAtomsResolved.length }}</span>
+            </div>
+          </label>
           <button
             type="button"
             class="icon-btn"
@@ -2449,10 +2536,22 @@ function focusTaskReviewBySummary(cardId: string) {
             <IconRefreshCw v-if="promotionQueueLoading" :size="18" class="animate-spin" />
             <IconRefreshCw v-else :size="18" />
           </button>
+          <button
+            v-if="hasGbrainV2ServiceResolved"
+            type="button"
+            class="icon-btn"
+            :disabled="gbrainPromotionLoading"
+            @click="loadGbrainV2PromotionView(true)"
+            :title="gbrainPromotionLoading ? '刷新中' : '刷新 V2 Promotion 视图'"
+            aria-label="刷新 V2 Promotion 视图"
+          >
+            <IconRefreshCw v-if="gbrainPromotionLoading" :size="18" class="animate-spin" />
+            <IconRefreshCw v-else :size="18" />
+          </button>
         </div>
       </section>
 
-      <section class="knowledge-review-board knowledge-review-board--single">
+      <section v-if="effectivePromotionReadViewMode === 'legacy'" class="knowledge-review-board knowledge-review-board--single">
         <div class="knowledge-review-tabs" role="tablist" aria-label="升格审核分类">
           <button
             v-for="tab in promotionSectionTabs"
@@ -2636,6 +2735,88 @@ function focusTaskReviewBySummary(cardId: string) {
                   {{ promotionApplyingKey === promotionItemKey(item) ? '处理中…' : '撤销人工确认' }}
                 </button>
               </div>
+            </div>
+          </article>
+        </article>
+      </section>
+
+      <section v-else class="knowledge-review-board knowledge-review-board--single">
+        <div class="knowledge-review-tabs" role="tablist" aria-label="升格审核分类（V2）">
+          <button
+            v-for="tab in gbrainPromotionSectionTabs"
+            :key="tab.id"
+            type="button"
+            class="knowledge-review-tab"
+            :class="{ active: activePromotionSection === tab.id }"
+            :aria-selected="activePromotionSection === tab.id"
+            @click="activePromotionSection = tab.id"
+          >
+            <div class="knowledge-review-tab-head">
+              <strong>{{ tab.label }}</strong>
+              <span class="knowledge-list-badge">{{ tab.count }}</span>
+            </div>
+            <small>{{ tab.description }}</small>
+          </button>
+        </div>
+
+        <article class="knowledge-review-section">
+          <header class="knowledge-list-head">
+            <div>
+              <strong>{{ gbrainPromotionSectionTabs.find((item) => item.id === activePromotionSection)?.label || 'V2 Promotion 视图' }}</strong>
+              <small>V2 视图用于 Phase C 审阅，当前为只读，不直接执行 approve / dismiss。</small>
+              <small v-if="gbrainPromotionError">{{ gbrainPromotionError }}</small>
+            </div>
+            <span class="knowledge-list-badge">{{ activeGbrainPromotionItemsResolved.length }}</span>
+          </header>
+
+          <div v-if="!activeGbrainPromotionItemsResolved.length" class="knowledge-list-empty">
+            <p>当前分组没有 V2 候选条目。</p>
+          </div>
+
+          <article
+            v-for="item in activeGbrainPromotionItemsResolved"
+            :key="String(item.atomId || item.canonicalId || item.pageId || '')"
+            class="knowledge-review-card knowledge-review-card--approved"
+          >
+            <div class="knowledge-review-card-head">
+              <div class="knowledge-review-card-state">
+                <span class="knowledge-chip status" data-status="active">
+                  {{ formatGbrainPromotionKindLabel(String(item.kind || '')) }}
+                </span>
+                <span class="knowledge-source-pill" data-source="manual">
+                  V2 Atom
+                </span>
+              </div>
+              <div class="knowledge-review-card-indicator">
+                <span class="knowledge-score-pill" :data-tone="scoreTone(Number(item.qualityScore || 0))">
+                  质量 {{ Number(item.qualityScore || 0) }}
+                </span>
+                <span class="knowledge-review-updated-at">
+                  {{ formatDateTime(item.updatedAt) }}
+                </span>
+              </div>
+            </div>
+
+            <div class="knowledge-review-card-copy">
+              <strong>{{ item.title || item.pageId || '未命名候选' }}</strong>
+              <p>{{ item.summary || '当前候选缺少 summary。' }}</p>
+            </div>
+
+            <div class="knowledge-review-context">
+              <div class="knowledge-review-context-copy">
+                <small>目标页</small>
+                <span class="knowledge-review-path">{{ item.pageId || '-' }}</span>
+              </div>
+              <div class="knowledge-review-context-meta">
+                <span class="knowledge-project-pill">{{ item.intakeStage || 'inbox' }}</span>
+                <span class="knowledge-project-pill">{{ item.confidence || 'medium' }}</span>
+                <span class="knowledge-project-pill">{{ item.qualityTier || 'legacy' }}</span>
+              </div>
+            </div>
+
+            <div class="knowledge-review-target-row">
+              <small>Evidence</small>
+              <span class="knowledge-review-path">{{ Array.isArray(item.sourceRefs) ? item.sourceRefs.length : 0 }} 条 source refs</span>
             </div>
           </article>
         </article>
@@ -2837,6 +3018,15 @@ function focusTaskReviewBySummary(cardId: string) {
           >
             <IconDatabase :size="16" />
             Raw 回源：{{ gbrainV2SettingsResolved.includeRawFallback ? '开启' : '关闭' }}
+          </button>
+          <button
+            type="button"
+            class="app-btn-ghost"
+            :disabled="gbrainV2FeedRefreshing || gbrainV2Saving"
+            @click="runGbrainFeedRefresh"
+          >
+            <IconRefreshCw :size="16" :class="{ 'animate-spin': gbrainV2FeedRefreshing }" />
+            {{ gbrainV2FeedRefreshing ? '刷新 Feed 中…' : '刷新 V2 Feed' }}
           </button>
           <span class="knowledge-review-path">
             feed: {{ gbrainV2FeedStatusResolved?.feed?.feedDir || '-' }}
