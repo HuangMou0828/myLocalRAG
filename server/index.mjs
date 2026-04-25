@@ -498,50 +498,19 @@ function validateSource(input) {
   return null
 }
 
+function isOpenClawSessionPath(inputPath) {
+  const resolved = path.resolve(String(inputPath || '').trim()).toLowerCase()
+  if (!resolved) return false
+  return resolved.includes('/.openclaw/') && resolved.includes('/sessions')
+}
+
 async function ensureProviderSources(provider, existingSources = []) {
   const normalizedProvider = normalizeProviderAlias(provider)
   const currentSources = Array.isArray(existingSources) ? existingSources : []
   if (!normalizedProvider || normalizedProvider === 'all') return currentSources
 
-  const hasProvider = currentSources.some(
-    (source) => String(source?.provider || '').toLowerCase() === normalizedProvider,
-  )
-  const shouldAugmentExistingProvider = normalizedProvider === 'codex'
-  if (hasProvider && !shouldAugmentExistingProvider) return currentSources
-
-  const suggestions = await discoverSourceSuggestions(currentSources)
-  const matchedSuggestions = (Array.isArray(suggestions) ? suggestions : []).filter(
-    (item) => String(item?.provider || '').toLowerCase() === normalizedProvider,
-  )
-  if (!matchedSuggestions.length) return currentSources
-
-  const seenPaths = new Set(
-    currentSources
-      .map((item) => path.resolve(String(item?.path || '').trim()))
-      .filter(Boolean),
-  )
-  const createdAt = new Date().toISOString()
-  const additions = []
-
-  for (const item of matchedSuggestions) {
-    const resolvedPath = path.resolve(String(item?.path || '').trim())
-    if (!resolvedPath || seenPaths.has(resolvedPath)) continue
-    seenPaths.add(resolvedPath)
-    additions.push({
-      id: id(),
-      name: String(item?.name || `${normalizedProvider} auto source`),
-      provider: normalizedProvider,
-      path: resolvedPath,
-      format: String(item?.format || 'auto'),
-      createdAt,
-    })
-  }
-
-  if (!additions.length) return currentSources
-
-  const merged = [...currentSources, ...additions]
-  await saveSources(merged)
-  return merged
+  // Sources are explicitly curated by the user; scanning should never auto-add paths.
+  return currentSources
 }
 
 function validateImportPath(input) {
@@ -569,7 +538,6 @@ function normalizeString(input) {
 
 function normalizeProviderAlias(input) {
   const normalized = normalizeString(input).toLowerCase()
-  if (normalized === 'openclaw') return 'codex'
   if (normalized === 'claudecode' || normalized === 'claude_code' || normalized === 'claude code') return 'claude-code'
   return normalized
 }
@@ -601,7 +569,7 @@ function buildMissingSyncSession(session) {
   }
 }
 
-function mergeSyncedSessions(currentSessions = [], scannedSessions = [], { provider = '' } = {}) {
+function mergeSyncedSessions(currentSessions = [], scannedSessions = [], { provider = '', pruneMissing = false } = {}) {
   const normalizedProvider = normalizeProviderAlias(provider)
   const next = new Map()
   const scannedIdSet = new Set(
@@ -615,8 +583,12 @@ function mergeSyncedSessions(currentSessions = [], scannedSessions = [], { provi
       ? String(session?.provider || '').toLowerCase() === normalizedProvider
       : true
 
-    if (sameProvider && !scannedIdSet.has(sessionId)) next.set(sessionId, buildMissingSyncSession(session))
-    else next.set(sessionId, session)
+    if (sameProvider && !scannedIdSet.has(sessionId)) {
+      if (!pruneMissing) next.set(sessionId, buildMissingSyncSession(session))
+      continue
+    }
+
+    next.set(sessionId, session)
   }
 
   for (const session of Array.isArray(scannedSessions) ? scannedSessions : []) {
@@ -637,7 +609,9 @@ async function refreshProviderSessions(provider, options = {}) {
 
   const sources = await ensureProviderSources(normalizedProvider, await loadSources())
   const targetSources = (Array.isArray(sources) ? sources : []).filter(
-    (source) => String(source?.provider || '').toLowerCase() === normalizedProvider,
+    (source) =>
+      String(source?.provider || '').toLowerCase() === normalizedProvider
+      && !(normalizedProvider === 'codex' && isOpenClawSessionPath(source?.path)),
   )
 
   if (!targetSources.length) {
@@ -663,7 +637,10 @@ async function refreshProviderSessions(provider, options = {}) {
   const preservedExisting = oldProviderSessions.length > 0 && scannedSessions.length === 0
   const nextSessions = preservedExisting
     ? [...oldSessions]
-    : mergeSyncedSessions(oldSessions, scannedSessions, { provider: normalizedProvider })
+    : mergeSyncedSessions(oldSessions, scannedSessions, {
+      provider: normalizedProvider,
+      pruneMissing: true,
+    })
 
   const targetSourceIds = new Set(targetSources.map((source) => String(source.id || '')).filter(Boolean))
   const oldIssues = Array.isArray(current.issues) ? current.issues : []
@@ -4344,7 +4321,7 @@ const server = http.createServer(async (req, res) => {
       const scanned = await scanSources(sources, { persist: false })
       const index = {
         updatedAt: new Date().toISOString(),
-        sessions: mergeSyncedSessions(current.sessions || [], scanned.sessions || []),
+        sessions: mergeSyncedSessions(current.sessions || [], scanned.sessions || [], { pruneMissing: true }),
         issues: Array.isArray(scanned.issues) ? scanned.issues : [],
       }
       await mergeIndex(index)

@@ -97,11 +97,13 @@ export interface OpenClawKnowledgeSyncResultDto {
   ok?: boolean
   root: string
   summary: {
+    scanned?: number
     total: number
     new?: number
     changed?: number
     unchanged?: number
     missing?: number
+    deduped?: number
     imported?: number
     archived?: number
     skipped?: number

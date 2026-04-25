@@ -207,9 +207,79 @@ const batchImportRowsResolved = computed(() => {
   const list = unref(batchImportRows)
   return Array.isArray(list) ? list : []
 })
+
+function normalizeOpenClawDuplicateTarget(reason: unknown) {
+  const raw = String(reason || '').trim()
+  if (!raw) return ''
+  if (raw.startsWith('duplicate-of:')) return raw.slice('duplicate-of:'.length).trim()
+  if (raw === 'duplicate-content') return ''
+  return raw
+}
+
 const openClawSyncRowsResolved = computed(() => {
   const list = unref(openClawSyncRows)
-  return Array.isArray(list) ? list : []
+  if (!Array.isArray(list)) return []
+  const normalized = list.filter((row) => row && typeof row === 'object')
+  if (!normalized.length) return []
+
+  const baseRows = normalized
+  const mergedRows: Array<Record<string, any>> = []
+  const dedupGroups = new Map<string, Record<string, any>>()
+
+  for (const item of baseRows) {
+    const row = item as Record<string, any>
+    const action = String(row?.action || '')
+    if (action !== 'deduped') {
+      mergedRows.push(row)
+      continue
+    }
+
+    const duplicateTarget = normalizeOpenClawDuplicateTarget(row?.reason)
+    const key = [
+      String(row?.title || ''),
+      String(row?.sourceType || ''),
+      String(row?.sourceSubtype || ''),
+      duplicateTarget,
+    ].join('::')
+    const existing = dedupGroups.get(key)
+    if (!existing) {
+      dedupGroups.set(key, {
+        ...row,
+        id: `deduped::${key}`,
+        reason: duplicateTarget,
+        duplicateCount: 1,
+      })
+      continue
+    }
+
+    existing.duplicateCount = Number(existing.duplicateCount || 1) + 1
+    const currentPath = String(existing.openclawPath || '')
+    const nextPath = String(row.openclawPath || '')
+    if (nextPath && (!currentPath || nextPath.localeCompare(currentPath) > 0)) {
+      existing.openclawPath = nextPath
+    }
+  }
+
+  mergedRows.push(...Array.from(dedupGroups.values()))
+
+  const rank: Record<string, number> = {
+    new: 0,
+    changed: 1,
+    missing: 2,
+    deduped: 3,
+    imported: 4,
+    archived: 5,
+    unchanged: 6,
+  }
+
+  return mergedRows.sort((left, right) => {
+    const leftAction = String(left?.action || '')
+    const rightAction = String(right?.action || '')
+    const leftRank = leftAction in rank ? rank[leftAction] : 99
+    const rightRank = rightAction in rank ? rank[rightAction] : 99
+    if (leftRank !== rightRank) return leftRank - rightRank
+    return String(left?.openclawPath || '').localeCompare(String(right?.openclawPath || ''))
+  })
 })
 const openClawSyncSummaryResolved = computed(() => unref(openClawSyncSummary) || {})
 const openClawSyncRootResolved = computed(() => String(unref(openClawSyncPreview)?.root || '~/.openclaw/knowledge/inbox'))
@@ -602,10 +672,31 @@ function formatOpenClawSyncAction(value: string) {
   if (value === 'new') return '新增'
   if (value === 'changed') return '变更'
   if (value === 'missing') return '待归档'
+  if (value === 'deduped') return '内容去重'
   if (value === 'unchanged') return '跳过'
   if (value === 'imported') return '已导入'
   if (value === 'archived') return '已归档'
   return value || '未知'
+}
+
+function formatOpenClawSyncReason(row: Record<string, any>) {
+  const action = String(row?.action || '')
+  const raw = String(row?.reason || '').trim()
+  if (!raw) return ''
+
+  if (action === 'deduped') {
+    const target = normalizeOpenClawDuplicateTarget(raw)
+    const count = Math.max(1, Number(row?.duplicateCount || 1))
+    if (target) {
+      return count > 1 ? `与 ${target} 重复（${count} 条）` : `与 ${target} 重复`
+    }
+    return count > 1 ? `内容重复（${count} 条）` : '内容重复'
+  }
+
+  if (raw === 'missing-from-openclaw') return '源目录已移除，已归档'
+  if (raw === 'unchanged') return '内容未变化'
+  if (raw === 'deduped') return '内容重复，已跳过'
+  return raw
 }
 
 function formatKnowledgePromotionDecision(value: string) {
@@ -3333,20 +3424,19 @@ function focusTaskReviewBySummary(cardId: string) {
           </DialogDescription>
         </DialogHeader>
 
-        <div class="knowledge-openclaw-sync-summary">
-          <div class="knowledge-openclaw-sync-root">
+        <div class="knowledge-openclaw-sync-metrics">
+          <span class="knowledge-openclaw-sync-metric-root" :title="openClawSyncRootResolved">
             <small>同步目录</small>
             <strong>{{ openClawSyncRootResolved }}</strong>
-          </div>
-          <div class="knowledge-openclaw-sync-metrics">
-            <span><small>总数</small><strong>{{ openClawSyncSummaryResolved.total || 0 }}</strong></span>
-            <span><small>新增</small><strong>{{ openClawSyncSummaryResolved.new || 0 }}</strong></span>
-            <span><small>变更</small><strong>{{ openClawSyncSummaryResolved.changed || 0 }}</strong></span>
-            <span><small>减少</small><strong>{{ openClawSyncSummaryResolved.missing || openClawSyncSummaryResolved.archived || 0 }}</strong></span>
-            <span><small>跳过</small><strong>{{ openClawSyncSummaryResolved.unchanged || openClawSyncSummaryResolved.skipped || 0 }}</strong></span>
-            <span><small>导入</small><strong>{{ openClawSyncSummaryResolved.imported || 0 }}</strong></span>
-            <span><small>问题</small><strong>{{ openClawSyncSummaryResolved.issues || openClawSyncSummaryResolved.failed || 0 }}</strong></span>
-          </div>
+          </span>
+          <span><small>扫描</small><strong>{{ openClawSyncSummaryResolved.scanned || openClawSyncSummaryResolved.total || 0 }}</strong></span>
+          <span><small>新增</small><strong>{{ openClawSyncSummaryResolved.new || 0 }}</strong></span>
+          <span><small>变更</small><strong>{{ openClawSyncSummaryResolved.changed || 0 }}</strong></span>
+          <span><small>减少</small><strong>{{ openClawSyncSummaryResolved.missing || openClawSyncSummaryResolved.archived || 0 }}</strong></span>
+          <span><small>去重</small><strong>{{ openClawSyncSummaryResolved.deduped || 0 }}</strong></span>
+          <span><small>跳过</small><strong>{{ openClawSyncSummaryResolved.unchanged || openClawSyncSummaryResolved.skipped || 0 }}</strong></span>
+          <span><small>导入</small><strong>{{ openClawSyncSummaryResolved.imported || 0 }}</strong></span>
+          <span><small>问题</small><strong>{{ openClawSyncSummaryResolved.issues || openClawSyncSummaryResolved.failed || 0 }}</strong></span>
         </div>
 
         <p v-if="openClawSyncError" class="knowledge-batch-import-error">{{ openClawSyncError }}</p>
@@ -3369,14 +3459,31 @@ function focusTaskReviewBySummary(cardId: string) {
             :data-action="row.action"
           >
             <div>
-              <strong>{{ row.title || row.openclawPath }}</strong>
+              <strong>
+                {{ row.title || row.openclawPath }}
+                <template v-if="Number(row.duplicateCount || 0) > 1">（×{{ Number(row.duplicateCount || 0) }}）</template>
+              </strong>
               <p>{{ row.openclawPath }}</p>
             </div>
             <div class="knowledge-openclaw-sync-row-meta">
-              <span :data-action="row.action">{{ formatOpenClawSyncAction(row.action) }}</span>
-              <span>{{ row.sourceType }}/{{ row.sourceSubtype }}</span>
-              <span>{{ formatIntakeStageLabel(row.intakeStage) }}</span>
-              <span v-if="row.reason">{{ row.reason }}</span>
+              <span class="knowledge-openclaw-sync-chip knowledge-openclaw-sync-chip--action" :data-action="row.action">
+                {{ formatOpenClawSyncAction(row.action) }}
+              </span>
+              <span
+                class="knowledge-openclaw-sync-chip knowledge-openclaw-sync-chip--source"
+                :data-source-type="row.sourceType"
+              >
+                {{ formatSourceTypeLabel(row.sourceType) }} · {{ row.sourceSubtype || 'unknown' }}
+              </span>
+              <span
+                class="knowledge-openclaw-sync-chip knowledge-openclaw-sync-chip--stage"
+                :data-stage="row.intakeStage"
+              >
+                {{ formatIntakeStageLabel(row.intakeStage) }}
+              </span>
+              <span v-if="row.reason" class="knowledge-openclaw-sync-chip knowledge-openclaw-sync-chip--reason">
+                {{ formatOpenClawSyncReason(row) }}
+              </span>
             </div>
           </article>
         </div>

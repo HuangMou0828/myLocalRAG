@@ -2159,7 +2159,7 @@ function buildKnowledgeTitle({ title = '', content = '', sourceType = 'capture' 
 export async function listKnowledgeItemsInDb({ limit = 200, sourceType = 'all', status = 'all', q = '' } = {}) {
   await ensureReady()
   const database = getDb()
-  const max = Math.max(1, Math.min(500, Number(limit || 200)))
+  const max = Math.max(1, Math.min(5000, Number(limit || 200)))
   const normalizedType = String(sourceType || '').trim().toLowerCase()
   const normalizedStatus = String(status || '').trim().toLowerCase()
   const keyword = String(q || '').trim().toLowerCase()
