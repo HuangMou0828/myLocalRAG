@@ -13,7 +13,7 @@ const emit = defineEmits<{
 
 const items = [
   { id: 'knowledge-sources', label: '知识采集', badge: '原料', title: '管理 capture / note / document 原始素材' },
-  { id: 'knowledge-task-review', label: '任务筛选', badge: '筛选', title: '先按任务视角筛掉噪声和上下文碎片' },
+  { id: 'knowledge-task-review', label: '任务复盘', badge: '会话', title: '先审查会话任务段，再决定是否送入升格候选' },
   { id: 'knowledge-promotion-review', label: '升格审核', badge: '候选', title: '集中查看待升格 issue / pattern / synthesis 候选' },
   { id: 'knowledge-health', label: '健康巡检', badge: '巡检', title: '查看 lint、知识空洞和长期积压提醒' },
 ] as const

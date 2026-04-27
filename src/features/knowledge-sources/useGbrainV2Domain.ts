@@ -10,14 +10,13 @@ const STALE_AFTER_MS = 60_000
 
 export function useGbrainV2Domain(options: UseGbrainV2DomainOptions) {
   const gbrainV2Loading = ref(false)
-  const gbrainV2Saving = ref(false)
   const gbrainV2Error = ref('')
   const gbrainV2LoadedAt = ref(0)
   const gbrainV2FeedStatus = ref<Awaited<ReturnType<GbrainV2Api['fetchFeedStatus']>> | null>(null)
   const gbrainV2FeedRefreshing = ref(false)
   const gbrainV2Settings = ref<GbrainV2SettingsDto>({
-    enabled: false,
-    readMode: 'v1',
+    enabled: true,
+    readMode: 'v2',
     feedMode: 'atom-reader-first',
     includeRawFallback: true,
     dualWriteEnabled: true,
@@ -53,31 +52,6 @@ export function useGbrainV2Domain(options: UseGbrainV2DomainOptions) {
       return null
     } finally {
       gbrainV2Loading.value = false
-    }
-  }
-
-  async function saveGbrainV2Settings(patch: Partial<GbrainV2SettingsDto>) {
-    if (!options.service) return null
-    gbrainV2Saving.value = true
-    gbrainV2Error.value = ''
-    try {
-      const result = await options.service.saveSettings(patch)
-      gbrainV2Settings.value = result.settings
-      gbrainV2LoadedAt.value = Date.now()
-      if (gbrainV2FeedStatus.value) {
-        gbrainV2FeedStatus.value = {
-          ...gbrainV2FeedStatus.value,
-          settings: result.settings,
-        }
-      }
-      options.notify('GBrain V2 设置已更新', 'success')
-      return result.settings
-    } catch (error) {
-      gbrainV2Error.value = String(error || '保存 GBrain V2 设置失败')
-      options.notify(gbrainV2Error.value, 'danger')
-      return null
-    } finally {
-      gbrainV2Saving.value = false
     }
   }
 
@@ -118,7 +92,7 @@ export function useGbrainV2Domain(options: UseGbrainV2DomainOptions) {
       const result = await options.service.retrieve({
         query: text,
         topK: Math.max(1, Math.min(30, Number(topK || 6))),
-        readMode: gbrainV2Settings.value.readMode,
+        readMode: 'v2',
       })
       gbrainRetrieveResult.value = result
       return result
@@ -161,7 +135,6 @@ export function useGbrainV2Domain(options: UseGbrainV2DomainOptions) {
   return {
     hasGbrainV2Service: hasService,
     gbrainV2Loading,
-    gbrainV2Saving,
     gbrainV2Error,
     gbrainV2LoadedAt,
     gbrainV2FeedStatus,
@@ -175,7 +148,6 @@ export function useGbrainV2Domain(options: UseGbrainV2DomainOptions) {
     gbrainPromotionLoadedAt,
     gbrainPromotionView,
     loadGbrainV2FeedStatus,
-    saveGbrainV2Settings,
     refreshGbrainV2Feed,
     runGbrainV2Retrieve,
     loadGbrainV2PromotionView,

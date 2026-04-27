@@ -62,9 +62,9 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     },
     {
       id: 'task-review',
-      label: '任务筛选',
-      badge: '筛选',
-      description: '先按任务视角筛掉噪声和上下文碎片',
+      label: '任务复盘',
+      badge: '会话',
+      description: '审核会话来源，标记可升格候选后再进入升格审核',
     },
     {
       id: 'promotion',
@@ -147,8 +147,8 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     if (workbenchTab.value === 'task-review') {
       return {
         eyebrow: 'Task Review',
-        title: '先筛掉噪声，再决定哪些任务段保留到主检索',
-        description: '从连续会话里切出任务段，判断检索价值、升格价值和回答沉淀价值。',
+        title: '先从会话源抽取任务段，再决定是否送入升格候选',
+        description: '这层负责把高噪声会话压成可审核任务，避免直接污染长期知识层。',
         cards: normalizeWorkbenchHeroCards(taskReview.taskReviewSummaryCards.value),
       }
     }
@@ -156,8 +156,8 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     if (workbenchTab.value === 'promotion') {
       return {
         eyebrow: 'Promotion Review',
-        title: '把接近稳定的候选集中审核，避免直接写乱 wiki',
-        description: '对 issue / pattern / synthesis 候选做 approve、dismiss 或 revoke，保持知识层级干净。',
+        title: '把接近稳定的候选集中审核，直接沉淀进新的 Vault',
+        description: '对 issue / pattern / synthesis 候选做 approve、dismiss 或 revoke，保持 reader-first 知识层干净。',
         cards: normalizeWorkbenchHeroCards(promotionReview.promotionSummaryCards.value),
       }
     }
@@ -174,7 +174,7 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     return {
       eyebrow: 'Raw Inbox',
       title: '先接住原始片段，再决定后续筛选与升格路径',
-      description: '集中管理 capture / note / document 原料，补齐上下文后再送入任务筛选或升格审核。',
+      description: '集中管理 capture / note / document 原料，补齐上下文后直接送入升格审核。',
       cards: normalizeWorkbenchHeroCards(rawInbox.rawSummaryCards.value),
     }
   })
@@ -187,7 +187,9 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
         || (Date.now() - rawInbox.knowledgeItemsLoadedAt.value > STALE_AFTER_MS)
       if (isStale) await rawInbox.loadKnowledgeItems()
     }
-    if (nextTab === 'task-review') await taskReview.loadTaskReviewSessions(false)
+    if (nextTab === 'task-review') {
+      await taskReview.loadTaskReviewSessions(false)
+    }
     if (nextTab === 'promotion') {
       await promotionReview.loadPromotionQueue(false)
       await gbrainV2.loadGbrainV2PromotionView(false)
@@ -347,6 +349,9 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     promotionViewerTitle: promotionReview.promotionViewerTitle,
     promotionViewerPaths: promotionReview.promotionViewerPaths,
     promotionViewerNotes: promotionReview.promotionViewerNotes,
+    promotionViewerUnresolved: promotionReview.promotionViewerUnresolved,
+    promotionMvpAutoLoading: promotionReview.promotionMvpAutoLoading,
+    promotionMvpAutoLastResult: promotionReview.promotionMvpAutoLastResult,
     promotionSummaryCards: promotionReview.promotionSummaryCards,
     loadPromotionQueue: promotionReview.loadPromotionQueue,
     applyPromotionCandidate: promotionReview.applyPromotionCandidate,
@@ -354,6 +359,7 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     revokePromotionCandidate: promotionReview.revokePromotionCandidate,
     previewPromotionCandidate: promotionReview.previewPromotionCandidate,
     openPromotionEvidence: promotionReview.openPromotionEvidence,
+    runMvpAutoPromotion: promotionReview.runMvpAutoPromotion,
     closePromotionPreview: promotionReview.closePromotionPreview,
     closePromotionViewer: promotionReview.closePromotionViewer,
 
@@ -376,7 +382,6 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     vaultRebuildLoading: wikiHealth.vaultRebuildLoading,
     hasGbrainV2Service: gbrainV2.hasGbrainV2Service,
     gbrainV2Loading: gbrainV2.gbrainV2Loading,
-    gbrainV2Saving: gbrainV2.gbrainV2Saving,
     gbrainV2Error: gbrainV2.gbrainV2Error,
     gbrainV2LoadedAt: gbrainV2.gbrainV2LoadedAt,
     gbrainV2FeedStatus: gbrainV2.gbrainV2FeedStatus,
@@ -392,7 +397,6 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     loadGbrainV2FeedStatus: gbrainV2.loadGbrainV2FeedStatus,
     refreshGbrainV2Feed: gbrainV2.refreshGbrainV2Feed,
     loadGbrainV2PromotionView: gbrainV2.loadGbrainV2PromotionView,
-    saveGbrainV2Settings: gbrainV2.saveGbrainV2Settings,
     runGbrainV2Retrieve: gbrainV2.runGbrainV2Retrieve,
     loadWikiHealth: wikiHealth.loadWikiHealth,
     selectHealthFinding: wikiHealth.selectHealthFinding,

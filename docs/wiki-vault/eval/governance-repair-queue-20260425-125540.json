@@ -1,0 +1,56 @@
+{
+  "version": "gbrain-v2-governance-repair-queue.v1",
+  "generatedAt": "2026-04-25T12:55:40.621Z",
+  "top": 120,
+  "metrics": {
+    "legacyCount": 0,
+    "suspectCount": 4,
+    "duplicateGroups": 4,
+    "duplicateItems": 23,
+    "lineageMissingCount": 0,
+    "staleDraftCount": 0,
+    "rawPipelineCount": 65,
+    "rawWithAtomCount": 65,
+    "rawWithoutAtomCount": 0,
+    "autoPromotionCandidateRawCount": 7,
+    "autoPromotionCandidateCount": 7,
+    "autoPromotionSuppressedByDuplicateCount": 0,
+    "autoPromotionConstraintViolationCount": 0,
+    "legacyShare": 0,
+    "suspectShare": 3.92,
+    "duplicateShare": 22.55,
+    "lineageMissingShare": 0,
+    "staleDraftShare": 0,
+    "rawToAtomAutomationCoverage": 100,
+    "autoPromotionConstraintViolationShare": 0,
+    "duplicateActionableGroupCount": 0,
+    "duplicateNonActionableGroupCount": 4,
+    "duplicateArchiveCandidateCount": 0,
+    "staleDraftAutoArchiveEligibleCount": 0,
+    "estimatedManualReviewReductionCount": 4,
+    "byTier": {
+      "clean": 98,
+      "suspect": 4,
+      "legacy": 0
+    },
+    "byKind": {
+      "context": 83,
+      "pattern": 15,
+      "decision": 1,
+      "issue": 3
+    }
+  },
+  "estimatedManualReviewReductionCount": 4,
+  "apply": {
+    "applied": false,
+    "applyTypes": [
+      "duplicate-group"
+    ],
+    "total": 0,
+    "succeeded": 0,
+    "failed": 0,
+    "skipped": 0,
+    "results": []
+  },
+  "queue": []
+}

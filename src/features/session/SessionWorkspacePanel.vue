@@ -565,10 +565,18 @@ watch(
                 <span class="retrieve-chip" v-if="!useVectorSearch">关键词索引</span>
                 <span class="retrieve-chip" v-if="retrieving">语义检索中...</span>
                 <template v-else-if="retrieveMeta">
+                  <span class="retrieve-chip" v-if="retrieveMeta.retrieveMode">链路 {{ retrieveMeta.retrieveMode }}</span>
+                  <span class="retrieve-chip" v-if="retrieveMeta.gbrainV2Mode">读模 {{ retrieveMeta.gbrainV2Mode }}</span>
                   <span class="retrieve-chip">向量覆盖 {{ Math.round(Number(retrieveMeta.coverage || 0) * 100) }}%</span>
                   <span class="retrieve-chip">懒生成 {{ Number(retrieveMeta.regenerated || 0) }}</span>
                   <span class="retrieve-chip">来源 {{ retrieveMeta.source || '-' }}</span>
                   <span class="retrieve-chip">模型 {{ retrieveMeta.model || '-' }}</span>
+                  <span class="retrieve-chip" v-if="retrieveMeta.sessionBridgeApplied">
+                    V2重排 token {{ Number(retrieveMeta.sessionBridgeTokenCount || 0) }}
+                  </span>
+                  <span class="retrieve-meta-text" v-else-if="retrieveMeta.sessionBridgeReason && String(retrieveMeta.gbrainV2Mode || '') === 'v2'">
+                    V2回退：{{ retrieveMeta.sessionBridgeReason }}
+                  </span>
                   <span class="retrieve-chip warn-chip" v-if="retrieveMeta.fallback" :title="getRetrieveFallbackReason(retrieveMeta)">
                     已降级：{{ getRetrieveFallbackReason(retrieveMeta) }}
                   </span>

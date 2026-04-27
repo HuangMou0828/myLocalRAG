@@ -6,8 +6,6 @@ import { loadLocalEnv } from '../server/lib/load-env.mjs'
 import {
   listKnowledgeAtomsInDb,
   listKnowledgeItemsInDb,
-  loadGbrainV2SettingsInDb,
-  saveGbrainV2SettingsInDb,
   upsertKnowledgeAtomInDb,
 } from '../server/lib/db.mjs'
 import { querySessions } from '../server/lib/scanner.mjs'
@@ -16,7 +14,8 @@ import { buildAtomFromKnowledgeItem } from '../server/lib/gbrain-v2.mjs'
 const DEFAULT_LIMIT = 5000
 const DEFAULT_SAMPLE_SIZE = 120
 const DEFAULT_COMPARE_TOP_K = 8
-const DEFAULT_COMPARE_MODES = ['v1', 'v2']
+const DEFAULT_COMPARE_MODE = 'v2'
+const DEFAULT_QUERY_SET_TARGET = 50
 const DEFAULT_EVAL_DIR = path.resolve(process.cwd(), 'docs', 'wiki-vault', 'eval')
 const STOPWORDS = new Set([
   'the',
@@ -92,15 +91,15 @@ function usage() {
       '  node scripts/gbrain-v2-eval.mjs baseline [--limit <n>] [--out <file>]',
       '  node scripts/gbrain-v2-eval.mjs dry-run [--limit <n>] [--sample <n>] [--out <file>]',
       '  node scripts/gbrain-v2-eval.mjs backfill [--limit <n>] [--status <all|draft|active|archived>]',
-      '  node scripts/gbrain-v2-eval.mjs compare [--query-set <file>] [--modes <v1,v2,shadow>] [--top-k <n>] [--limit <n>] [--out <file>]',
-      '  node scripts/gbrain-v2-eval.mjs rollback-drill [--to <v1|v2|shadow>] [--query-set <file>] [--top-k <n>] [--apply] [--out <file>]',
+      '  node scripts/gbrain-v2-eval.mjs seed-query-set [--target <n>] [--limit <n>] [--out <file>]',
+      '  node scripts/gbrain-v2-eval.mjs compare [--query-set <file>] [--top-k <n>] [--limit <n>] [--out <file>]',
       '',
       'Examples:',
       '  node scripts/gbrain-v2-eval.mjs baseline',
       '  node scripts/gbrain-v2-eval.mjs dry-run --sample 80',
       '  node scripts/gbrain-v2-eval.mjs backfill --status all',
-      '  node scripts/gbrain-v2-eval.mjs compare --modes v1,v2 --top-k 8',
-      '  node scripts/gbrain-v2-eval.mjs rollback-drill --to v1 --apply',
+      '  node scripts/gbrain-v2-eval.mjs seed-query-set --target 50',
+      '  node scripts/gbrain-v2-eval.mjs compare --top-k 8',
       '  node scripts/gbrain-v2-eval.mjs baseline --out docs/wiki-vault/eval/baseline-custom.json',
     ].join('\n'),
   )
@@ -110,10 +109,6 @@ function argValue(args, key, fallback = '') {
   const index = args.indexOf(key)
   if (index < 0) return fallback
   return args[index + 1] || fallback
-}
-
-function hasFlag(args, key) {
-  return Array.isArray(args) && args.includes(key)
 }
 
 function toNumber(input, fallback, { min = 1, max = Number.MAX_SAFE_INTEGER } = {}) {
@@ -491,41 +486,7 @@ function snippetByToken(content, token, radius = 72) {
   return `${prefix}${source.slice(start, end)}${suffix}`
 }
 
-function normalizeGbrainReadMode(mode) {
-  const normalized = normalizeText(mode || 'v1').toLowerCase()
-  if (normalized === 'v2') return 'v2'
-  if (normalized === 'shadow') return 'shadow'
-  return 'v1'
-}
-
-function parseModeList(input = '') {
-  const rawList = String(input || '')
-    .split(',')
-    .map((item) => normalizeGbrainReadMode(item))
-    .filter(Boolean)
-  const deduped = []
-  for (const mode of rawList) {
-    if (!deduped.includes(mode)) deduped.push(mode)
-  }
-  return deduped.length ? deduped : [...DEFAULT_COMPARE_MODES]
-}
-
-function getKnowledgeAtomScoreProfile(mode) {
-  const readMode = normalizeGbrainReadMode(mode)
-  if (readMode === 'v2') {
-    return {
-      exact: { summary: 8, title: 6, topics: 4, kind: 3, pageId: 2, sourceRefs: 2 },
-      token: { summary: 2.4, title: 1.8, topics: 1.6, kind: 1.2, pageId: 0.8, sourceRefs: 0.6 },
-      quality: { clean: 1.2, suspect: 0.4, legacy: -0.6 },
-    }
-  }
-  if (readMode === 'shadow') {
-    return {
-      exact: { summary: 8, title: 6, topics: 2.8, kind: 1.8, pageId: 1.2, sourceRefs: 1.2 },
-      token: { summary: 2.3, title: 1.7, topics: 1.0, kind: 0.7, pageId: 0.5, sourceRefs: 0.4 },
-      quality: { clean: 0.6, suspect: 0.2, legacy: -0.2 },
-    }
-  }
+function getKnowledgeAtomScoreProfile() {
   return {
     exact: { summary: 8, title: 6, topics: 1.2, kind: 0.8, pageId: 0.5, sourceRefs: 0.4 },
     token: { summary: 2.2, title: 1.6, topics: 0.4, kind: 0.3, pageId: 0.2, sourceRefs: 0.2 },
@@ -533,8 +494,7 @@ function getKnowledgeAtomScoreProfile(mode) {
   }
 }
 
-function scoreKnowledgeAtom(atom, query, tokens, mode = 'v1') {
-  const readMode = normalizeGbrainReadMode(mode)
+function scoreKnowledgeAtom(atom, query, tokens) {
   const q = normalizeText(query).toLowerCase()
   const title = normalizeText(atom?.title).toLowerCase()
   const summary = normalizeText(atom?.summary).toLowerCase()
@@ -546,7 +506,7 @@ function scoreKnowledgeAtom(atom, query, tokens, mode = 'v1') {
       .map((item) => `${normalizeText(item?.type)} ${normalizeText(item?.value)}`.toLowerCase())
       .join(' ')
     : ''
-  const profile = getKnowledgeAtomScoreProfile(mode)
+  const profile = getKnowledgeAtomScoreProfile()
 
   let score = 0
   if (!q) {
@@ -575,16 +535,8 @@ function scoreKnowledgeAtom(atom, query, tokens, mode = 'v1') {
   else if (qualityTier === 'suspect') score += profile.quality.suspect
   else score += profile.quality.legacy
 
-  if (readMode === 'v1') {
-    if (kind === 'context') score += 0.6
-    if (kind === 'issue' || kind === 'pattern') score -= 0.4
-  } else if (readMode === 'shadow') {
-    if (kind === 'context') score -= 0.1
-    if (kind === 'issue' || kind === 'pattern' || kind === 'decision' || kind === 'synthesis') score += 0.2
-  } else if (readMode === 'v2') {
-    if (kind === 'context') score -= 0.4
-    if (kind === 'issue' || kind === 'pattern' || kind === 'decision' || kind === 'synthesis') score += 0.6
-  }
+  if (kind === 'context') score -= 0.4
+  if (kind === 'issue' || kind === 'pattern' || kind === 'decision' || kind === 'synthesis') score += 0.6
 
   score += toTimestamp(atom?.updatedAt) / 1e13
   return score
@@ -630,6 +582,29 @@ function normalizeQueryIntent(intent = '') {
   return 'all'
 }
 
+function mapKindToIntent(kind = '') {
+  const normalized = normalizeText(kind).toLowerCase()
+  if (normalized === 'issue') return 'issue'
+  if (normalized === 'pattern') return 'pattern'
+  if (normalized === 'project') return 'project'
+  return 'synthesis'
+}
+
+function defaultSignalsForIntent(intent = 'all') {
+  if (intent === 'issue') return ['symptom', 'rootCause', 'fixPattern', 'validation']
+  if (intent === 'pattern') return ['recommendedShape', 'tradeoffs', 'evidenceRefs']
+  if (intent === 'project') return ['module', 'ownership', 'dependencies']
+  return ['conclusion', 'comparison', 'nextAction']
+}
+
+function buildQueryTextByIntent(intent, title, summary) {
+  const text = normalizeText(title || summary || '').slice(0, 80)
+  if (intent === 'issue') return `${text} 如何定位根因并给出修复路径`
+  if (intent === 'pattern') return `${text} 的最佳实践、边界和取舍是什么`
+  if (intent === 'project') return `${text} 相关模块、依赖关系和责任边界`
+  return `${text} 的结论、建议和下一步动作`
+}
+
 function isIntentMatch(resultKind, queryIntent) {
   const kind = normalizeText(resultKind).toLowerCase()
   const intent = normalizeQueryIntent(queryIntent)
@@ -671,7 +646,6 @@ async function runLocalAtomRetrieve({
   kind = 'all',
   qualityTier = 'all',
   status = 'visible',
-  mode = 'v1',
 } = {}) {
   const normalizedQuery = normalizeSearchQuery(query)
   const normalizedTopK = Math.max(1, Math.min(30, Number(topK || DEFAULT_COMPARE_TOP_K)))
@@ -679,7 +653,6 @@ async function runLocalAtomRetrieve({
   const normalizedKind = normalizeText(kind || 'all') || 'all'
   const normalizedTier = normalizeText(qualityTier || 'all') || 'all'
   const normalizedStatus = normalizeText(status || 'visible') || 'visible'
-  const normalizedMode = normalizeGbrainReadMode(mode)
   const tokens = tokenize(normalizedQuery)
 
   let atomCandidates = await listKnowledgeAtomsInDb({
@@ -703,7 +676,7 @@ async function runLocalAtomRetrieve({
   const ranked = atomCandidates
     .map((atom) => ({
       atom,
-      score: scoreKnowledgeAtom(atom, normalizedQuery, tokens, normalizedMode),
+      score: scoreKnowledgeAtom(atom, normalizedQuery, tokens),
     }))
     .filter((item) => item.score > 0)
     .sort((left, right) => right.score - left.score)
@@ -731,7 +704,7 @@ async function runLocalAtomRetrieve({
     query: normalizedQuery,
     topK: normalizedTopK,
     tokens,
-    mode: normalizedMode,
+    mode: DEFAULT_COMPARE_MODE,
     totalScanned: atomCandidates.length,
     totalMatched: ranked.length,
     results,
@@ -794,63 +767,6 @@ function summarizeModeQueries(modeQueryResults = [], topK = DEFAULT_COMPARE_TOP_
   return summary
 }
 
-function compareModePair(baseModeResult = {}, targetModeResult = {}, topK = DEFAULT_COMPARE_TOP_K) {
-  const baseQueries = Array.isArray(baseModeResult?.queries) ? baseModeResult.queries : []
-  const targetById = new Map(
-    (Array.isArray(targetModeResult?.queries) ? targetModeResult.queries : []).map((item) => [String(item?.id || ''), item]),
-  )
-  const changedTop1 = []
-  const overlaps = []
-
-  for (const baseQuery of baseQueries) {
-    const queryId = String(baseQuery?.id || '')
-    if (!queryId || !targetById.has(queryId)) continue
-    const targetQuery = targetById.get(queryId)
-    const baseTop = Array.isArray(baseQuery?.results) ? baseQuery.results.slice(0, topK) : []
-    const targetTop = Array.isArray(targetQuery?.results) ? targetQuery.results.slice(0, topK) : []
-    const baseTop1 = resultKey(baseTop[0])
-    const targetTop1 = resultKey(targetTop[0])
-    if (baseTop1 && targetTop1 && baseTop1 !== targetTop1) {
-      changedTop1.push({
-        id: queryId,
-        query: baseQuery.query,
-        baseTop1: {
-          key: baseTop1,
-          title: baseTop[0]?.title || '',
-          kind: baseTop[0]?.kind || '',
-        },
-        targetTop1: {
-          key: targetTop1,
-          title: targetTop[0]?.title || '',
-          kind: targetTop[0]?.kind || '',
-        },
-      })
-    }
-
-    const baseSet = new Set(baseTop.map((item) => resultKey(item)).filter(Boolean))
-    const targetSet = new Set(targetTop.map((item) => resultKey(item)).filter(Boolean))
-    const union = new Set([...baseSet, ...targetSet])
-    let intersection = 0
-    for (const key of baseSet) {
-      if (targetSet.has(key)) intersection += 1
-    }
-    overlaps.push(union.size ? intersection / union.size : 0)
-  }
-
-  const avgOverlap = overlaps.length
-    ? Number(((overlaps.reduce((sum, item) => sum + item, 0) / overlaps.length) * 100).toFixed(2))
-    : 0
-
-  return {
-    baseMode: baseModeResult.mode,
-    targetMode: targetModeResult.mode,
-    totalQueries: baseQueries.length,
-    top1ChangedRate: percent(changedTop1.length, baseQueries.length),
-    avgOverlapAtK: avgOverlap,
-    changedTop1: changedTop1.slice(0, 30),
-  }
-}
-
 async function loadQuerySet(args = []) {
   const explicitPath = normalizeText(argValue(args, '--query-set', ''))
   const candidatePaths = explicitPath
@@ -884,94 +800,150 @@ async function loadQuerySet(args = []) {
   throw new Error('未找到可用查询集（请提供 --query-set 或先准备 docs/wiki-vault/eval/query-set.json）')
 }
 
+function seedQuerySetFromAtoms(atoms = [], target = DEFAULT_QUERY_SET_TARGET) {
+  const output = []
+  const usedQuery = new Set()
+  const byIntent = {
+    issue: [],
+    pattern: [],
+    project: [],
+    synthesis: [],
+  }
+  for (const atom of atoms) {
+    const intent = mapKindToIntent(atom?.kind)
+    byIntent[intent].push(atom)
+  }
+  for (const key of Object.keys(byIntent)) {
+    byIntent[key].sort((left, right) => Number(right?.qualityScore || 0) - Number(left?.qualityScore || 0))
+  }
+
+  const quotas = {
+    issue: Math.max(8, Math.round(target * 0.3)),
+    pattern: Math.max(8, Math.round(target * 0.3)),
+    project: Math.max(6, Math.round(target * 0.2)),
+    synthesis: Math.max(6, Math.round(target * 0.2)),
+  }
+
+  const addFromBucket = (intent, atom) => {
+    const title = normalizeText(atom?.title || '')
+    const summary = normalizeText(atom?.summary || '')
+    const query = buildQueryTextByIntent(intent, title, summary)
+    if (!query || usedQuery.has(query.toLowerCase())) return false
+    usedQuery.add(query.toLowerCase())
+    output.push({
+      id: `${intent}-${String(output.length + 1).padStart(3, '0')}`,
+      intent,
+      query,
+      expectedSignals: defaultSignalsForIntent(intent),
+      seed: {
+        atomId: String(atom?.atomId || ''),
+        kind: String(atom?.kind || ''),
+        title,
+        qualityTier: String(atom?.qualityTier || ''),
+        qualityScore: Number(atom?.qualityScore || 0),
+      },
+    })
+    return true
+  }
+
+  for (const [intent, quota] of Object.entries(quotas)) {
+    const list = byIntent[intent] || []
+    let count = 0
+    for (const atom of list) {
+      if (count >= quota) break
+      if (addFromBucket(intent, atom)) count += 1
+    }
+  }
+
+  const merged = [
+    ...byIntent.issue,
+    ...byIntent.pattern,
+    ...byIntent.project,
+    ...byIntent.synthesis,
+  ].sort((left, right) => Number(right?.qualityScore || 0) - Number(left?.qualityScore || 0))
+
+  for (const atom of merged) {
+    if (output.length >= target) break
+    addFromBucket(mapKindToIntent(atom?.kind), atom)
+  }
+
+  return output.slice(0, target).map((item, index) => ({
+    id: `${item.intent}-${String(index + 1).padStart(3, '0')}`,
+    intent: item.intent,
+    query: item.query,
+    expectedSignals: item.expectedSignals,
+    seed: item.seed,
+  }))
+}
+
 async function evaluateModesWithQuerySet({
   querySet,
-  modes = DEFAULT_COMPARE_MODES,
   topK = DEFAULT_COMPARE_TOP_K,
   limit = DEFAULT_LIMIT,
 } = {}) {
-  const normalizedModes = Array.isArray(modes) && modes.length ? modes.map((mode) => normalizeGbrainReadMode(mode)) : [...DEFAULT_COMPARE_MODES]
-  const modeMap = new Map()
-  for (const mode of normalizedModes) {
-    modeMap.set(mode, {
-      mode,
-      topK,
-      limit,
-      queries: [],
-      summary: null,
-    })
+  const modeResult = {
+    mode: DEFAULT_COMPARE_MODE,
+    topK,
+    limit,
+    queries: [],
+    summary: null,
   }
 
   for (const querySpec of querySet.queries) {
-    for (const mode of normalizedModes) {
-      const retrieveResult = await runLocalAtomRetrieve({
-        query: querySpec.query,
-        topK,
-        limit,
-        mode,
-        kind: 'all',
-        qualityTier: 'all',
-        status: 'visible',
-      })
-      const signalCoverage = new Set()
-      const mappedResults = retrieveResult.results.map((result, index) => {
-        const relevance = evaluateResultRelevance(result, querySpec)
-        for (const signal of relevance.signalHits) signalCoverage.add(signal)
-        return {
-          rank: index + 1,
-          ...result,
-          traceable: Boolean(result.canonicalId && result.pageId && Array.isArray(result.sourceRefs) && result.sourceRefs.length),
-          relevance,
-        }
-      })
-      modeMap.get(mode).queries.push({
-        id: querySpec.id,
-        query: querySpec.query,
-        intent: querySpec.intent,
-        expectedSignals: querySpec.expectedSignals,
-        signalCoverage: Array.from(signalCoverage.values()),
-        totalMatched: retrieveResult.totalMatched,
-        results: mappedResults,
-      })
-    }
+    const retrieveResult = await runLocalAtomRetrieve({
+      query: querySpec.query,
+      topK,
+      limit,
+      kind: 'all',
+      qualityTier: 'all',
+      status: 'visible',
+    })
+    const signalCoverage = new Set()
+    const mappedResults = retrieveResult.results.map((result, index) => {
+      const relevance = evaluateResultRelevance(result, querySpec)
+      for (const signal of relevance.signalHits) signalCoverage.add(signal)
+      return {
+        rank: index + 1,
+        ...result,
+        traceable: Boolean(result.canonicalId && result.pageId && Array.isArray(result.sourceRefs) && result.sourceRefs.length),
+        relevance,
+      }
+    })
+    modeResult.queries.push({
+      id: querySpec.id,
+      query: querySpec.query,
+      intent: querySpec.intent,
+      expectedSignals: querySpec.expectedSignals,
+      signalCoverage: Array.from(signalCoverage.values()),
+      totalMatched: retrieveResult.totalMatched,
+      results: mappedResults,
+    })
   }
 
-  const modesResult = Array.from(modeMap.values())
-  for (const modeResult of modesResult) {
-    modeResult.summary = summarizeModeQueries(modeResult.queries, topK)
-  }
-
-  const comparisons = []
-  const base = modesResult[0] || null
-  if (base) {
-    for (let index = 1; index < modesResult.length; index += 1) {
-      comparisons.push(compareModePair(base, modesResult[index], topK))
-    }
-  }
+  modeResult.summary = summarizeModeQueries(modeResult.queries, topK)
 
   return {
     querySetPath: querySet.path,
     querySetVersion: querySet.version,
-    modes: modesResult,
-    comparisons,
+    modes: [modeResult],
+    comparisons: [],
   }
 }
 
 function buildCompareMarkdown(report) {
   const lines = []
-  lines.push('# GBrain V2 Query Set Compare')
+  lines.push('# GBrain V2 Query Set Evaluation')
   lines.push('')
   lines.push(`- generatedAt: ${report.generatedAt}`)
   lines.push(`- querySet: ${report.querySet.path}`)
   lines.push(`- queryCount: ${report.querySet.count}`)
   lines.push(`- topK: ${report.topK}`)
   lines.push(`- limit: ${report.limit}`)
-  lines.push(`- modes: ${report.modes.join(', ')}`)
+  lines.push(`- mode: ${report.mode}`)
   lines.push('')
-  lines.push('## Mode Summary')
+  lines.push('## Retrieval Summary')
   lines.push('')
   for (const mode of report.modeReports) {
-    lines.push(`### ${mode.mode}`)
     lines.push(`- hit@k: ${mode.summary.hitAtK}%`)
     lines.push(`- invalidRecall(avg): ${mode.summary.avgInvalidRecallRate}%`)
     lines.push(`- traceability(avg): ${mode.summary.avgTraceabilityRate}%`)
@@ -979,53 +951,6 @@ function buildCompareMarkdown(report) {
     lines.push(`- contextShare(avg): ${mode.summary.avgContextShare}%`)
     lines.push(`- signalCoverage(avg): ${mode.summary.avgSignalCoverage}%`)
     lines.push(`- top1Score(avg): ${mode.summary.avgTop1Score}`)
-    lines.push('')
-  }
-  if (Array.isArray(report.comparisons) && report.comparisons.length) {
-    lines.push('## Pair Compare')
-    lines.push('')
-    for (const comparison of report.comparisons) {
-      lines.push(`### ${comparison.baseMode} -> ${comparison.targetMode}`)
-      lines.push(`- top1ChangedRate: ${comparison.top1ChangedRate}%`)
-      lines.push(`- overlap@k(avg): ${comparison.avgOverlapAtK}%`)
-      lines.push(`- changedTop1Samples: ${comparison.changedTop1.length}`)
-      lines.push('')
-      for (const item of comparison.changedTop1.slice(0, 8)) {
-        lines.push(`- ${item.id}: ${item.baseTop1.kind}/${item.baseTop1.title} -> ${item.targetTop1.kind}/${item.targetTop1.title}`)
-      }
-      lines.push('')
-    }
-  }
-  return lines.join('\n')
-}
-
-function buildRollbackMarkdown(report) {
-  const lines = []
-  lines.push('# GBrain V2 Rollback Drill')
-  lines.push('')
-  lines.push(`- generatedAt: ${report.generatedAt}`)
-  lines.push(`- apply: ${report.apply}`)
-  lines.push(`- targetMode: ${report.targetMode}`)
-  lines.push(`- restoreMode: ${report.restoreMode}`)
-  lines.push(`- success: ${report.success}`)
-  lines.push('')
-  lines.push('## Settings')
-  lines.push('')
-  lines.push(`- before.readMode: ${report.before?.readMode || ''}`)
-  lines.push(`- after.readMode: ${report.after?.readMode || ''}`)
-  lines.push('')
-  lines.push('## Steps')
-  lines.push('')
-  for (const step of report.steps || []) {
-    lines.push(`- ${step.name}: ${step.ok ? 'ok' : 'failed'}${step.detail ? ` (${step.detail})` : ''}`)
-  }
-  lines.push('')
-  if (report.compare?.comparisons?.length) {
-    lines.push('## Compare Snapshot')
-    lines.push('')
-    for (const pair of report.compare.comparisons) {
-      lines.push(`- ${pair.baseMode} -> ${pair.targetMode}: top1Changed=${pair.top1ChangedRate}%, overlap@k=${pair.avgOverlapAtK}%`)
-    }
     lines.push('')
   }
   return lines.join('\n')
@@ -1104,7 +1029,7 @@ async function ensureEvalTemplates() {
 
   if (!(await pathExists(querySetTemplate))) {
     await writeJson(querySetTemplate, {
-      version: 'v1',
+      version: 'schema-1',
       generatedAt: nowIso(),
       notes: '评估前将本模板复制为 query-set.json，再按真实检索意图补齐 queries。',
       queries: [
@@ -1156,7 +1081,7 @@ async function runBaseline(args) {
   const vault = await countMarkdownFiles(path.resolve(process.cwd(), 'vault'))
 
   const report = {
-    version: 'gbrain-v2-baseline.v1',
+    version: 'gbrain-v2-baseline.schema-1',
     generatedAt,
     scope: `knowledge_items(limit=${limit}) + session_index + vault_markdown`,
     knowledge: {
@@ -1222,7 +1147,7 @@ async function runDryRun(args) {
     })
 
   const report = {
-    version: 'gbrain-v2-dry-run.v1',
+    version: 'gbrain-v2-dry-run.schema-1',
     generatedAt,
     summary: {
       total: atoms.length,
@@ -1295,7 +1220,7 @@ async function runBackfill(args) {
   }
 
   const summary = {
-    version: 'gbrain-v2-backfill.v1',
+    version: 'gbrain-v2-backfill.schema-1',
     generatedAt,
     total: items.length,
     success,
@@ -1319,7 +1244,6 @@ async function runBackfill(args) {
 async function runCompare(args) {
   const topK = toNumber(argValue(args, '--top-k', String(DEFAULT_COMPARE_TOP_K)), DEFAULT_COMPARE_TOP_K, { min: 1, max: 30 })
   const limit = toNumber(argValue(args, '--limit', String(DEFAULT_LIMIT)), DEFAULT_LIMIT, { min: 1, max: 5000 })
-  const modeList = parseModeList(argValue(args, '--modes', DEFAULT_COMPARE_MODES.join(',')))
   const explicitOut = normalizeText(argValue(args, '--out', ''))
   const generatedAt = nowIso()
   const outputBase = explicitOut
@@ -1336,11 +1260,11 @@ async function runCompare(args) {
   })
 
   const report = {
-    version: 'gbrain-v2-compare.v1',
+    version: 'gbrain-v2-compare.schema-1',
     generatedAt,
     topK,
     limit,
-    modes: modeList,
+    mode: DEFAULT_COMPARE_MODE,
     querySet: {
       path: result.querySetPath,
       version: result.querySetVersion,
@@ -1357,118 +1281,42 @@ async function runCompare(args) {
   console.log('[gbrain-v2] compare generated')
   console.log(`- json: ${outputBase}`)
   console.log(`- md:   ${mdPath}`)
-  console.log(`- modes: ${modeList.join(', ')}`)
+  console.log(`- mode: ${DEFAULT_COMPARE_MODE}`)
   console.log(`- queries: ${querySet.queries.length}`)
 }
 
-async function runRollbackDrill(args) {
-  const targetMode = normalizeGbrainReadMode(argValue(args, '--to', 'v1'))
-  const apply = hasFlag(args, '--apply')
-  const topK = toNumber(argValue(args, '--top-k', String(DEFAULT_COMPARE_TOP_K)), DEFAULT_COMPARE_TOP_K, { min: 1, max: 30 })
+async function runSeedQuerySet(args) {
   const limit = toNumber(argValue(args, '--limit', String(DEFAULT_LIMIT)), DEFAULT_LIMIT, { min: 1, max: 5000 })
+  const target = toNumber(argValue(args, '--target', String(DEFAULT_QUERY_SET_TARGET)), DEFAULT_QUERY_SET_TARGET, { min: 10, max: 500 })
   const explicitOut = normalizeText(argValue(args, '--out', ''))
   const generatedAt = nowIso()
-  const outputBase = explicitOut
+  const outputPath = explicitOut
     ? path.resolve(explicitOut)
-    : path.join(DEFAULT_EVAL_DIR, `rollback-drill-${compactTs(generatedAt)}.json`)
+    : path.join(DEFAULT_EVAL_DIR, 'query-set.json')
 
-  await ensureEvalTemplates()
-  const before = await loadGbrainV2SettingsInDb()
-  const restoreMode = normalizeGbrainReadMode(before.readMode || 'v1')
-  const steps = []
-  let switchedSettings = null
-  let restoredSettings = before
-  let success = true
-  const querySet = await loadQuerySet(args).catch(() => null)
-
-  if (querySet) {
-    steps.push({
-      name: 'query-set-loaded',
-      ok: true,
-      detail: `${querySet.queries.length} queries`,
-    })
-  } else {
-    steps.push({
-      name: 'query-set-loaded',
-      ok: false,
-      detail: 'missing (skip compare snapshot)',
-    })
-  }
-
-  if (apply) {
-    switchedSettings = await saveGbrainV2SettingsInDb({ readMode: targetMode })
-    const verifySwitch = await loadGbrainV2SettingsInDb()
-    const switched = verifySwitch.readMode === targetMode
-    success = success && switched
-    steps.push({
-      name: 'switch-to-target',
-      ok: switched,
-      detail: `readMode=${verifySwitch.readMode}`,
-    })
-
-    await saveGbrainV2SettingsInDb({ readMode: restoreMode })
-    restoredSettings = await loadGbrainV2SettingsInDb()
-    const restored = restoredSettings.readMode === restoreMode
-    success = success && restored
-    steps.push({
-      name: 'restore-read-mode',
-      ok: restored,
-      detail: `readMode=${restoredSettings.readMode}`,
-    })
-  } else {
-    steps.push({
-      name: 'switch-to-target',
-      ok: true,
-      detail: 'dry-run only',
-    })
-    steps.push({
-      name: 'restore-read-mode',
-      ok: true,
-      detail: 'dry-run only',
-    })
-  }
-
-  const compare = querySet
-    ? await evaluateModesWithQuerySet({
-      querySet,
-      modes: [restoreMode, targetMode],
-      topK,
-      limit,
-    })
-    : null
-
-  const report = {
-    version: 'gbrain-v2-rollback-drill.v1',
-    generatedAt,
-    apply,
-    success,
-    targetMode,
-    restoreMode,
-    before,
-    switched: switchedSettings,
-    after: restoredSettings,
-    topK,
+  const atoms = await listKnowledgeAtomsInDb({
     limit,
-    compare: compare
-      ? {
-        querySetPath: compare.querySetPath,
-        querySetVersion: compare.querySetVersion,
-        modes: compare.modes,
-        comparisons: compare.comparisons,
-      }
-      : null,
-    steps,
+    kind: 'all',
+    qualityTier: 'all',
+    status: 'visible',
+  })
+  const queries = seedQuerySetFromAtoms(atoms, target)
+  if (!queries.length) throw new Error('无法从当前 Atom 生成查询集，请先执行 backfill 或检查数据')
+
+  const payload = {
+    version: 'schema-1',
+    generatedAt,
+    notes: `由 seed-query-set 自动生成，目标 ${target} 条。`,
+    source: {
+      atoms: Array.isArray(atoms) ? atoms.length : 0,
+      limit,
+    },
+    queries,
   }
-
-  const mdPath = toMdPath(outputBase)
-  await writeJson(outputBase, report)
-  await writeMarkdown(mdPath, buildRollbackMarkdown(report))
-
-  console.log('[gbrain-v2] rollback-drill generated')
-  console.log(`- json: ${outputBase}`)
-  console.log(`- md:   ${mdPath}`)
-  console.log(`- apply: ${apply}`)
-  console.log(`- success: ${success}`)
+  await writeJson(outputPath, payload)
+  console.log('[gbrain-v2] query-set seeded')
+  console.log(`- out: ${outputPath}`)
+  console.log(`- queries: ${queries.length}`)
 }
 
 async function main() {
@@ -1501,8 +1349,8 @@ async function main() {
     return
   }
 
-  if (command === 'rollback-drill') {
-    await runRollbackDrill(args.slice(1))
+  if (command === 'seed-query-set') {
+    await runSeedQuerySet(args.slice(1))
     return
   }
 

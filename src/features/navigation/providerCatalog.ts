@@ -12,7 +12,7 @@ export const providerCatalog = [
   { id: 'component-library', label: '组件设置', desc: '组件预览与样式微调' },
   { id: 'model-settings', label: '模型配置', desc: '集中查看与管理系统当前使用的模型' },
   { id: 'knowledge-sources', label: '知识采集', desc: '按 capture / note / document 管理原始知识素材' },
-  { id: 'knowledge-task-review', label: '任务筛选', desc: '先按任务视角筛掉噪声，再决定是否进入主检索' },
+  { id: 'knowledge-task-review', label: '任务复盘', desc: '先审查会话任务段，再决定是否送入升格候选' },
   { id: 'knowledge-promotion-review', label: '升格审核', desc: '集中查看待升格的 issue / pattern / synthesis 候选' },
   { id: 'knowledge-health', label: '健康巡检', desc: '查看 wiki lint、知识空洞和长期积压问题' },
   { id: 'other', label: 'Other', desc: '其他来源或混合数据' },

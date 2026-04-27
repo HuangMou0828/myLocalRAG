@@ -221,7 +221,7 @@ export interface GbrainV2FeedStatusDto {
 
 export interface GbrainV2SettingsDto {
   enabled: boolean
-  readMode: 'v1' | 'v2' | 'shadow'
+  readMode: 'v2'
   feedMode: 'atom-only' | 'atom-reader-first' | 'reader-first-only'
   includeRawFallback: boolean
   dualWriteEnabled: boolean
@@ -269,7 +269,7 @@ export interface GbrainV2Api {
     query: string
     topK?: number
     limit?: number
-    readMode?: 'v1' | 'v2' | 'shadow'
+    readMode?: 'v2'
     kind?: 'all' | 'issue' | 'pattern' | 'project' | 'synthesis' | 'decision' | 'context'
     qualityTier?: 'all' | 'clean' | 'suspect' | 'legacy'
     status?: 'all' | 'visible' | 'draft' | 'active' | 'archived'
@@ -277,7 +277,7 @@ export interface GbrainV2Api {
     query: string
     topK: number
     tokens: string[]
-    mode: 'v1' | 'v2' | 'shadow'
+    mode: 'v2'
     totalScanned: number
     totalMatched: number
     results: Array<KnowledgeAtomDto & {
@@ -291,8 +291,6 @@ export interface GbrainV2Api {
     atoms: KnowledgeAtomStatsDto
     lineage: KnowledgeLineageStatsDto
   }>
-  fetchSettings(): Promise<{ settings: GbrainV2SettingsDto }>
-  saveSettings(payload: Partial<GbrainV2SettingsDto>): Promise<{ settings: GbrainV2SettingsDto }>
   refreshFeed(payload?: {
     limit?: number
     includeRaw?: boolean
@@ -940,6 +938,7 @@ export interface WikiVaultApi {
     segmentId?: string
     sourceKind?: string
     sourceLabel?: string
+    taskToken?: string
     taskRef?: string
     question?: string
     project?: string
@@ -980,6 +979,7 @@ export interface WikiVaultApi {
     segmentId?: string
     sourceKind?: string
     sourceLabel?: string
+    taskToken?: string
     taskRef?: string
     question?: string
     project?: string
@@ -998,6 +998,47 @@ export interface WikiVaultApi {
       reason?: string
       error?: string
     }
+  }>
+  autoPromoteMvp(payload?: {
+    dryRun?: boolean
+    maxItems?: number
+    minConfidence?: number
+    writeReport?: boolean
+  }): Promise<{
+    ok: boolean
+    dryRun: boolean
+    maxItems: number
+    minConfidence: number
+    generatedAt: string
+    queueSummary: {
+      totalItems: number
+      issueReviewCount: number
+      patternCandidateCount: number
+      synthesisCandidateCount: number
+    }
+    autoSummary: {
+      scanned: number
+      approved: number
+      skipped: number
+      failed: number
+      threshold: {
+        value: number
+        passed: number
+        blocked: number
+      }
+      reasons: Record<string, number>
+    }
+    decisions: Array<{
+      kind: string
+      title: string
+      decision: 'approve'
+      ok: boolean
+      reason?: string
+      relativePath?: string
+      confidence?: number
+      minConfidence?: number
+      passedThreshold?: boolean
+    }>
   }>
   previewPromotion(payload: {
     kind: 'issue-review' | 'pattern-candidate' | 'synthesis-candidate'
@@ -1453,7 +1494,7 @@ export function createGbrainV2Api(request: JsonRequest): GbrainV2Api {
         query: string
         topK: number
         tokens: string[]
-        mode: 'v1' | 'v2' | 'shadow'
+        mode: 'v2'
         totalScanned: number
         totalMatched: number
         results: Array<KnowledgeAtomDto & {
@@ -1473,16 +1514,6 @@ export function createGbrainV2Api(request: JsonRequest): GbrainV2Api {
         atoms: KnowledgeAtomStatsDto
         lineage: KnowledgeLineageStatsDto
       }>('/api/gbrain-v2/feed-status')
-    },
-    fetchSettings() {
-      return request<{ settings: GbrainV2SettingsDto }>('/api/gbrain-v2/settings')
-    },
-    saveSettings(payload) {
-      return request<{ settings: GbrainV2SettingsDto }>('/api/gbrain-v2/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
     },
     refreshFeed(payload = {}) {
       return request<{
@@ -1615,6 +1646,13 @@ export function createWikiVaultApi(request: JsonRequest): WikiVaultApi {
     },
     decidePromotion(payload) {
       return request('/api/wiki-vault/promotion-decision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+    },
+    autoPromoteMvp(payload = {}) {
+      return request('/api/wiki-vault/promotion-auto-mvp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

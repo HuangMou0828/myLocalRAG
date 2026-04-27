@@ -1,0 +1,133 @@
+{
+  "version": "gbrain-v2-governance-repair-queue.v1",
+  "generatedAt": "2026-04-25T12:51:32.366Z",
+  "top": 120,
+  "metrics": {
+    "legacyCount": 0,
+    "suspectCount": 4,
+    "duplicateGroups": 4,
+    "duplicateItems": 23,
+    "lineageMissingCount": 0,
+    "staleDraftCount": 0,
+    "rawPipelineCount": 65,
+    "rawWithAtomCount": 65,
+    "rawWithoutAtomCount": 0,
+    "autoPromotionCandidateRawCount": 7,
+    "autoPromotionCandidateCount": 7,
+    "autoPromotionSuppressedByDuplicateCount": 0,
+    "autoPromotionConstraintViolationCount": 0,
+    "legacyShare": 0,
+    "suspectShare": 3.92,
+    "duplicateShare": 22.55,
+    "lineageMissingShare": 0,
+    "staleDraftShare": 0,
+    "rawToAtomAutomationCoverage": 100,
+    "autoPromotionConstraintViolationShare": 0,
+    "duplicateActionableGroupCount": 0,
+    "duplicateArchiveCandidateCount": 0,
+    "staleDraftAutoArchiveEligibleCount": 0,
+    "estimatedManualReviewReductionCount": 0,
+    "byTier": {
+      "clean": 98,
+      "suspect": 4,
+      "legacy": 0
+    },
+    "byKind": {
+      "context": 83,
+      "pattern": 15,
+      "decision": 1,
+      "issue": 3
+    }
+  },
+  "estimatedManualReviewReductionCount": 0,
+  "apply": {
+    "applied": false,
+    "applyTypes": [
+      "duplicate-group"
+    ],
+    "total": 4,
+    "succeeded": 0,
+    "failed": 0,
+    "skipped": 4,
+    "results": []
+  },
+  "queue": [
+    {
+      "priority": "P1",
+      "type": "duplicate-group",
+      "title": "c2e4fc5f887d309a66fb303a4aa8aa29c0179d21",
+      "recommendedAction": "merge-or-hide-duplicates",
+      "reason": "duplicate count=9",
+      "detail": {
+        "count": 9,
+        "sampleIds": [
+          "openclaw_a6fc80f3c0e2654d3e2576075af9a62c83b9194c",
+          "openclaw_588a88113cb77923c09a50d58d491d08ccdf6d30",
+          "openclaw_f77934a807bbfb75ac515892b7de85a5c47deab6",
+          "openclaw_12965825c02247a6994f0cced9ad20a4800b4dd7",
+          "openclaw_f012dfa2090f18aba2ff67a453fe93e2fa61b82e",
+          "openclaw_b989926351c7604c759cdbf3e65fd991e0445854",
+          "openclaw_d6bf3ac0939a4623d92b93ac0dd94de85fd54282",
+          "openclaw_be1c39f3e36e17a3def1edcce998a5ab15bba17b"
+        ],
+        "primaryRawId": "",
+        "archiveCandidates": []
+      }
+    },
+    {
+      "priority": "P1",
+      "type": "duplicate-group",
+      "title": "dd4b36bff3f2d92958df386ae075de84d8d327e8",
+      "recommendedAction": "merge-or-hide-duplicates",
+      "reason": "duplicate count=9",
+      "detail": {
+        "count": 9,
+        "sampleIds": [
+          "openclaw_a7ed208a5bf2971fc7115c4a1f52ad488475dc97",
+          "openclaw_35002d065206f0b456559ba4999b34ee2650ccd5",
+          "openclaw_ddb7ce3a89288d9516baf0139c394f57a4803d91",
+          "openclaw_73fd8ef20efd018f1de5cff139774557e3f0d037",
+          "openclaw_cbbe7b96ac8e9b9c16f3e689a5ddfe72c497be32",
+          "openclaw_2c89f79ab1a021f8476c6c88cc319c555d019f7a",
+          "openclaw_fb01b04829664fc1d9a104f6fca4189e4768e3f4",
+          "openclaw_25050a42b8cfa6c1324f4f52726fce1696f087ae"
+        ],
+        "primaryRawId": "",
+        "archiveCandidates": []
+      }
+    },
+    {
+      "priority": "P1",
+      "type": "duplicate-group",
+      "title": "89c7d2905e0a5bcdc86d27d359ee5b7f1f7cc9b8",
+      "recommendedAction": "merge-or-hide-duplicates",
+      "reason": "duplicate count=3",
+      "detail": {
+        "count": 3,
+        "sampleIds": [
+          "openclaw_1a24681b04f6174276b4a264094854a22fe9e430",
+          "openclaw_1cd5f6be7bf489e621dfc4dd6d269bdc167a89f9",
+          "openclaw_41446c174546cd9bc220b62e3bb950603d4a357c"
+        ],
+        "primaryRawId": "",
+        "archiveCandidates": []
+      }
+    },
+    {
+      "priority": "P1",
+      "type": "duplicate-group",
+      "title": "b3de04bd14519d459a3a054cbe98241fdae59888",
+      "recommendedAction": "merge-or-hide-duplicates",
+      "reason": "duplicate count=2",
+      "detail": {
+        "count": 2,
+        "sampleIds": [
+          "openclaw_fd695b674fc444ea1fc881bf96bee05c446f3fe4",
+          "openclaw_7a7c60254144f31dcc506ce5b710ffa8dced82f3"
+        ],
+        "primaryRawId": "",
+        "archiveCandidates": []
+      }
+    }
+  ]
+}

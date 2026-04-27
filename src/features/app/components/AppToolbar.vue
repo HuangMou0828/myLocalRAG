@@ -74,8 +74,8 @@ const showToolbarUtilityCluster = computed(() =>
   || showEmbeddingAction.value
 )
 const knowledgeToolbarDescription = computed(() => {
-  if (config.value.provider.active === 'knowledge-task-review') return '先按任务视角筛掉噪声和上下文碎片，再决定是否进入主检索'
-  if (config.value.provider.active === 'knowledge-promotion-review') return '把接近稳定的候选集中审核，避免直接把正式 wiki 写乱'
+  if (config.value.provider.active === 'knowledge-task-review') return '先从会话任务段提炼有效信号，再送入升格候选，避免高噪声直接进长期知识层'
+  if (config.value.provider.active === 'knowledge-promotion-review') return '把接近稳定的候选集中审核，直接沉淀进新的 Vault'
   if (config.value.provider.active === 'knowledge-health') return '持续查看 lint、知识空洞和长期积压提醒，保持 wiki 可维护'
   return '先收集原始片段、主观笔记和完整文档，再决定怎么编译成 wiki'
 })

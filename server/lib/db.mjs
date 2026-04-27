@@ -104,9 +104,7 @@ function normalizeKnowledgeAtomKind(value) {
 }
 
 function normalizeGbrainV2ReadMode(value) {
-  const normalized = String(value || '').trim().toLowerCase()
-  if (normalized === 'v2' || normalized === 'shadow') return normalized
-  return 'v1'
+  return 'v2'
 }
 
 function normalizeGbrainV2FeedMode(value) {
@@ -2091,7 +2089,7 @@ export async function loadGbrainV2SettingsInDb() {
   await ensureReady()
   const stored = getKv('gbrain_v2_settings', {})
   return {
-    enabled: Boolean(stored?.enabled),
+    enabled: stored?.enabled === undefined ? true : Boolean(stored.enabled),
     readMode: normalizeGbrainV2ReadMode(stored?.readMode),
     feedMode: normalizeGbrainV2FeedMode(stored?.feedMode),
     includeRawFallback: stored?.includeRawFallback !== false,

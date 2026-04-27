@@ -5,20 +5,24 @@ import {
   getKnowledgeLineageStatsInDb,
   listKnowledgeAtomsInDb,
   listKnowledgeItemsInDb,
+  patchKnowledgeItemMetaInDb,
 } from '../server/lib/db.mjs'
 import { loadLocalEnv } from '../server/lib/load-env.mjs'
 
 const DEFAULT_LIMIT = 5000
 const DEFAULT_STALE_DAYS = 14
 const DEFAULT_EVAL_DIR = path.resolve(process.cwd(), 'docs', 'wiki-vault', 'eval')
+const DEFAULT_MIN_RAW_ATOM_COVERAGE = 95
+const DEFAULT_MAX_AUTO_PROMOTION_CONSTRAINT_VIOLATIONS = 0
+const DEFAULT_AUTO_PROMOTION_QUALITY_SCORE = 80
 
 function usage() {
   console.log(
     [
       'Usage:',
       '  node scripts/gbrain-v2-governance.mjs report [--limit <n>] [--stale-days <n>] [--out <file>]',
-      '  node scripts/gbrain-v2-governance.mjs repair-queue [--limit <n>] [--stale-days <n>] [--top <n>] [--out <file>]',
-      '  node scripts/gbrain-v2-governance.mjs guard [--current <file>] [--baseline <file>] [--out <file>] [--max-legacy-share <n>] [--max-duplicate-share <n>] [--max-lineage-missing-share <n>] [--max-stale-draft-share <n>] [--max-delta <n>]',
+      '  node scripts/gbrain-v2-governance.mjs repair-queue [--limit <n>] [--stale-days <n>] [--top <n>] [--out <file>] [--apply] [--apply-types <duplicate-group,stale-draft>]',
+      '  node scripts/gbrain-v2-governance.mjs guard [--current <file>] [--baseline <file>] [--out <file>] [--max-legacy-share <n>] [--max-duplicate-share <n>] [--max-lineage-missing-share <n>] [--max-stale-draft-share <n>] [--min-raw-atom-coverage <n>] [--max-auto-promotion-constraint-violations <n>] [--max-delta <n>]',
       '',
       'Examples:',
       '  node scripts/gbrain-v2-governance.mjs report',
@@ -38,6 +42,10 @@ function toNumber(input, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = 
   const value = Number(input)
   if (!Number.isFinite(value)) return fallback
   return Math.max(min, Math.min(max, value))
+}
+
+function hasFlag(args, key) {
+  return Array.isArray(args) && args.includes(key)
 }
 
 function normalizeText(input) {
@@ -84,6 +92,29 @@ function toTimestamp(input) {
   return Number.isFinite(value) ? value : 0
 }
 
+function toMetricNumber(input, fallback = 0) {
+  const value = Number(input)
+  return Number.isFinite(value) ? value : fallback
+}
+
+function hasCompleteLineage(atom = {}) {
+  return Boolean(
+    normalizeText(atom?.rawId)
+    && normalizeText(atom?.atomId)
+    && normalizeText(atom?.canonicalId)
+    && normalizeText(atom?.pageId),
+  )
+}
+
+function hasSourceRefs(atom = {}) {
+  return Array.isArray(atom?.sourceRefs) && atom.sourceRefs.length > 0
+}
+
+function isLowRiskAutoPromotionKind(kind = '') {
+  const normalized = normalizeText(kind).toLowerCase()
+  return normalized === 'issue' || normalized === 'pattern'
+}
+
 function buildDuplicateGroups(knowledgeItems = []) {
   const hashGroups = new Map()
   for (const item of knowledgeItems) {
@@ -106,6 +137,67 @@ function buildDuplicateGroups(knowledgeItems = []) {
       })),
     }))
     .sort((a, b) => b.count - a.count)
+}
+
+function getKnowledgeStatusRank(status = '') {
+  const normalized = normalizeText(status).toLowerCase()
+  if (normalized === 'active') return 3
+  if (normalized === 'draft') return 2
+  if (normalized === 'archived') return 1
+  return 0
+}
+
+function buildDuplicateHashContext(knowledgeItems = [], { includeArchived = false } = {}) {
+  const hashToItems = new Map()
+  const rawIdToHash = new Map()
+  for (const item of knowledgeItems) {
+    const status = normalizeText(item?.status).toLowerCase()
+    if (!includeArchived && status === 'archived') continue
+    const rawId = normalizeText(item?.id)
+    const contentHash = normalizeText(item?.meta?.contentHash)
+    if (!rawId || !contentHash) continue
+    if (!hashToItems.has(contentHash)) hashToItems.set(contentHash, [])
+    hashToItems.get(contentHash).push(item)
+    rawIdToHash.set(rawId, contentHash)
+  }
+
+  const duplicateHashSet = new Set()
+  const primaryRawIdByHash = new Map()
+  for (const [hash, items] of hashToItems.entries()) {
+    if (!Array.isArray(items) || items.length <= 1) continue
+    duplicateHashSet.add(hash)
+    const sorted = [...items].sort((left, right) =>
+      getKnowledgeStatusRank(right?.status) - getKnowledgeStatusRank(left?.status)
+      || toTimestamp(right?.updatedAt) - toTimestamp(left?.updatedAt))
+    const primaryRawId = normalizeText(sorted[0]?.id)
+    if (primaryRawId) primaryRawIdByHash.set(hash, primaryRawId)
+  }
+
+  return {
+    duplicateHashSet,
+    primaryRawIdByHash,
+    rawIdToHash,
+  }
+}
+
+function buildDuplicateApplyPlans(knowledgeItems = []) {
+  const context = buildDuplicateHashContext(knowledgeItems, { includeArchived: false })
+  const plans = []
+  for (const [contentHash, primaryRawId] of context.primaryRawIdByHash.entries()) {
+    const archiveCandidates = []
+    for (const [rawId, rawHash] of context.rawIdToHash.entries()) {
+      if (rawHash !== contentHash) continue
+      if (rawId === primaryRawId) continue
+      archiveCandidates.push(rawId)
+    }
+    if (!archiveCandidates.length) continue
+    plans.push({
+      contentHash,
+      primaryRawId,
+      archiveCandidates: archiveCandidates.sort(),
+    })
+  }
+  return plans.sort((left, right) => right.archiveCandidates.length - left.archiveCandidates.length)
 }
 
 function summarizeAtoms(atoms = []) {
@@ -137,6 +229,11 @@ function buildGovernanceMarkdown(report) {
   lines.push(`- duplicateShare: ${report.metrics.duplicateShare}%`)
   lines.push(`- lineageMissingShare: ${report.metrics.lineageMissingShare}%`)
   lines.push(`- staleDraftShare: ${report.metrics.staleDraftShare}%`)
+  lines.push(`- rawToAtomAutomationCoverage: ${report.metrics.rawToAtomAutomationCoverage}%`)
+  lines.push(`- autoPromotionConstraintViolationCount: ${report.metrics.autoPromotionConstraintViolationCount}`)
+  lines.push(`- autoPromotionConstraintViolationShare: ${report.metrics.autoPromotionConstraintViolationShare}%`)
+  lines.push(`- staleDraftAutoArchiveEligibleCount: ${report.metrics.staleDraftAutoArchiveEligibleCount}`)
+  lines.push(`- estimatedManualReviewReductionCount: ${report.metrics.estimatedManualReviewReductionCount}`)
   lines.push('')
   lines.push('## Counts')
   lines.push('')
@@ -144,8 +241,16 @@ function buildGovernanceMarkdown(report) {
   lines.push(`- suspectAtoms: ${report.metrics.suspectCount}`)
   lines.push(`- duplicateGroups: ${report.metrics.duplicateGroups}`)
   lines.push(`- duplicateItems: ${report.metrics.duplicateItems}`)
+  lines.push(`- duplicateActionableGroups: ${report.metrics.duplicateActionableGroupCount}`)
+  lines.push(`- duplicateNonActionableGroups: ${report.metrics.duplicateNonActionableGroupCount}`)
   lines.push(`- lineageMissing: ${report.metrics.lineageMissingCount}`)
   lines.push(`- staleDraftItems: ${report.metrics.staleDraftCount}`)
+  lines.push(`- rawPipelineItems: ${report.metrics.rawPipelineCount}`)
+  lines.push(`- rawWithAtom: ${report.metrics.rawWithAtomCount}`)
+  lines.push(`- rawWithoutAtom: ${report.metrics.rawWithoutAtomCount}`)
+  lines.push(`- autoPromotionCandidatesRaw: ${report.metrics.autoPromotionCandidateRawCount}`)
+  lines.push(`- autoPromotionCandidates: ${report.metrics.autoPromotionCandidateCount}`)
+  lines.push(`- autoPromotionSuppressedByDuplicate: ${report.metrics.autoPromotionSuppressedByDuplicateCount}`)
   lines.push('')
   lines.push('## Top Risks')
   lines.push('')
@@ -163,6 +268,12 @@ function buildRepairQueueMarkdown(report) {
   lines.push(`- generatedAt: ${report.generatedAt}`)
   lines.push(`- queueSize: ${report.queue.length}`)
   lines.push(`- top: ${report.top}`)
+  lines.push(`- applyMode: ${report.apply?.applied ? 'applied' : 'dry-run'}`)
+  lines.push(`- estimatedManualReviewReductionCount: ${report.estimatedManualReviewReductionCount}`)
+  if (report.apply?.applied) {
+    lines.push(`- applySucceeded: ${report.apply.succeeded}`)
+    lines.push(`- applyFailed: ${report.apply.failed}`)
+  }
   lines.push('')
   lines.push('## Queue')
   lines.push('')
@@ -188,6 +299,8 @@ function buildGuardMarkdown(report) {
   lines.push(`- maxDuplicateShare: ${report.thresholds.maxDuplicateShare}%`)
   lines.push(`- maxLineageMissingShare: ${report.thresholds.maxLineageMissingShare}%`)
   lines.push(`- maxStaleDraftShare: ${report.thresholds.maxStaleDraftShare}%`)
+  lines.push(`- minRawAtomCoverage: ${report.thresholds.minRawAtomCoverage}%`)
+  lines.push(`- maxAutoPromotionConstraintViolations: ${report.thresholds.maxAutoPromotionConstraintViolations}`)
   lines.push(`- maxDelta: ${report.thresholds.maxDelta}%`)
   lines.push('')
   lines.push('## Checks')
@@ -209,7 +322,73 @@ async function collectGovernanceData({ limit = DEFAULT_LIMIT, staleDays = DEFAUL
   const knowledgeItems = Array.isArray(knowledge?.items) ? knowledge.items : []
   const atomSummary = summarizeAtoms(atomList)
   const duplicateGroups = buildDuplicateGroups(knowledgeItems)
+  const duplicateApplyPlans = buildDuplicateApplyPlans(knowledgeItems)
+  const duplicateContextForAutoPromotion = buildDuplicateHashContext(knowledgeItems, { includeArchived: false })
   const duplicateItems = duplicateGroups.reduce((sum, item) => sum + item.count, 0)
+  const duplicateArchiveCandidateCount = duplicateApplyPlans.reduce((sum, item) => sum + item.archiveCandidates.length, 0)
+  const duplicateNonActionableGroupCount = Math.max(0, duplicateGroups.length - duplicateApplyPlans.length)
+  const knowledgeItemById = new Map(
+    knowledgeItems
+      .map((item) => [normalizeText(item?.id), item])
+      .filter(([id]) => Boolean(id)),
+  )
+  const atomByRawId = new Map()
+  for (const atom of atomList) {
+    const rawId = normalizeText(atom?.rawId)
+    if (!rawId) continue
+    const previous = atomByRawId.get(rawId)
+    if (!previous) {
+      atomByRawId.set(rawId, atom)
+      continue
+    }
+    const prevScore = Number(previous?.qualityScore || 0)
+    const nextScore = Number(atom?.qualityScore || 0)
+    if (nextScore >= prevScore) atomByRawId.set(rawId, atom)
+  }
+
+  const rawPipelineItems = knowledgeItems
+    .filter((item) => normalizeText(item?.status).toLowerCase() !== 'archived')
+    .filter((item) => Boolean(normalizeText(item?.id)))
+  const rawWithAtomItems = rawPipelineItems.filter((item) => atomByRawId.has(normalizeText(item?.id)))
+  const rawWithoutAtomItems = rawPipelineItems
+    .filter((item) => !atomByRawId.has(normalizeText(item?.id)))
+    .sort((left, right) => toTimestamp(left?.updatedAt) - toTimestamp(right?.updatedAt))
+
+  const autoPromotionCandidates = atomList
+    .filter((atom) => isLowRiskAutoPromotionKind(atom?.kind))
+    .filter((atom) => normalizeText(atom?.qualityTier).toLowerCase() === 'clean')
+    .filter((atom) => Number(atom?.qualityScore || 0) >= DEFAULT_AUTO_PROMOTION_QUALITY_SCORE)
+    .filter((atom) => normalizeText(atom?.status).toLowerCase() !== 'archived')
+  const autoPromotionPrimaryCandidates = autoPromotionCandidates.filter((atom) => {
+    const rawId = normalizeText(atom?.rawId)
+    if (!rawId) return true
+    const contentHash = normalizeText(
+      duplicateContextForAutoPromotion.rawIdToHash.get(rawId)
+      || knowledgeItemById.get(rawId)?.meta?.contentHash,
+    )
+    if (!contentHash) return true
+    if (!duplicateContextForAutoPromotion.duplicateHashSet.has(contentHash)) return true
+    const primaryRawId = normalizeText(duplicateContextForAutoPromotion.primaryRawIdByHash.get(contentHash))
+    if (!primaryRawId) return true
+    return primaryRawId === rawId
+  })
+
+  const autoPromotionConstraintViolations = autoPromotionPrimaryCandidates
+    .map((atom) => {
+      const reasons = []
+      if (!hasCompleteLineage(atom)) reasons.push('lineage-incomplete')
+      if (!hasSourceRefs(atom)) reasons.push('missing-source-refs')
+      if (!reasons.length) return null
+      return {
+        atomId: normalizeText(atom?.atomId),
+        rawId: normalizeText(atom?.rawId),
+        title: normalizeText(atom?.title),
+        kind: normalizeText(atom?.kind),
+        qualityScore: Number(atom?.qualityScore || 0),
+        reasons,
+      }
+    })
+    .filter(Boolean)
   const staleBeforeTs = Date.now() - Math.max(1, staleDays) * 24 * 60 * 60 * 1000
   const staleDraftItems = knowledgeItems
     .filter((item) => normalizeText(item?.status).toLowerCase() === 'draft')
@@ -256,6 +435,18 @@ async function collectGovernanceData({ limit = DEFAULT_LIMIT, staleDays = DEFAUL
       severity: 65,
       detail: `updatedAt=${item.updatedAt}`,
     })),
+    ...rawWithoutAtomItems.slice(0, 3).map((item) => ({
+      category: 'raw-without-atom',
+      title: item.title || item.id,
+      severity: 92,
+      detail: `status=${item.status || 'unknown'}`,
+    })),
+    ...autoPromotionConstraintViolations.slice(0, 3).map((item) => ({
+      category: 'auto-promotion-constraint',
+      title: item.title || item.atomId,
+      severity: 88,
+      detail: item.reasons.join(','),
+    })),
   ].sort((left, right) => right.severity - left.severity)
 
   return {
@@ -272,11 +463,29 @@ async function collectGovernanceData({ limit = DEFAULT_LIMIT, staleDays = DEFAUL
       duplicateItems,
       lineageMissingCount: lineageMissingAtoms.length,
       staleDraftCount: staleDraftItems.length,
+      rawPipelineCount: rawPipelineItems.length,
+      rawWithAtomCount: rawWithAtomItems.length,
+      rawWithoutAtomCount: rawWithoutAtomItems.length,
+      autoPromotionCandidateRawCount: autoPromotionCandidates.length,
+      autoPromotionCandidateCount: autoPromotionPrimaryCandidates.length,
+      autoPromotionSuppressedByDuplicateCount: Math.max(0, autoPromotionCandidates.length - autoPromotionPrimaryCandidates.length),
+      autoPromotionConstraintViolationCount: autoPromotionConstraintViolations.length,
       legacyShare: percent(legacyAtoms.length, atomList.length),
       suspectShare: percent(suspectAtoms.length, atomList.length),
       duplicateShare: percent(duplicateItems, knowledgeItems.length),
       lineageMissingShare: percent(lineageMissingAtoms.length, atomList.length),
       staleDraftShare: percent(staleDraftItems.length, knowledgeItems.length),
+      rawToAtomAutomationCoverage: percent(rawWithAtomItems.length, rawPipelineItems.length),
+      autoPromotionConstraintViolationShare: percent(autoPromotionConstraintViolations.length, autoPromotionCandidates.length),
+      duplicateActionableGroupCount: duplicateApplyPlans.length,
+      duplicateNonActionableGroupCount,
+      duplicateArchiveCandidateCount,
+      staleDraftAutoArchiveEligibleCount: staleDraftItems.length,
+      estimatedManualReviewReductionCount:
+        Number(duplicateArchiveCandidateCount || 0)
+        + Number(duplicateNonActionableGroupCount || 0)
+        + Number(autoPromotionCandidates.length - autoPromotionPrimaryCandidates.length || 0)
+        + Number(staleDraftItems.length || 0),
       byTier: atomSummary.byTier,
       byKind: atomSummary.byKind,
     },
@@ -284,7 +493,10 @@ async function collectGovernanceData({ limit = DEFAULT_LIMIT, staleDays = DEFAUL
     topSuspectAtoms: suspectAtoms.slice(0, 30),
     topLineageMissingAtoms: lineageMissingAtoms.slice(0, 30),
     topDuplicateGroups: duplicateGroups.slice(0, 30),
+    topDuplicateApplyPlans: duplicateApplyPlans.slice(0, 30),
     topStaleDraftItems: staleDraftItems.slice(0, 50),
+    topRawWithoutAtomItems: rawWithoutAtomItems.slice(0, 80),
+    topAutoPromotionConstraintViolations: autoPromotionConstraintViolations.slice(0, 50),
     riskHighlights,
   }
 }
@@ -321,16 +533,20 @@ function buildRepairQueue(report, top = 120) {
       },
     })
   }
-  for (const group of report.topDuplicateGroups || []) {
+  for (const applyPlan of report.topDuplicateApplyPlans || []) {
+    const contentHash = String(applyPlan?.contentHash || '')
+    if (!contentHash) continue
     queue.push({
       priority: 'P1',
       type: 'duplicate-group',
-      title: group.contentHash,
+      title: contentHash,
       recommendedAction: 'merge-or-hide-duplicates',
-      reason: `duplicate count=${group.count}`,
+      reason: `actionable duplicates=${Array.isArray(applyPlan?.archiveCandidates) ? applyPlan.archiveCandidates.length : 0}`,
       detail: {
-        count: group.count,
-        sampleIds: (group.items || []).slice(0, 8).map((item) => item.id),
+        count: Number(Array.isArray(applyPlan?.archiveCandidates) ? applyPlan.archiveCandidates.length + 1 : 0),
+        sampleIds: [],
+        primaryRawId: String(applyPlan?.primaryRawId || ''),
+        archiveCandidates: Array.isArray(applyPlan?.archiveCandidates) ? applyPlan.archiveCandidates : [],
       },
     })
   }
@@ -348,10 +564,191 @@ function buildRepairQueue(report, top = 120) {
       },
     })
   }
+  for (const item of report.topRawWithoutAtomItems || []) {
+    queue.push({
+      priority: 'P0',
+      type: 'raw-without-atom',
+      rawId: item.id,
+      title: item.title || item.id,
+      recommendedAction: 'generate-atom-automatically',
+      reason: `status=${item.status || 'unknown'}`,
+      detail: {
+        sourceType: item.sourceType,
+        sourceSubtype: item.sourceSubtype,
+        updatedAt: item.updatedAt,
+      },
+    })
+  }
+  for (const item of report.topAutoPromotionConstraintViolations || []) {
+    queue.push({
+      priority: 'P1',
+      type: 'auto-promotion-constraint',
+      atomId: item.atomId,
+      title: item.title || item.atomId,
+      recommendedAction: 'block-auto-promotion-and-repair',
+      reason: item.reasons.join(','),
+      detail: {
+        kind: item.kind,
+        qualityScore: item.qualityScore,
+        rawId: item.rawId,
+      },
+    })
+  }
   const order = { P0: 0, P1: 1, P2: 2, P3: 3 }
   return queue
     .sort((left, right) => (order[left.priority] ?? 9) - (order[right.priority] ?? 9))
     .slice(0, Math.max(1, top))
+}
+
+function parseApplyTypes(input = '') {
+  const values = String(input || '')
+    .split(',')
+    .map((item) => normalizeText(item).toLowerCase())
+    .filter(Boolean)
+  const deduped = []
+  for (const value of values) {
+    if (!deduped.includes(value)) deduped.push(value)
+  }
+  return deduped.length ? deduped : ['duplicate-group']
+}
+
+async function applyRepairQueue(queue = [], { applyTypes = ['duplicate-group'] } = {}) {
+  const allowed = new Set((Array.isArray(applyTypes) ? applyTypes : []).map((item) => normalizeText(item).toLowerCase()).filter(Boolean))
+  const entries = Array.isArray(queue) ? queue : []
+  const results = []
+  let succeeded = 0
+  let failed = 0
+  let skipped = 0
+
+  for (const entry of entries) {
+    const type = normalizeText(entry?.type).toLowerCase()
+    if (!allowed.has(type)) {
+      skipped += 1
+      results.push({
+        type,
+        title: String(entry?.title || ''),
+        ok: false,
+        skipped: true,
+        reason: 'type-not-allowed',
+      })
+      continue
+    }
+
+    if (type === 'stale-draft') {
+      const rawId = normalizeText(entry?.rawId || '')
+      if (!rawId) {
+        skipped += 1
+        results.push({
+          type,
+          title: String(entry?.title || ''),
+          ok: false,
+          skipped: true,
+          reason: 'missing-raw-id',
+        })
+        continue
+      }
+      try {
+        await patchKnowledgeItemMetaInDb({
+          id: rawId,
+          status: 'archived',
+          metaPatch: {
+            staleDraftSuppressedAt: nowIso(),
+            staleDraftSuppressedBy: 'gbrain-v2-governance',
+            staleDraftSuppressedReason: 'auto-archive-by-repair-queue',
+          },
+        })
+        succeeded += 1
+        results.push({
+          type,
+          title: String(entry?.title || ''),
+          ok: true,
+          rawId,
+        })
+      } catch (error) {
+        failed += 1
+        results.push({
+          type,
+          title: String(entry?.title || ''),
+          ok: false,
+          rawId,
+          reason: String(error?.message || error || 'apply-failed'),
+        })
+      }
+      continue
+    }
+
+    if (type !== 'duplicate-group') {
+      skipped += 1
+      results.push({
+        type,
+        title: String(entry?.title || ''),
+        ok: false,
+        skipped: true,
+        reason: 'unsupported-apply-type',
+      })
+      continue
+    }
+
+    const contentHash = String(entry?.title || '')
+    const primaryRawId = normalizeText(entry?.detail?.primaryRawId || '')
+    const candidates = Array.isArray(entry?.detail?.archiveCandidates)
+      ? entry.detail.archiveCandidates.map((item) => normalizeText(item)).filter(Boolean)
+      : []
+    if (!candidates.length) {
+      skipped += 1
+      results.push({
+        type,
+        title: contentHash,
+        ok: false,
+        skipped: true,
+        reason: 'no-archive-candidates',
+      })
+      continue
+    }
+
+    try {
+      for (const rawId of candidates) {
+        await patchKnowledgeItemMetaInDb({
+          id: rawId,
+          status: 'archived',
+          metaPatch: {
+            dedupeSuppressedAt: nowIso(),
+            dedupeBy: 'gbrain-v2-governance',
+            dedupeContentHash: contentHash,
+            dedupePrimaryRawId: primaryRawId || null,
+          },
+        })
+      }
+      succeeded += 1
+      results.push({
+        type,
+        title: contentHash,
+        ok: true,
+        archivedRawIds: candidates,
+        primaryRawId: primaryRawId || null,
+      })
+    } catch (error) {
+      failed += 1
+      results.push({
+        type,
+        title: contentHash,
+        ok: false,
+        reason: String(error?.message || error || 'apply-failed'),
+        archivedRawIds: candidates,
+        primaryRawId: primaryRawId || null,
+      })
+    }
+  }
+
+  return {
+    applied: true,
+    applyTypes: Array.from(allowed.values()),
+    total: entries.length,
+    succeeded,
+    failed,
+    skipped,
+    results,
+  }
 }
 
 async function listGovernanceReports() {
@@ -404,6 +801,8 @@ async function runReport(args) {
   console.log(`- legacyShare: ${report.metrics.legacyShare}%`)
   console.log(`- duplicateShare: ${report.metrics.duplicateShare}%`)
   console.log(`- lineageMissingShare: ${report.metrics.lineageMissingShare}%`)
+  console.log(`- rawToAtomAutomationCoverage: ${report.metrics.rawToAtomAutomationCoverage}%`)
+  console.log(`- autoPromotionConstraintViolationCount: ${report.metrics.autoPromotionConstraintViolationCount}`)
 }
 
 async function runRepairQueue(args) {
@@ -417,11 +816,26 @@ async function runRepairQueue(args) {
     : path.join(DEFAULT_EVAL_DIR, `governance-repair-queue-${compactTs(generatedAt)}.json`)
   const baseReport = await collectGovernanceData({ limit, staleDays })
   const queue = buildRepairQueue(baseReport, top)
+  const apply = hasFlag(args, '--apply')
+  const applyTypes = parseApplyTypes(argValue(args, '--apply-types', 'duplicate-group'))
+  const applyResult = apply
+    ? await applyRepairQueue(queue, { applyTypes })
+    : {
+        applied: false,
+        applyTypes,
+        total: queue.length,
+        succeeded: 0,
+        failed: 0,
+        skipped: queue.length,
+        results: [],
+      }
   const report = {
     version: 'gbrain-v2-governance-repair-queue.v1',
     generatedAt,
     top,
     metrics: baseReport.metrics,
+    estimatedManualReviewReductionCount: Number(baseReport?.metrics?.estimatedManualReviewReductionCount || 0),
+    apply: applyResult,
     queue,
   }
   const mdPath = String(outPath).replace(/\.json$/i, '.md')
@@ -431,6 +845,14 @@ async function runRepairQueue(args) {
   console.log(`- json: ${outPath}`)
   console.log(`- md:   ${mdPath}`)
   console.log(`- queue: ${queue.length}`)
+  console.log(`- estimatedManualReviewReductionCount: ${report.estimatedManualReviewReductionCount}`)
+  if (applyResult.applied) {
+    console.log(`- apply succeeded: ${applyResult.succeeded}`)
+    console.log(`- apply failed: ${applyResult.failed}`)
+    console.log(`- apply skipped: ${applyResult.skipped}`)
+  } else {
+    console.log('- apply: dry-run (add --apply to execute)')
+  }
 }
 
 async function runGuard(args) {
@@ -444,15 +866,25 @@ async function runGuard(args) {
     maxDuplicateShare: toNumber(argValue(args, '--max-duplicate-share', '25'), 25, { min: 0, max: 100 }),
     maxLineageMissingShare: toNumber(argValue(args, '--max-lineage-missing-share', '5'), 5, { min: 0, max: 100 }),
     maxStaleDraftShare: toNumber(argValue(args, '--max-stale-draft-share', '35'), 35, { min: 0, max: 100 }),
+    minRawAtomCoverage: toNumber(
+      argValue(args, '--min-raw-atom-coverage', String(DEFAULT_MIN_RAW_ATOM_COVERAGE)),
+      DEFAULT_MIN_RAW_ATOM_COVERAGE,
+      { min: 0, max: 100 },
+    ),
+    maxAutoPromotionConstraintViolations: toNumber(
+      argValue(args, '--max-auto-promotion-constraint-violations', String(DEFAULT_MAX_AUTO_PROMOTION_CONSTRAINT_VIOLATIONS)),
+      DEFAULT_MAX_AUTO_PROMOTION_CONSTRAINT_VIOLATIONS,
+      { min: 0, max: 100000 },
+    ),
     maxDelta: toNumber(argValue(args, '--max-delta', '3'), 3, { min: 0, max: 100 }),
   }
 
   const checks = []
   const absoluteChecks = [
-    ['legacyShare', current.metrics.legacyShare, thresholds.maxLegacyShare],
-    ['duplicateShare', current.metrics.duplicateShare, thresholds.maxDuplicateShare],
-    ['lineageMissingShare', current.metrics.lineageMissingShare, thresholds.maxLineageMissingShare],
-    ['staleDraftShare', current.metrics.staleDraftShare, thresholds.maxStaleDraftShare],
+    ['legacyShare', toMetricNumber(current?.metrics?.legacyShare), thresholds.maxLegacyShare],
+    ['duplicateShare', toMetricNumber(current?.metrics?.duplicateShare), thresholds.maxDuplicateShare],
+    ['lineageMissingShare', toMetricNumber(current?.metrics?.lineageMissingShare), thresholds.maxLineageMissingShare],
+    ['staleDraftShare', toMetricNumber(current?.metrics?.staleDraftShare), thresholds.maxStaleDraftShare],
   ]
   for (const [name, value, maxValue] of absoluteChecks) {
     checks.push({
@@ -461,13 +893,23 @@ async function runGuard(args) {
       detail: `${value}% <= ${maxValue}%`,
     })
   }
+  checks.push({
+    name: 'abs:rawToAtomAutomationCoverage',
+    pass: toMetricNumber(current?.metrics?.rawToAtomAutomationCoverage) >= Number(thresholds.minRawAtomCoverage),
+    detail: `${toMetricNumber(current?.metrics?.rawToAtomAutomationCoverage)}% >= ${thresholds.minRawAtomCoverage}%`,
+  })
+  checks.push({
+    name: 'abs:autoPromotionConstraintViolationCount',
+    pass: toMetricNumber(current?.metrics?.autoPromotionConstraintViolationCount) <= Number(thresholds.maxAutoPromotionConstraintViolations),
+    detail: `${toMetricNumber(current?.metrics?.autoPromotionConstraintViolationCount)} <= ${thresholds.maxAutoPromotionConstraintViolations}`,
+  })
 
   if (baseline?.metrics) {
     const deltaChecks = [
-      ['legacyShare', metricDiff(current.metrics.legacyShare, baseline.metrics.legacyShare)],
-      ['duplicateShare', metricDiff(current.metrics.duplicateShare, baseline.metrics.duplicateShare)],
-      ['lineageMissingShare', metricDiff(current.metrics.lineageMissingShare, baseline.metrics.lineageMissingShare)],
-      ['staleDraftShare', metricDiff(current.metrics.staleDraftShare, baseline.metrics.staleDraftShare)],
+      ['legacyShare', metricDiff(toMetricNumber(current?.metrics?.legacyShare), toMetricNumber(baseline?.metrics?.legacyShare))],
+      ['duplicateShare', metricDiff(toMetricNumber(current?.metrics?.duplicateShare), toMetricNumber(baseline?.metrics?.duplicateShare))],
+      ['lineageMissingShare', metricDiff(toMetricNumber(current?.metrics?.lineageMissingShare), toMetricNumber(baseline?.metrics?.lineageMissingShare))],
+      ['staleDraftShare', metricDiff(toMetricNumber(current?.metrics?.staleDraftShare), toMetricNumber(baseline?.metrics?.staleDraftShare))],
     ]
     for (const [name, delta] of deltaChecks) {
       checks.push({
@@ -535,4 +977,3 @@ main().catch((error) => {
   console.error(error)
   process.exitCode = 1
 })
-
