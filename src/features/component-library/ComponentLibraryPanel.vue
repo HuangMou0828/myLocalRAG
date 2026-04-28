@@ -1009,3 +1009,394 @@ function getModalFieldLanguage(kind: string) {
             </template>
           </div>
 </template>
+
+<style scoped>
+.component-library-panel {
+  margin-top: 0.35rem;
+  display: grid;
+  gap: 0.82rem;
+}
+
+.component-library-overview {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 1rem;
+  padding: 1.05rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.75rem;
+  background:
+    radial-gradient(circle at 92% 0%, var(--accent-soft-bg), transparent 38%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 58%),
+    rgba(8, 15, 31, 0.64);
+  box-shadow: var(--shadow-sm);
+}
+
+.component-library-overview::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03), transparent 40%);
+  opacity: 0.3;
+}
+
+.component-library-overview-copy,
+.component-library-overview-stats {
+  position: relative;
+  z-index: 1;
+}
+
+.component-library-overview-copy {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 0.24rem;
+}
+
+.component-library-overview-copy small {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.component-library-overview-copy h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.08rem, 1.6vw, 1.36rem);
+  line-height: 1.15;
+}
+
+.component-library-overview-copy p {
+  max-width: 42rem;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.component-library-overview-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(6.4rem, 1fr));
+  gap: 0.56rem;
+}
+
+.component-library-overview-stats article {
+  min-height: 4.45rem;
+  display: grid;
+  align-content: center;
+  gap: 0.16rem;
+  padding: 0.65rem 0.72rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.75rem;
+  background: rgba(2, 6, 23, 0.28);
+}
+
+.component-library-overview-stats strong {
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.component-library-overview-stats small {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.component-library-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.78rem 0.85rem;
+  border: 1px solid var(--border-light);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 64%),
+    rgba(8, 15, 31, 0.5);
+}
+
+.component-library-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.component-library-head small {
+  color: var(--text-muted);
+  display: block;
+  margin-top: 0.18rem;
+  line-height: 1.45;
+}
+
+.component-library-meta {
+  margin: 0;
+  border: 1px solid var(--accent-ring);
+  border-radius: 999px;
+  background: var(--accent-soft-bg);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  padding: 0.22rem 0.56rem;
+  white-space: nowrap;
+}
+
+.component-library-controls {
+  border: 1px solid var(--border-light);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 62%),
+    rgba(8, 15, 31, 0.5);
+  padding: 0.72rem;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(9.8rem, 1fr));
+}
+
+.component-library-controls label {
+  display: grid;
+  align-content: center;
+  gap: 0.25rem;
+  min-height: 2.1rem;
+  color: var(--text-secondary);
+}
+
+.component-library-controls label small {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.component-library-controls input[type='number'] {
+  height: 2rem;
+}
+
+.component-switch {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.5rem;
+  background: rgba(12, 25, 45, 0.42);
+  padding: 0.36rem 0.5rem;
+  font-size: 0.74rem;
+  line-height: 1.2;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+
+.component-switch:hover {
+  border-color: var(--border-strong);
+  background: rgba(18, 38, 66, 0.5);
+  transform: translateY(-1px);
+}
+
+.component-switch input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent-primary);
+}
+
+.component-library-preview {
+  border: 1px solid var(--border-light);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 58%),
+    rgba(8, 15, 31, 0.46);
+  padding: 0.78rem;
+  display: grid;
+  gap: 0.55rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.component-library-preview header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-secondary);
+  min-width: 0;
+}
+
+.component-library-preview header strong {
+  color: var(--text-primary);
+  font-size: 0.84rem;
+}
+
+.component-library-preview header small {
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.component-library-preview header button {
+  width: auto;
+}
+
+.component-library-preview--confirm {
+  gap: 0.68rem;
+  overflow: hidden;
+}
+
+.component-library-preview--toast {
+  gap: 0.62rem;
+}
+
+.component-library-preview--form {
+  gap: 0.66rem;
+}
+
+.component-library-gallery {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.component-gallery-card {
+  border: 1px solid var(--border-light);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 62%),
+    rgba(8, 15, 31, 0.44);
+  padding: 0.72rem;
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.component-gallery-card h4 {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+}
+
+.component-library-preview--icon {
+  gap: 0.65rem;
+}
+
+.component-icon-grid {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.component-icon-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 0.5rem;
+  background: rgba(15, 23, 42, 0.36);
+  padding: 0.5rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.component-icon-card--used {
+  border-color: var(--accent-ring);
+  background: var(--accent-soft-bg);
+}
+
+.component-icon-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.component-icon-preview {
+  width: 1.9rem;
+  min-width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-soft);
+  background: rgba(2, 6, 23, 0.56);
+  color: var(--text-secondary);
+  display: inline-grid;
+  place-items: center;
+}
+
+.component-icon-meta {
+  min-width: 0;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.component-icon-meta strong {
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.component-icon-meta small {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.component-icon-usage,
+.component-icon-unused-tag {
+  margin-left: auto;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: rgba(51, 65, 85, 0.24);
+  color: var(--text-secondary);
+  font-size: 0.64rem;
+  line-height: 1.2;
+  padding: 0.1rem 0.38rem;
+  white-space: nowrap;
+}
+
+.component-icon-unused-tag {
+  color: var(--text-secondary);
+  border-color: var(--accent-ring);
+  background: var(--accent-soft-bg);
+}
+
+.component-icon-used-files {
+  display: grid;
+  gap: 0.24rem;
+}
+
+.component-icon-used-files small {
+  border: 1px dashed var(--border-soft);
+  border-radius: 0.375rem;
+  background: rgba(2, 6, 23, 0.38);
+  color: var(--text-muted);
+  font-size: 0.67rem;
+  line-height: 1.3;
+  padding: 0.16rem 0.34rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+@media (max-width: 760px) {
+  .component-library-overview-stats,
+  .component-library-gallery,
+  .component-icon-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .component-library-head,
+  .component-library-preview header {
+    display: grid;
+  }
+
+  .component-library-meta {
+    width: fit-content;
+  }
+}
+
+@media (max-width: 1200px) {
+  .component-library-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .component-library-gallery {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

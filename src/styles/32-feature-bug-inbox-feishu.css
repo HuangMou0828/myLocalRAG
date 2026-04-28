@@ -2353,3 +2353,78 @@
   font-size: 0.85rem;
   background: rgba(248, 250, 252, 0.98);
 }
+
+/* ─── Migrated from 20-layout-shell.css ─── */
+
+.feishu-settings-dialog {
+  width: min(42rem, 96vw);
+}
+
+.feishu-settings-body {
+  gap: 0.92rem;
+}
+
+.feishu-settings-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.48rem;
+}
+
+.feishu-settings-option-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.feishu-settings-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-element);
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.feishu-settings-option:hover {
+  border-color: var(--border-focus);
+  background: var(--bg-element-hover);
+}
+
+.feishu-settings-option.selected {
+  border-color: var(--accent-ring);
+  background:
+    linear-gradient(180deg, rgba(111, 134, 255, 0.08), transparent 58%),
+    var(--bg-element);
+  transform: translateY(-1px);
+}
+
+.feishu-settings-radio {
+  margin-top: 0.24rem;
+}
+
+.feishu-settings-option-main {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.feishu-settings-option-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.feishu-settings-option-main p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.feishu-settings-option-main small {
+  color: var(--text-muted);
+  line-height: 1.45;
+}

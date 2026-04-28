@@ -63,7 +63,29 @@
 2. 同一个 PR 内更新 `scripts/check-architecture.mjs` 的白名单。
 3. 在 PR 模板中说明收益、替代方案、回滚方式。
 
-## 6. 日常执行机制
+## 6. CSS 架构（ADR 0001）
+
+**判断规则：** 这段 CSS 被几个 Vue 组件使用？
+
+- 1 个组件使用 → `<style scoped>`（迁入组件）
+- 2+ 组件共用 → 全局 CSS 固定清单文件
+- CSS 变量 / design token → `10-theme-base.css`
+
+**全局 CSS 固定文件（不可新增，新增需 ADR）：**
+
+| 文件 | 职责 | 行数上限 |
+|-----|------|---------|
+| `00-tailwind.css` | Tailwind directives | 10 |
+| `10-theme-base.css` | Design tokens (`:root` CSS 变量) | 400 |
+| `20-layout-shell.css` | 顶层容器布局骨架 | 500 |
+| `21-shared-components.css` | 跨 feature 共用 UI 组件 | 600 |
+| `40-responsive-transitions.css` | 响应式与过渡 | 300 |
+
+**禁止：** 新建 feature 全局 CSS 文件；向存量 `3X-feature-*.css` 追加代码（冻结迁移）。
+
+详细规则：[docs/workflow/css-standards.md](docs/workflow/css-standards.md)
+
+## 7. 日常执行机制
 
 1. 开发前：先确认是否会引入新的跨 feature 依赖。
 2. 提交前：本地执行 `npm run quality:check`。

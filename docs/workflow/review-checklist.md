@@ -30,6 +30,18 @@
 - 是否引入重复逻辑，可否抽取到 shared？
 - 文档是否更新（README / ARCHITECTURE / ADR）？
 
+## P2: CSS 规范（涉及样式变更时必查）
+
+- 是否新建了 `XX-feature-*.css` 全局文件？（**禁止**）
+- 是否向现有 `3X-feature-*.css` 文件追加了代码？（**禁止**）
+- 新 feature CSS 是否写入了 `<style scoped>`？
+- 全局 CSS 文件（`20-layout-shell.css`、`21-shared-components.css` 等）是否超出了行数上限？
+- 是否硬编码了颜色值？（应使用 `var(--token)` 替代）
+- 需要穿透子组件时，是否使用了 `:deep()` 而不是去掉 scoped？
+- `<style scoped>` 是否超过 150 行？（超过需说明理由或拆分组件）
+
+详细规则见 [css-standards.md](css-standards.md)。
+
 ## P2: 技术债跟踪
 
 - 本次引入的技术债是否可量化（范围、影响、处理时间）？
