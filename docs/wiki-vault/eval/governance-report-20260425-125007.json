@@ -1,0 +1,447 @@
+{
+  "limit": 5000,
+  "staleDays": 14,
+  "generatedAt": "2026-04-25T12:50:07.729Z",
+  "atomsTotal": 102,
+  "knowledgeItemsTotal": 102,
+  "lineageStats": {
+    "total": 102,
+    "uniqueRawIds": 102,
+    "uniqueAtomIds": 102,
+    "uniqueCanonicalIds": 83,
+    "uniquePageIds": 78
+  },
+  "metrics": {
+    "legacyCount": 0,
+    "suspectCount": 4,
+    "duplicateGroups": 4,
+    "duplicateItems": 23,
+    "lineageMissingCount": 0,
+    "staleDraftCount": 1,
+    "rawPipelineCount": 66,
+    "rawWithAtomCount": 66,
+    "rawWithoutAtomCount": 0,
+    "autoPromotionCandidateRawCount": 7,
+    "autoPromotionCandidateCount": 7,
+    "autoPromotionSuppressedByDuplicateCount": 0,
+    "autoPromotionConstraintViolationCount": 0,
+    "legacyShare": 0,
+    "suspectShare": 3.92,
+    "duplicateShare": 22.55,
+    "lineageMissingShare": 0,
+    "staleDraftShare": 0.98,
+    "rawToAtomAutomationCoverage": 100,
+    "autoPromotionConstraintViolationShare": 0,
+    "duplicateActionableGroupCount": 0,
+    "duplicateArchiveCandidateCount": 0,
+    "estimatedManualReviewReductionCount": 0,
+    "byTier": {
+      "clean": 98,
+      "suspect": 4,
+      "legacy": 0
+    },
+    "byKind": {
+      "pattern": 15,
+      "context": 83,
+      "decision": 1,
+      "issue": 3
+    }
+  },
+  "topLegacyAtoms": [],
+  "topSuspectAtoms": [
+    {
+      "atomId": "atom_5942239ee8a865627260be7a",
+      "rawId": "openclaw_05e14e86df90770fa9b303f7d5ab1c255989dfe7",
+      "canonicalId": "canon_4efd4acbbfbc0720f1f2edfd",
+      "pageId": "syntheses/功能需求-20260411-001",
+      "pageType": "synthesis-note",
+      "pageBucket": "syntheses",
+      "kind": "context",
+      "title": "功能需求 20260411-001]",
+      "summary": "功能需求 20260411-001]",
+      "topics": [
+        "openclaw-config",
+        "openclaw",
+        "errors",
+        "feature-request"
+      ],
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/errors/ERR-20260411001].md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "errors/ERR-20260411001].md"
+        }
+      ],
+      "intakeStage": "wiki-candidate",
+      "confidence": "medium",
+      "qualityScore": 66,
+      "qualityTier": "suspect",
+      "qualityIssues": [
+        "missing_summary",
+        "short_content",
+        "archived_item"
+      ],
+      "status": "archived",
+      "createdAt": "2026-04-11T09:14:57.772Z",
+      "updatedAt": "2026-04-13T03:58:03.844Z"
+    },
+    {
+      "atomId": "atom_a362f8d26dfca409071f2c9c",
+      "rawId": "openclaw_ed3d33af7ca566a85d00b7b7bd488e896c598890",
+      "canonicalId": "canon_cb60afc38d1da2c9043d458c",
+      "pageId": "syntheses/功能需求-20260411-001",
+      "pageType": "synthesis-note",
+      "pageBucket": "syntheses",
+      "kind": "context",
+      "title": "功能需求 20260411-001]",
+      "summary": "功能需求 20260411-001]",
+      "topics": [
+        "openclaw-ops",
+        "openclaw",
+        "patterns",
+        "feature-request"
+      ],
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260411001].md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260411001].md"
+        }
+      ],
+      "intakeStage": "reference-only",
+      "confidence": "medium",
+      "qualityScore": 66,
+      "qualityTier": "suspect",
+      "qualityIssues": [
+        "missing_summary",
+        "short_content",
+        "archived_item"
+      ],
+      "status": "archived",
+      "createdAt": "2026-04-11T09:14:57.772Z",
+      "updatedAt": "2026-04-13T03:58:03.844Z"
+    },
+    {
+      "atomId": "atom_75ec18bfff8bfe2b501b2117",
+      "rawId": "openclaw_e1559c0a105e6858b1333096d05f8beb2069f00b",
+      "canonicalId": "canon_b1cc803fe8311f50c07b3934",
+      "pageId": "syntheses/功能需求-20260411-001",
+      "pageType": "synthesis-note",
+      "pageBucket": "syntheses",
+      "kind": "context",
+      "title": "功能需求 20260411-001]",
+      "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+      "topics": [
+        "openclaw-feature",
+        "openclaw",
+        "reference",
+        "feature-request"
+      ],
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260411001].md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260411001].md"
+        }
+      ],
+      "intakeStage": "needs-context",
+      "confidence": "low",
+      "qualityScore": 78,
+      "qualityTier": "suspect",
+      "qualityIssues": [
+        "short_content",
+        "archived_item"
+      ],
+      "status": "archived",
+      "createdAt": "2026-04-11T09:14:57.773Z",
+      "updatedAt": "2026-04-13T03:58:03.845Z"
+    },
+    {
+      "atomId": "atom_1600c382fcba5d3778f4d782",
+      "rawId": "knowledge_1775882078634_bs3zrk",
+      "canonicalId": "canon_6c9552a916bc8c7914669a20",
+      "pageId": "syntheses/embedding-重建后知识库搜索结果为空",
+      "pageType": "synthesis-note",
+      "pageBucket": "syntheses",
+      "kind": "context",
+      "title": "Embedding 重建后知识库搜索结果为空",
+      "summary": "现象：在知识工作台重建 embedding 后，搜索“升格审核”没有返回任何知识条目，但 Raw Inbox 里能看到相关采集。",
+      "topics": [
+        "embedding",
+        "mylocalrag",
+        "rag",
+        "daily-note"
+      ],
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "server/lib/wiki-vault.mjs"
+        }
+      ],
+      "intakeStage": "reference-only",
+      "confidence": "high",
+      "qualityScore": 78,
+      "qualityTier": "suspect",
+      "qualityIssues": [
+        "missing_summary",
+        "missing_content_hash"
+      ],
+      "status": "active",
+      "createdAt": "2026-04-11T04:34:38.634Z",
+      "updatedAt": "2026-04-11T06:07:09.775Z"
+    }
+  ],
+  "topLineageMissingAtoms": [],
+  "topDuplicateGroups": [
+    {
+      "contentHash": "c2e4fc5f887d309a66fb303a4aa8aa29c0179d21",
+      "count": 9,
+      "items": [
+        {
+          "id": "openclaw_a6fc80f3c0e2654d3e2576075af9a62c83b9194c",
+          "title": "批量清理前先查memory记录",
+          "sourceSubtype": "pattern",
+          "status": "archived",
+          "updatedAt": "2026-04-25T04:34:23.698Z"
+        },
+        {
+          "id": "openclaw_588a88113cb77923c09a50d58d491d08ccdf6d30",
+          "title": "批量清理前先查memory记录",
+          "sourceSubtype": "pattern",
+          "status": "active",
+          "updatedAt": "2026-04-25T01:41:15.603Z"
+        },
+        {
+          "id": "openclaw_f77934a807bbfb75ac515892b7de85a5c47deab6",
+          "title": "批量清理前先查memory记录",
+          "sourceSubtype": "pattern",
+          "status": "archived",
+          "updatedAt": "2026-04-24T01:30:06.605Z"
+        },
+        {
+          "id": "openclaw_12965825c02247a6994f0cced9ad20a4800b4dd7",
+          "title": "批量清理前先查memory记录",
+          "sourceSubtype": "pattern",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.555Z"
+        },
+        {
+          "id": "openclaw_f012dfa2090f18aba2ff67a453fe93e2fa61b82e",
+          "title": "批量清理前先查memory记录",
+          "sourceSubtype": "pattern",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.555Z"
+        },
+        {
+          "id": "openclaw_b989926351c7604c759cdbf3e65fd991e0445854",
+          "title": "批量清理前先查memory记录",
+          "sourceSubtype": "pattern",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.554Z"
+        },
+        {
+          "id": "openclaw_d6bf3ac0939a4623d92b93ac0dd94de85fd54282",
+          "title": "批量清理前先查memory记录",
+          "sourceSubtype": "pattern",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.554Z"
+        },
+        {
+          "id": "openclaw_be1c39f3e36e17a3def1edcce998a5ab15bba17b",
+          "title": "批量清理前先查memory记录",
+          "sourceSubtype": "pattern",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.554Z"
+        },
+        {
+          "id": "openclaw_af2a198a99ae285c5ff0ab1181dccc8f2793ceaa",
+          "title": "批量清理前先查memory记录",
+          "sourceSubtype": "pattern",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.554Z"
+        }
+      ]
+    },
+    {
+      "contentHash": "dd4b36bff3f2d92958df386ae075de84d8d327e8",
+      "count": 9,
+      "items": [
+        {
+          "id": "openclaw_a7ed208a5bf2971fc7115c4a1f52ad488475dc97",
+          "title": "五层记忆体系",
+          "sourceSubtype": "feature-request",
+          "status": "archived",
+          "updatedAt": "2026-04-25T01:41:15.603Z"
+        },
+        {
+          "id": "openclaw_35002d065206f0b456559ba4999b34ee2650ccd5",
+          "title": "五层记忆体系",
+          "sourceSubtype": "feature-request",
+          "status": "draft",
+          "updatedAt": "2026-04-25T01:41:15.603Z"
+        },
+        {
+          "id": "openclaw_ddb7ce3a89288d9516baf0139c394f57a4803d91",
+          "title": "五层记忆体系",
+          "sourceSubtype": "feature-request",
+          "status": "archived",
+          "updatedAt": "2026-04-24T01:30:06.605Z"
+        },
+        {
+          "id": "openclaw_73fd8ef20efd018f1de5cff139774557e3f0d037",
+          "title": "五层记忆体系",
+          "sourceSubtype": "feature-request",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.555Z"
+        },
+        {
+          "id": "openclaw_cbbe7b96ac8e9b9c16f3e689a5ddfe72c497be32",
+          "title": "五层记忆体系",
+          "sourceSubtype": "feature-request",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.555Z"
+        },
+        {
+          "id": "openclaw_2c89f79ab1a021f8476c6c88cc319c555d019f7a",
+          "title": "五层记忆体系",
+          "sourceSubtype": "feature-request",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.555Z"
+        },
+        {
+          "id": "openclaw_fb01b04829664fc1d9a104f6fca4189e4768e3f4",
+          "title": "五层记忆体系",
+          "sourceSubtype": "feature-request",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.554Z"
+        },
+        {
+          "id": "openclaw_25050a42b8cfa6c1324f4f52726fce1696f087ae",
+          "title": "五层记忆体系",
+          "sourceSubtype": "feature-request",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.554Z"
+        },
+        {
+          "id": "openclaw_dfef9f5e3dc3b823ecc036c454d546ddfacd605a",
+          "title": "五层记忆体系",
+          "sourceSubtype": "feature-request",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.554Z"
+        }
+      ]
+    },
+    {
+      "contentHash": "89c7d2905e0a5bcdc86d27d359ee5b7f1f7cc9b8",
+      "count": 3,
+      "items": [
+        {
+          "id": "openclaw_1a24681b04f6174276b4a264094854a22fe9e430",
+          "title": "五层记忆体系",
+          "sourceSubtype": "feature-request",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.555Z"
+        },
+        {
+          "id": "openclaw_1cd5f6be7bf489e621dfc4dd6d269bdc167a89f9",
+          "title": "五层记忆体系",
+          "sourceSubtype": "feature-request",
+          "status": "draft",
+          "updatedAt": "2026-04-15T01:52:00.053Z"
+        },
+        {
+          "id": "openclaw_41446c174546cd9bc220b62e3bb950603d4a357c",
+          "title": "五层记忆体系",
+          "sourceSubtype": "feature-request",
+          "status": "archived",
+          "updatedAt": "2026-04-12T10:04:02.007Z"
+        }
+      ]
+    },
+    {
+      "contentHash": "b3de04bd14519d459a3a054cbe98241fdae59888",
+      "count": 2,
+      "items": [
+        {
+          "id": "openclaw_fd695b674fc444ea1fc881bf96bee05c446f3fe4",
+          "title": "批量清理前先查memory记录",
+          "sourceSubtype": "pattern",
+          "status": "archived",
+          "updatedAt": "2026-04-23T11:14:41.555Z"
+        },
+        {
+          "id": "openclaw_7a7c60254144f31dcc506ce5b710ffa8dced82f3",
+          "title": "批量清理前先查memory记录",
+          "sourceSubtype": "pattern",
+          "status": "active",
+          "updatedAt": "2026-04-15T01:52:00.053Z"
+        }
+      ]
+    }
+  ],
+  "topDuplicateApplyPlans": [],
+  "topStaleDraftItems": [
+    {
+      "id": "openclaw_4419447c3034c3b6705f0fbf27bb1935310c991b",
+      "sourceType": "capture",
+      "sourceSubtype": "daily-note",
+      "status": "draft",
+      "title": "everything-claude-code 太顶了",
+      "content": "# everything-claude-code 太顶了\n\n> 来源：https://mp.weixin.qq.com/s/K7nVgjV8uiieK9ZdP10FuA\n\n这个叫 everything-claude-code 的开源项目太顶了。开源没几天就 3.5 万的 Star 了。。。先看它的简介，上面写的是：完整的 Claude Code 配置合集——Agent、Skill、Hook、快捷命令、规则、MCPs。来自 Anthropic 黑客马拉松获胜者的经过实战检验的配置。\n\n![配图](https://mmbiz.qpic.cn/sz_mmbiz_png/ePw3ZeGRruzR5pDpuoicpAAeibGn6gQH5ItVbXveh4nbuLg9bTebEOhKqV3gOpOCcfia8Z8mnROgZEJGSloLEYg1A/640?wx_fmt=png&from=appmsg)\n\n重点是：来自 Anthropic 黑客马拉松获胜者的经过实战检验。\n\n这个开源项目的作者是 Affaan Mustafa，是一位超级资深的 AI 开发者。\n\n这个开源项目是它长达 10 个月的高强度使用 Claude Code 经验总结而来的。而且它用这套配置赢得了 Anthropic x Forum Ventures 黑客松 Hackathon 的冠军。\n\n![配图](https://mmbiz.qpic.cn/sz_mmbiz_png/ePw3ZeGRruwh6d3dak64YsKicx7qYW3s6VXeFAXJVbIeGmEREKibbicGqFUXhP0uIQsQoicg0RqPWeSiaK2fQmXMl4w/640?wx_fmt=png&from=appmsg)\n\n在黑客松比赛中，时间很紧迫，通常只有一天。\n\n他们在短短 **8 小时** 内，完全依靠 Claude Code 这一工具从零开发了一个 AI 驱动的客户发现平台：zenith.chat。\n\n并成功进行了现场演示，最后获得了冠军儿🏆。\n\n![配图](https://mmbiz.qpic.cn/sz_mmbiz_png/ePw3ZeGRruwh6d3dak64YsKicx7qYW3s6tiaYS0aT3mwXz75ibOj3sZJsKpYLYySlViaice7z1YHSv5SWFXg034wBvw/640?wx_fmt=png&from=appmsg)\n\n---\n\n## 01 开源项目简介\n\neverything-claude-code 是一个为 Claude Code 打造的完整配置工具箱，包括：可以直接用的 agents、skills、 hooks、快捷命令、 规则、MCP 配置。\n\n它不是提示词合集，而是一个把 Claude Code 从 ChatBot 变成资深工程师的、实战检验过的完整开发工作流与配置套件。\n\n说白了，就是能把你的 Claude Code 武装到牙齿。\n\n![配图](https://mmbiz.qpic.cn/sz_mmbiz_png/ePw3ZeGRruzR5pDpuoicpAAeibGn6gQH5I2BT2LpoqMdDjYictBUQWm2pZkMu4ISrIsHjwBibcQuTHnSE1tUEco33A/640?wx_fmt=png&from=appmsg)\n\n> 开源地址：github.com/affaan-m/everything-claude-code\n\n看它这套开源项目架构，对于黑客松比赛酒友有针对性的战术。\n\n### ① 合理使用 Agents\n\n他们没有把 Claude 仅仅当作一个 ChatBot，而是利用项目中的 Agents 配置，把 Claude 分裂成不同的角色：\n\n- **Planner Agent**：负责在写代码前由 AI 自动生成架构图和实施计划，避免了盲目编码导致的返工，在黑客松中这个很重要。\n- **Code Reviewer Agent**：在代码提交前自动审查，确保演示时不会因为低级错误，比如语法错误、未捕获的异常啥的，导致 Demo 失败。\n\n### ② 克服上下文腐烂\n\n在长达 8 小时的连续 Coding 中，普通 AI 往往会忘记之前的设定。\n\nAffaan 利用这套配置中的 Skills 和 Rules，强制 AI 始终遵循特定的 TDD 测试驱动开发模式，保持了代码逻辑的一致性，直到比赛结束。\n\n### ③ MCP 的使用\n\n他们通过配置 MCP 工具，比如 GitHub MCP、Supabase MCP 等。\n\n让 Claude 直接操作数据库和代码仓库。这意味着他们几乎不需要手动去数据库建表或在 IDE 之间来回切换，极大缩短了开发周期。\n\n---\n\n## 学习指南\n\n当然只看这个开源项目学不到精髓，作者写了两篇文章，一定要去看看：\n\n![配图](https://mmbiz.qpic.cn/sz_mmbiz_png/ePw3ZeGRruwh6d3dak64YsKicx7qYW3s6ZoAIUOp9ic4tJT9iabYmibx3FMwt8WictFXYe97RPWpYic4F2xEjzV9acYQ/640?wx_fmt=png&from=appmsg)\n\n- 指南一：https://x.com/affaanmustafa/status/2012378465664745795\n- 指南二：https://x.com/affaanmustafa/status/2012378465664745795\n\n---\n\n## 02 如何使用\n\n在 Claude Code 中添加此仓库为插件市场：\n\n```\n/plugin marketplace add affaan-m/everything-claude-code\n```\n\n安装插件：\n\n```\n/plugin install everything-claude-code@everything-claude-code\n```\n\n安装完成后，立即获得仓库中所有定义的 commands / agents / skills / hooks，开箱即用。\n\n### 在新项目启动阶段\n\n可以先用 `/plan` 命令调用 planner/architect 等 agents，帮助梳理目标功能、选择技术栈并划分模块边界。\n\n同时启用 `coding-style.md`、`security.md`、`testing.md` 等规则文件，把团队统一的编码规范、安全要求和测试标准固化下来，让后续所有对话和生成代码都在同一工程轨道上运行。\n\n### 在具体开发过程中\n\n采用 TDD + 验证循环的方式：通过 `/tdd` 命令让 Claude 按 RED → GREEN → REFACTOR → VERIFY 的流程推进开发。\n\n用 `/verify` 执行实现验证、对比和边界分析，在关键里程碑使用 `/checkpoint` 记录思路快照和当前状态，既方便回滚，也方便日后回顾设计决策。\n\n### 在质量与长期维护方面\n\n日常多用 `/code-review` 命令，请专门的 review/safety agent 进行代码与安全审查，再配合 hooks 自动执行如清理 console.log、生成会话总结等后台任务。\n\n对于中长期项目，则结合 `continuous-learning/` 和 `strategic-compact/` 相关 skills 与 hooks，让 Claude 持续积累项目记忆，并在上下文接近上限前做有策略的压缩，保证长期协作的连贯性与效率。\n\n---\n\n## 总结\n\n你可以把这个开源项目作为一个**生产级起步模板**，高效用 Claude Code 搭建严肃的软件工程工作流，在极短时间内产出可 demo 的产品。\n\n**不需要自己从 0 写 agents / skills / hooks。**",
+      "summary": "来源：https://mp.weixin.qq.com/s/K7nVgjV8uiieK9ZdP10FuA",
+      "sourceUrl": "",
+      "sourceFile": "/Users/hm/.openclaw/knowledge/inbox/daily/everything-claude-code-article.md",
+      "tags": [
+        "openclaw",
+        "daily",
+        "daily-note"
+      ],
+      "meta": {
+        "sourceSystem": "openclaw",
+        "project": "openclaw",
+        "topic": "openclaw-daily",
+        "intakeStage": "inbox",
+        "confidence": "medium",
+        "keyQuestion": "",
+        "decisionNote": "每日记录，待整理后审核",
+        "contentHash": "28db126132526ba29e82c05020f1ea9f8c8dccad",
+        "openclawPath": "daily/everything-claude-code-article.md",
+        "openclawRoot": "/Users/hm/.openclaw/knowledge/inbox",
+        "openclawId": "openclaw_4419447c3034c3b6705f0fbf27bb1935310c991b"
+      },
+      "createdAt": "2026-04-11T09:14:57.772Z",
+      "updatedAt": "2026-04-11T09:14:57.772Z"
+    }
+  ],
+  "topRawWithoutAtomItems": [],
+  "topAutoPromotionConstraintViolations": [],
+  "riskHighlights": [
+    {
+      "category": "duplicate",
+      "title": "c2e4fc5f887d309a66fb303a4aa8aa29c0179d21",
+      "severity": 70,
+      "detail": "count=9"
+    },
+    {
+      "category": "duplicate",
+      "title": "dd4b36bff3f2d92958df386ae075de84d8d327e8",
+      "severity": 70,
+      "detail": "count=9"
+    },
+    {
+      "category": "stale-draft",
+      "title": "everything-claude-code 太顶了",
+      "severity": 65,
+      "detail": "updatedAt=2026-04-11T09:14:57.772Z"
+    }
+  ]
+}

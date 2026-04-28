@@ -195,3 +195,90 @@ const themeCards = computed(() => {
     </div>
   </section>
 </template>
+
+<style scoped>
+.hljs-theme-gallery {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.hljs-theme-gallery-head {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.hljs-theme-gallery-head h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+}
+
+.hljs-theme-gallery-head small {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.hljs-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.62rem;
+}
+
+.hljs-theme-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 0.5rem;
+  background: rgba(15, 23, 42, 0.38);
+  padding: 0.55rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.hljs-theme-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.hljs-theme-name-wrap {
+  display: grid;
+  gap: 0.08rem;
+}
+
+.hljs-theme-name-wrap strong {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+.hljs-theme-name-wrap small {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
+.hljs-theme-current {
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  line-height: 1.1;
+  padding: 0.16rem 0.38rem;
+  border-radius: 999px;
+  border: 1px solid var(--accent-ring);
+  color: var(--text-secondary);
+  background: var(--accent-soft-bg);
+}
+
+.hljs-theme-frame {
+  width: 100%;
+  height: 280px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.55rem;
+  background: var(--bg-app);
+}
+
+@media (max-width: 760px) {
+  .hljs-theme-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

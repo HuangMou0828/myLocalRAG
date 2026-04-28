@@ -36,16 +36,22 @@ import { generateGroundedAnswer, rewriteRetrieveQuery } from './lib/rag.mjs'
 import { isObsidianCliEnabled, runObsidianCliJson } from './lib/obsidian-cli.mjs'
 import { applyPromotionCandidate, buildPromotionCandidatePreview, buildPromotionQueue, buildWikiVaultSyncPreview, cleanSynthesisEvidenceItems, createVaultNoteFromTemplate, decidePromotionCandidate, ensureVaultScaffold, getVaultPaths, lintWikiVault, publishSessionsToVault, rebuildVaultIndex } from './lib/wiki-vault.mjs'
 import { importOpenClawKnowledge, previewOpenClawKnowledge } from '../scripts/openclaw-knowledge.mjs'
+import { exportGbrainV2Feed } from './lib/gbrain-v2-feed.mjs'
 import {
   createBugInboxInDb,
   deleteBugInboxInDb,
   deleteKnowledgeItemInDb,
+  getKnowledgeAtomStatsInDb,
   getBugInboxByIdInDb,
+  listKnowledgeAtomsInDb,
+  getKnowledgeLineageStatsInDb,
+  loadGbrainV2SettingsInDb,
   loadFeishuProjectSettingsInDb,
   loadModelSettingsInDb,
   loadWikiVaultBuildStatsInDb,
   listBugInboxInDb,
   listKnowledgeItemsInDb,
+  listKnowledgeLineageInDb,
   saveFeishuProjectSettingsInDb,
   saveModelSettingsInDb,
   saveWikiVaultBuildStatsInDb,
@@ -72,6 +78,10 @@ const BUG_TRACE_SNIPPET_CONTEXT_LINES = 4
 const API_DOCS_DIR = path.resolve(process.cwd(), 'docs', 'api')
 const OPENAPI_FILE = path.join(API_DOCS_DIR, 'openapi.yaml')
 const OPENAPI_PUBLIC_FILE = path.join(API_DOCS_DIR, 'openapi.public.yaml')
+const GBRAIN_V2_FEED_DIR = path.resolve(process.cwd(), 'vault', '.gbrain-v2-feed')
+const GBRAIN_V2_FEED_MANIFEST = path.join(GBRAIN_V2_FEED_DIR, 'manifest.json')
+const GBRAIN_V2_FEED_RECORDS = path.join(GBRAIN_V2_FEED_DIR, 'records.jsonl')
+const GBRAIN_V2_DUAL_WRITE_ENABLED = process.env.KB_GBRAIN_V2_DUAL_WRITE !== '0'
 const embeddingRebuildJobs = new Map()
 const wikiVaultSyncJobs = new Map()
 
@@ -498,50 +508,19 @@ function validateSource(input) {
   return null
 }
 
+function isOpenClawSessionPath(inputPath) {
+  const resolved = path.resolve(String(inputPath || '').trim()).toLowerCase()
+  if (!resolved) return false
+  return resolved.includes('/.openclaw/') && resolved.includes('/sessions')
+}
+
 async function ensureProviderSources(provider, existingSources = []) {
   const normalizedProvider = normalizeProviderAlias(provider)
   const currentSources = Array.isArray(existingSources) ? existingSources : []
   if (!normalizedProvider || normalizedProvider === 'all') return currentSources
 
-  const hasProvider = currentSources.some(
-    (source) => String(source?.provider || '').toLowerCase() === normalizedProvider,
-  )
-  const shouldAugmentExistingProvider = normalizedProvider === 'codex'
-  if (hasProvider && !shouldAugmentExistingProvider) return currentSources
-
-  const suggestions = await discoverSourceSuggestions(currentSources)
-  const matchedSuggestions = (Array.isArray(suggestions) ? suggestions : []).filter(
-    (item) => String(item?.provider || '').toLowerCase() === normalizedProvider,
-  )
-  if (!matchedSuggestions.length) return currentSources
-
-  const seenPaths = new Set(
-    currentSources
-      .map((item) => path.resolve(String(item?.path || '').trim()))
-      .filter(Boolean),
-  )
-  const createdAt = new Date().toISOString()
-  const additions = []
-
-  for (const item of matchedSuggestions) {
-    const resolvedPath = path.resolve(String(item?.path || '').trim())
-    if (!resolvedPath || seenPaths.has(resolvedPath)) continue
-    seenPaths.add(resolvedPath)
-    additions.push({
-      id: id(),
-      name: String(item?.name || `${normalizedProvider} auto source`),
-      provider: normalizedProvider,
-      path: resolvedPath,
-      format: String(item?.format || 'auto'),
-      createdAt,
-    })
-  }
-
-  if (!additions.length) return currentSources
-
-  const merged = [...currentSources, ...additions]
-  await saveSources(merged)
-  return merged
+  // Sources are explicitly curated by the user; scanning should never auto-add paths.
+  return currentSources
 }
 
 function validateImportPath(input) {
@@ -569,7 +548,6 @@ function normalizeString(input) {
 
 function normalizeProviderAlias(input) {
   const normalized = normalizeString(input).toLowerCase()
-  if (normalized === 'openclaw') return 'codex'
   if (normalized === 'claudecode' || normalized === 'claude_code' || normalized === 'claude code') return 'claude-code'
   return normalized
 }
@@ -601,7 +579,7 @@ function buildMissingSyncSession(session) {
   }
 }
 
-function mergeSyncedSessions(currentSessions = [], scannedSessions = [], { provider = '' } = {}) {
+function mergeSyncedSessions(currentSessions = [], scannedSessions = [], { provider = '', pruneMissing = false } = {}) {
   const normalizedProvider = normalizeProviderAlias(provider)
   const next = new Map()
   const scannedIdSet = new Set(
@@ -615,8 +593,12 @@ function mergeSyncedSessions(currentSessions = [], scannedSessions = [], { provi
       ? String(session?.provider || '').toLowerCase() === normalizedProvider
       : true
 
-    if (sameProvider && !scannedIdSet.has(sessionId)) next.set(sessionId, buildMissingSyncSession(session))
-    else next.set(sessionId, session)
+    if (sameProvider && !scannedIdSet.has(sessionId)) {
+      if (!pruneMissing) next.set(sessionId, buildMissingSyncSession(session))
+      continue
+    }
+
+    next.set(sessionId, session)
   }
 
   for (const session of Array.isArray(scannedSessions) ? scannedSessions : []) {
@@ -637,7 +619,9 @@ async function refreshProviderSessions(provider, options = {}) {
 
   const sources = await ensureProviderSources(normalizedProvider, await loadSources())
   const targetSources = (Array.isArray(sources) ? sources : []).filter(
-    (source) => String(source?.provider || '').toLowerCase() === normalizedProvider,
+    (source) =>
+      String(source?.provider || '').toLowerCase() === normalizedProvider
+      && !(normalizedProvider === 'codex' && isOpenClawSessionPath(source?.path)),
   )
 
   if (!targetSources.length) {
@@ -663,7 +647,10 @@ async function refreshProviderSessions(provider, options = {}) {
   const preservedExisting = oldProviderSessions.length > 0 && scannedSessions.length === 0
   const nextSessions = preservedExisting
     ? [...oldSessions]
-    : mergeSyncedSessions(oldSessions, scannedSessions, { provider: normalizedProvider })
+    : mergeSyncedSessions(oldSessions, scannedSessions, {
+      provider: normalizedProvider,
+      pruneMissing: true,
+    })
 
   const targetSourceIds = new Set(targetSources.map((source) => String(source.id || '')).filter(Boolean))
   const oldIssues = Array.isArray(current.issues) ? current.issues : []
@@ -2077,6 +2064,261 @@ function scoreChunk(chunk, query, tokens) {
 
   score += toTimestamp(chunk?.updatedAt) / 1e13
   return score
+}
+
+function normalizeGbrainReadMode(mode) {
+  return 'v2'
+}
+
+function getKnowledgeAtomScoreProfile(mode) {
+  return {
+    exact: { summary: 8, title: 6, topics: 4, kind: 3, pageId: 2, sourceRefs: 2 },
+    token: { summary: 2.4, title: 1.8, topics: 1.6, kind: 1.2, pageId: 0.8, sourceRefs: 0.6 },
+    quality: { clean: 1.2, suspect: 0.4, legacy: -0.6 },
+  }
+}
+
+function scoreKnowledgeAtom(atom, query, tokens, mode = 'v2') {
+  const q = normalizeString(query).toLowerCase()
+  const title = normalizeString(atom?.title).toLowerCase()
+  const summary = normalizeString(atom?.summary).toLowerCase()
+  const kind = normalizeString(atom?.kind).toLowerCase()
+  const pageId = normalizeString(atom?.pageId).toLowerCase()
+  const topics = Array.isArray(atom?.topics) ? atom.topics.map((item) => normalizeString(item).toLowerCase()).join(' ') : ''
+  const sourceRefs = Array.isArray(atom?.sourceRefs)
+    ? atom.sourceRefs
+      .map((item) => `${normalizeString(item?.type)} ${normalizeString(item?.value)}`.toLowerCase())
+      .join(' ')
+    : ''
+  const profile = getKnowledgeAtomScoreProfile(mode)
+
+  let score = 0
+  if (!q) {
+    score += toTimestamp(atom?.updatedAt) / 1e12
+    return score
+  }
+
+  if (summary.includes(q)) score += profile.exact.summary
+  if (title.includes(q)) score += profile.exact.title
+  if (topics.includes(q)) score += profile.exact.topics
+  if (kind.includes(q)) score += profile.exact.kind
+  if (pageId.includes(q)) score += profile.exact.pageId
+  if (sourceRefs.includes(q)) score += profile.exact.sourceRefs
+
+  for (const token of tokens) {
+    if (summary.includes(token)) score += profile.token.summary
+    if (title.includes(token)) score += profile.token.title
+    if (topics.includes(token)) score += profile.token.topics
+    if (kind.includes(token)) score += profile.token.kind
+    if (pageId.includes(token)) score += profile.token.pageId
+    if (sourceRefs.includes(token)) score += profile.token.sourceRefs
+  }
+
+  const qualityTier = normalizeString(atom?.qualityTier).toLowerCase()
+  if (qualityTier === 'clean') score += profile.quality.clean
+  else if (qualityTier === 'suspect') score += profile.quality.suspect
+  else score += profile.quality.legacy
+
+  if (kind === 'context') score -= 0.4
+  if (kind === 'issue' || kind === 'pattern' || kind === 'decision' || kind === 'synthesis') score += 0.6
+
+  score += toTimestamp(atom?.updatedAt) / 1e13
+  return score
+}
+
+function pickKnowledgeAtomSnippet(atom, tokens) {
+  const haystacks = [
+    normalizeString(atom?.summary),
+    Array.isArray(atom?.topics) ? atom.topics.map((item) => normalizeString(item)).filter(Boolean).join(' | ') : '',
+    Array.isArray(atom?.sourceRefs)
+      ? atom.sourceRefs
+        .map((item) => normalizeString(item?.value || item?.type))
+        .filter(Boolean)
+        .join(' | ')
+      : '',
+  ].filter(Boolean)
+
+  for (const haystack of haystacks) {
+    for (const token of tokens) {
+      const snippet = snippetByToken(haystack, token)
+      if (snippet) return snippet
+    }
+  }
+
+  return haystacks[0] ? haystacks[0].slice(0, 220) : ''
+}
+
+function toConfidenceScore(input) {
+  const raw = normalizeString(input).toLowerCase()
+  const numeric = Number(raw)
+  if (Number.isFinite(numeric)) {
+    if (numeric >= 0 && numeric <= 1) return Math.max(0.25, Math.min(1.4, numeric + 0.4))
+    if (numeric >= 0 && numeric <= 100) return Math.max(0.25, Math.min(1.4, numeric / 100 + 0.4))
+  }
+  if (raw === 'high') return 1.2
+  if (raw === 'medium') return 1
+  if (raw === 'low') return 0.72
+  return 0.92
+}
+
+function buildRetrieveAtomTokenWeights(atomResults = [], mode = 'v2') {
+  const results = Array.isArray(atomResults) ? atomResults : []
+  const tokenWeights = new Map()
+
+  for (const [index, item] of results.entries()) {
+    if (index >= 10) break
+    const qualityTier = normalizeString(item?.qualityTier).toLowerCase()
+    const kind = normalizeString(item?.kind).toLowerCase()
+    const qualityWeight =
+      qualityTier === 'clean' ? 1.16
+        : qualityTier === 'suspect' ? 0.94
+          : 0.72
+    const confidenceWeight = toConfidenceScore(item?.confidence)
+    const kindWeight = kind === 'issue' || kind === 'pattern' || kind === 'decision' || kind === 'synthesis'
+      ? 1.12
+      : 0.94
+    const rankWeight = 1 / (index + 1)
+    const scoreWeight = Number.isFinite(Number(item?.score))
+      ? Math.max(0.86, Math.min(2.1, 1 + Number(item.score || 0) / 12))
+      : 1
+    const tokenWeight = rankWeight * qualityWeight * confidenceWeight * kindWeight * scoreWeight
+
+    const atomText = normalizeString([
+      item?.title,
+      item?.summary,
+      Array.isArray(item?.topics) ? item.topics.join(' ') : '',
+      item?.kind,
+      item?.pageId,
+      Array.isArray(item?.sourceRefs)
+        ? item.sourceRefs.map((ref) => `${normalizeString(ref?.type)} ${normalizeString(ref?.value)}`).join(' ')
+        : '',
+    ].filter(Boolean).join(' '))
+    const tokens = tokenize(atomText)
+    for (const token of tokens) {
+      tokenWeights.set(token, Number(tokenWeights.get(token) || 0) + tokenWeight)
+    }
+  }
+
+  return tokenWeights
+}
+
+function scoreRetrieveSessionWithAtomSignals(result = {}, tokenWeights = new Map()) {
+  if (!(tokenWeights instanceof Map) || !tokenWeights.size) {
+    return {
+      score: 0,
+      matchedTokens: 0,
+    }
+  }
+
+  const matchedChunks = Array.isArray(result?.matched_chunks) ? result.matched_chunks : []
+  const haystack = normalizeString([
+    result?.title,
+    result?.provider,
+    Array.isArray(result?.tags) ? result.tags.join(' ') : '',
+    Array.isArray(result?.snippets) ? result.snippets.join(' ') : '',
+    matchedChunks.map((chunk) => normalizeString([
+      chunk?.summary,
+      chunk?.assistantSummary,
+      chunk?.userIntent,
+      chunk?.snippet,
+      Array.isArray(chunk?.filePaths) ? chunk.filePaths.join(' ') : '',
+      Array.isArray(chunk?.errorKeywords) ? chunk.errorKeywords.join(' ') : '',
+    ].filter(Boolean).join(' '))).join(' '),
+  ].filter(Boolean).join(' ')).toLowerCase()
+
+  if (!haystack) {
+    return {
+      score: 0,
+      matchedTokens: 0,
+    }
+  }
+
+  let score = 0
+  let matchedTokens = 0
+  for (const [token, weight] of tokenWeights.entries()) {
+    if (!token || !Number.isFinite(Number(weight))) continue
+    if (haystack.includes(token)) {
+      score += Number(weight || 0)
+      matchedTokens += 1
+    }
+  }
+
+  return {
+    score: Number(score.toFixed(4)),
+    matchedTokens,
+  }
+}
+
+function rerankRetrieveResultsByAtomSignals({
+  results = [],
+  atomRetrieve = null,
+  topK = DEFAULT_RETRIEVE_TOP_K,
+  mode = 'v2',
+  includeRawFallback = true,
+} = {}) {
+  const list = Array.isArray(results) ? results : []
+  const normalizedTopK = Math.max(1, Math.min(MAX_RETRIEVE_TOP_K, Number(topK || DEFAULT_RETRIEVE_TOP_K)))
+  if (!list.length) {
+    return {
+      applied: false,
+      reason: 'empty-v1-results',
+      tokenCount: 0,
+      matchedCount: 0,
+      results: [],
+    }
+  }
+
+  const tokenWeights = buildRetrieveAtomTokenWeights(atomRetrieve?.results, mode)
+  if (!tokenWeights.size) {
+    return {
+      applied: false,
+      reason: 'no-atom-signals',
+      tokenCount: 0,
+      matchedCount: 0,
+      results: list.slice(0, normalizedTopK),
+    }
+  }
+
+  const scored = list
+    .map((result) => {
+      const atomSignal = scoreRetrieveSessionWithAtomSignals(result, tokenWeights)
+      const baseScore = Number(result?.relevance_score || 0)
+      const blendedScore = baseScore + atomSignal.score * 0.35
+      return {
+        ...result,
+        relevance_score: Number(baseScore.toFixed(4)),
+        atom_signal_score: atomSignal.score,
+        atom_signal_tokens: atomSignal.matchedTokens,
+        retrieval_score: Number(blendedScore.toFixed(4)),
+      }
+    })
+    .sort((left, right) =>
+      Number(right.retrieval_score || 0) - Number(left.retrieval_score || 0)
+      || Number(right.relevance_score || 0) - Number(left.relevance_score || 0))
+
+  let finalPool = scored
+  let applied = true
+  let reason = 'v2-session-bridge'
+
+  if (!includeRawFallback) {
+    const atomMatched = scored.filter((item) => Number(item.atom_signal_score || 0) > 0)
+    if (atomMatched.length) {
+      finalPool = atomMatched
+      reason = 'v2-session-bridge-no-raw'
+    } else {
+      applied = false
+      reason = 'no-atom-session-match'
+      finalPool = scored
+    }
+  }
+
+  return {
+    applied,
+    reason,
+    tokenCount: tokenWeights.size,
+    matchedCount: finalPool.length,
+    results: finalPool.slice(0, normalizedTopK),
+  }
 }
 
 function sleep(ms) {
@@ -3521,6 +3763,376 @@ function buildWikiExplainPayload() {
   }
 }
 
+async function loadGbrainV2FeedStatus() {
+  const status = {
+    dualWriteEnabled: GBRAIN_V2_DUAL_WRITE_ENABLED,
+    feedDir: GBRAIN_V2_FEED_DIR,
+    manifestPath: GBRAIN_V2_FEED_MANIFEST,
+    recordsPath: GBRAIN_V2_FEED_RECORDS,
+    manifestExists: existsSync(GBRAIN_V2_FEED_MANIFEST),
+    recordsExists: existsSync(GBRAIN_V2_FEED_RECORDS),
+    manifest: null,
+    files: {
+      manifestSize: 0,
+      recordsSize: 0,
+      recordsMtime: '',
+      manifestMtime: '',
+    },
+  }
+
+  if (status.manifestExists) {
+    const content = await readFile(GBRAIN_V2_FEED_MANIFEST, 'utf8').catch(() => '')
+    if (content) {
+      try {
+        status.manifest = JSON.parse(content)
+      } catch {
+        status.manifest = null
+      }
+    }
+    const info = await stat(GBRAIN_V2_FEED_MANIFEST).catch(() => null)
+    if (info?.isFile()) {
+      status.files.manifestSize = Number(info.size || 0)
+      status.files.manifestMtime = info.mtime ? info.mtime.toISOString() : ''
+    }
+  }
+
+  if (status.recordsExists) {
+    const info = await stat(GBRAIN_V2_FEED_RECORDS).catch(() => null)
+    if (info?.isFile()) {
+      status.files.recordsSize = Number(info.size || 0)
+      status.files.recordsMtime = info.mtime ? info.mtime.toISOString() : ''
+    }
+  }
+
+  return status
+}
+
+async function runGbrainV2AtomRetrieve({
+  query = '',
+  topK = DEFAULT_RETRIEVE_TOP_K,
+  limit = 300,
+  kind = 'all',
+  qualityTier = 'all',
+  status = 'visible',
+  mode = 'v2',
+} = {}) {
+  const normalizedQuery = normalizeSearchQuery(query)
+  const normalizedTopK = Math.max(1, Math.min(MAX_RETRIEVE_TOP_K, Number(topK || DEFAULT_RETRIEVE_TOP_K)))
+  const normalizedLimit = Math.max(normalizedTopK, Math.min(5000, Number(limit || 300)))
+  const normalizedKind = normalizeString(kind || 'all') || 'all'
+  const normalizedTier = normalizeString(qualityTier || 'all') || 'all'
+  const normalizedStatus = normalizeString(status || 'visible') || 'visible'
+  const tokens = tokenize(normalizedQuery)
+
+  let atomCandidates = await listKnowledgeAtomsInDb({
+    limit: normalizedLimit,
+    kind: normalizedKind,
+    qualityTier: normalizedTier,
+    status: normalizedStatus,
+    q: normalizedQuery,
+  })
+
+  if (!atomCandidates.length && normalizedQuery) {
+    atomCandidates = await listKnowledgeAtomsInDb({
+      limit: Math.max(normalizedLimit, normalizedTopK * 30),
+      kind: normalizedKind,
+      qualityTier: normalizedTier,
+      status: normalizedStatus,
+      q: '',
+    })
+  }
+
+  const ranked = atomCandidates
+    .map((atom) => ({
+      atom,
+      score: scoreKnowledgeAtom(atom, normalizedQuery, tokens, 'v2'),
+    }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score)
+
+  const results = ranked.slice(0, normalizedTopK).map((item) => {
+    const atom = item.atom
+    return {
+      atomId: atom.atomId,
+      rawId: atom.rawId,
+      canonicalId: atom.canonicalId,
+      pageId: atom.pageId,
+      pageType: atom.pageType,
+      pageBucket: atom.pageBucket,
+      kind: atom.kind,
+      title: atom.title,
+      summary: atom.summary,
+      topics: atom.topics,
+      sourceRefs: atom.sourceRefs,
+      intakeStage: atom.intakeStage,
+      confidence: atom.confidence,
+      qualityTier: atom.qualityTier,
+      qualityScore: atom.qualityScore,
+      qualityIssues: atom.qualityIssues,
+      status: atom.status,
+      createdAt: atom.createdAt,
+      updatedAt: atom.updatedAt,
+      score: Number(item.score.toFixed(4)),
+      snippet: pickKnowledgeAtomSnippet(atom, tokens),
+    }
+  })
+
+  return {
+    query: normalizedQuery,
+    topK: normalizedTopK,
+    tokens: tokens.slice(0, 16),
+    mode: normalizedMode,
+    totalScanned: atomCandidates.length,
+    totalMatched: ranked.length,
+    results,
+  }
+}
+
+function normalizePromotionTitle(value) {
+  return normalizeString(value).toLowerCase()
+}
+
+function getKnowledgeStatusRank(status = '') {
+  const normalized = normalizeString(status).toLowerCase()
+  if (normalized === 'active') return 3
+  if (normalized === 'draft') return 2
+  if (normalized === 'archived') return 1
+  return 0
+}
+
+function buildDuplicateContentHashContext(knowledgeItems = [], { includeArchived = false } = {}) {
+  const hashToItems = new Map()
+  const rawIdToHash = new Map()
+  for (const item of knowledgeItems) {
+    const status = normalizeString(item?.status).toLowerCase()
+    if (!includeArchived && status === 'archived') continue
+    const hash = normalizeString(item?.meta?.contentHash || '')
+    const rawId = normalizeString(item?.id || '')
+    if (!hash || !rawId) continue
+    if (!hashToItems.has(hash)) hashToItems.set(hash, [])
+    hashToItems.get(hash).push(item)
+    rawIdToHash.set(rawId, hash)
+  }
+
+  const duplicateHashSet = new Set()
+  const primaryRawIdByHash = new Map()
+  for (const [hash, items] of hashToItems.entries()) {
+    if (!Array.isArray(items) || items.length <= 1) continue
+    duplicateHashSet.add(hash)
+    const sorted = [...items].sort((left, right) =>
+      getKnowledgeStatusRank(right?.status) - getKnowledgeStatusRank(left?.status)
+      || toTimestamp(right?.updatedAt) - toTimestamp(left?.updatedAt))
+    const primaryRawId = normalizeString(sorted[0]?.id || '')
+    if (primaryRawId) primaryRawIdByHash.set(hash, primaryRawId)
+  }
+
+  return {
+    duplicateHashSet,
+    primaryRawIdByHash,
+    rawIdToHash,
+  }
+}
+
+function pickCandidateAtomForPromotion(queueItem, atoms = []) {
+  const expectedKind = queueItem?.kind === 'issue-review'
+    ? 'issue'
+    : queueItem?.kind === 'pattern-candidate'
+      ? 'pattern'
+      : ''
+  if (!expectedKind) return null
+  const titleKey = normalizePromotionTitle(queueItem?.title || '')
+  const projectKey = normalizeString(queueItem?.project || '').toLowerCase()
+  if (!titleKey) return null
+  const candidates = atoms
+    .filter((atom) => normalizeString(atom?.kind || '').toLowerCase() === expectedKind)
+    .filter((atom) => normalizePromotionTitle(atom?.title || '') === titleKey)
+    .sort((left, right) => Number(right?.qualityScore || 0) - Number(left?.qualityScore || 0))
+  if (!candidates.length) return null
+  if (!projectKey) return candidates[0]
+  const projectMatched = candidates.find((atom) =>
+    Array.isArray(atom?.topics)
+    && atom.topics.some((topic) => normalizeString(topic).toLowerCase() === projectKey))
+  return projectMatched || candidates[0]
+}
+
+function checkMvpAutoPromotionEligibility({ queueItem, atom, itemById, duplicateContext, minConfidence = 0.82 }) {
+  if (!queueItem) return { ok: false, reason: 'missing-queue-item' }
+  if (queueItem.kind !== 'issue-review' && queueItem.kind !== 'pattern-candidate') {
+    return { ok: false, reason: 'unsupported-kind' }
+  }
+  const confidence = Number(queueItem.confidence || 0)
+  if (!Number.isFinite(confidence) || confidence < minConfidence) {
+    return { ok: false, reason: 'low-confidence', confidence }
+  }
+  if (!atom) return { ok: false, reason: 'atom-not-found', confidence }
+  if (normalizeString(atom?.qualityTier || '').toLowerCase() !== 'clean') {
+    return { ok: false, reason: 'quality-not-clean', confidence }
+  }
+  if (!normalizeString(atom?.rawId) || !normalizeString(atom?.atomId) || !normalizeString(atom?.canonicalId) || !normalizeString(atom?.pageId)) {
+    return { ok: false, reason: 'lineage-incomplete', confidence }
+  }
+  if (!Array.isArray(atom?.sourceRefs) || !atom.sourceRefs.length) {
+    return { ok: false, reason: 'missing-source-refs', confidence }
+  }
+  const sourceItem = itemById.get(normalizeString(atom.rawId))
+  const hash = normalizeString(sourceItem?.meta?.contentHash || '')
+  const duplicateHashSet = duplicateContext?.duplicateHashSet instanceof Set ? duplicateContext.duplicateHashSet : new Set()
+  const primaryRawIdByHash = duplicateContext?.primaryRawIdByHash instanceof Map ? duplicateContext.primaryRawIdByHash : new Map()
+  if (hash && duplicateHashSet.has(hash)) {
+    const primaryRawId = normalizeString(primaryRawIdByHash.get(hash) || '')
+    const atomRawId = normalizeString(atom?.rawId || '')
+    if (primaryRawId && atomRawId !== primaryRawId) {
+      return { ok: false, reason: 'duplicate-content-hash-non-primary', confidence }
+    }
+  }
+  return { ok: true, reason: 'eligible', confidence }
+}
+
+async function runMvpAutoPromotion({
+  dryRun = true,
+  maxItems = 30,
+  minConfidence = 0.82,
+  writeReport = true,
+} = {}) {
+  const normalizedMaxItems = Math.max(1, Math.min(500, Number(maxItems || 30)))
+  const normalizedMinConfidence = Math.max(0, Math.min(1, Number(minConfidence || 0.82)))
+  const queue = await buildPromotionQueue({ writeReport: Boolean(writeReport) })
+  const [atoms, knowledge] = await Promise.all([
+    listKnowledgeAtomsInDb({
+      limit: 5000,
+      status: 'visible',
+      kind: 'all',
+      qualityTier: 'all',
+    }),
+    listKnowledgeItemsInDb({
+      limit: 5000,
+      status: 'all',
+      sourceType: 'all',
+    }),
+  ])
+  const knowledgeItems = Array.isArray(knowledge?.items) ? knowledge.items : []
+  const itemById = new Map(knowledgeItems.map((item) => [String(item?.id || ''), item]))
+  const duplicateContext = buildDuplicateContentHashContext(knowledgeItems, { includeArchived: false })
+
+  const pending = [
+    ...(Array.isArray(queue?.issueReviews) ? queue.issueReviews : []),
+    ...(Array.isArray(queue?.patternCandidates) ? queue.patternCandidates : []),
+  ].slice(0, normalizedMaxItems * 3)
+
+  const reasons = {}
+  const decisions = []
+  let approved = 0
+  let failed = 0
+  let scanned = 0
+  let thresholdPassed = 0
+  let thresholdBlocked = 0
+
+  for (const candidate of pending) {
+    if (approved >= normalizedMaxItems) break
+    scanned += 1
+    const matchedAtom = pickCandidateAtomForPromotion(candidate, atoms)
+    const eligibility = checkMvpAutoPromotionEligibility({
+      queueItem: candidate,
+      atom: matchedAtom,
+      itemById,
+      duplicateContext,
+      minConfidence: normalizedMinConfidence,
+    })
+    if (!eligibility.ok) {
+      const confidence = Number(eligibility.confidence || candidate?.confidence || 0)
+      const passedThreshold = Number.isFinite(confidence) && confidence >= normalizedMinConfidence
+      if (passedThreshold) thresholdPassed += 1
+      else thresholdBlocked += 1
+      reasons[eligibility.reason] = Number(reasons[eligibility.reason] || 0) + 1
+      decisions.push({
+        kind: String(candidate?.kind || ''),
+        title: String(candidate?.title || ''),
+        decision: 'approve',
+        ok: false,
+        reason: eligibility.reason,
+        confidence,
+        minConfidence: normalizedMinConfidence,
+        passedThreshold,
+      })
+      continue
+    }
+
+    thresholdPassed += 1
+    if (dryRun) {
+      approved += 1
+      decisions.push({
+        kind: String(candidate?.kind || ''),
+        title: String(candidate?.title || ''),
+        decision: 'approve',
+        ok: true,
+        reason: 'dry-run-eligible',
+        confidence: Number(eligibility.confidence || candidate?.confidence || 0),
+        minConfidence: normalizedMinConfidence,
+        passedThreshold: true,
+      })
+      continue
+    }
+
+    try {
+      const result = await decidePromotionCandidate({
+        ...candidate,
+        decision: 'approve',
+      })
+      approved += 1
+      decisions.push({
+        kind: String(candidate?.kind || ''),
+        title: String(candidate?.title || ''),
+        decision: 'approve',
+        ok: true,
+        relativePath: String(result?.relativePath || ''),
+        confidence: Number(eligibility.confidence || candidate?.confidence || 0),
+        minConfidence: normalizedMinConfidence,
+        passedThreshold: true,
+      })
+    } catch (error) {
+      failed += 1
+      reasons.decision_failed = Number(reasons.decision_failed || 0) + 1
+      decisions.push({
+        kind: String(candidate?.kind || ''),
+        title: String(candidate?.title || ''),
+        decision: 'approve',
+        ok: false,
+        reason: String(error?.message || error || 'decision-failed'),
+        confidence: Number(eligibility.confidence || candidate?.confidence || 0),
+        minConfidence: normalizedMinConfidence,
+        passedThreshold: true,
+      })
+    }
+  }
+
+  return {
+    ok: true,
+    dryRun: Boolean(dryRun),
+    maxItems: normalizedMaxItems,
+    minConfidence: normalizedMinConfidence,
+    generatedAt: new Date().toISOString(),
+    queueSummary: queue?.summary || {
+      totalItems: 0,
+      issueReviewCount: 0,
+      patternCandidateCount: 0,
+      synthesisCandidateCount: 0,
+    },
+    autoSummary: {
+      scanned,
+      approved,
+      skipped: Math.max(0, scanned - approved - failed),
+      failed,
+      threshold: {
+        value: normalizedMinConfidence,
+        passed: thresholdPassed,
+        blocked: thresholdBlocked,
+      },
+      reasons,
+    },
+    decisions,
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   if (!req.url) return send(res, 400, { error: 'Bad request' })
   if (req.method === 'OPTIONS') return send(res, 200, { ok: true })
@@ -3744,6 +4356,17 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/wiki-vault/promotion-decision') {
       const payload = await readBody(req).catch(() => ({}))
       const result = await decidePromotionCandidate(payload)
+      return send(res, 200, result)
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/wiki-vault/promotion-auto-mvp') {
+      const payload = await readBody(req).catch(() => ({}))
+      const result = await runMvpAutoPromotion({
+        dryRun: payload?.dryRun === undefined ? true : Boolean(payload.dryRun),
+        maxItems: Number(payload?.maxItems || 30),
+        minConfidence: Number(payload?.minConfidence || 0.82),
+        writeReport: payload?.writeReport === undefined ? true : Boolean(payload.writeReport),
+      })
       return send(res, 200, result)
     }
 
@@ -4215,6 +4838,115 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, result)
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/gbrain-v2/atoms') {
+      const limit = Math.min(5000, Math.max(1, Number(url.searchParams.get('limit') || 200)))
+      const kind = normalizeString(url.searchParams.get('kind') || 'all') || 'all'
+      const qualityTier = normalizeString(url.searchParams.get('qualityTier') || 'all') || 'all'
+      const status = normalizeString(url.searchParams.get('status') || 'visible') || 'visible'
+      const q = String(url.searchParams.get('q') || '').trim()
+      const includeStats = String(url.searchParams.get('includeStats') || '1') !== '0'
+
+      const items = await listKnowledgeAtomsInDb({
+        limit,
+        kind,
+        qualityTier,
+        status,
+        q,
+      })
+      const stats = includeStats ? await getKnowledgeAtomStatsInDb() : null
+      return send(res, 200, {
+        items,
+        stats,
+        filters: { limit, kind, qualityTier, status, q },
+      })
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/gbrain-v2/lineage') {
+      const limit = Math.min(5000, Math.max(1, Number(url.searchParams.get('limit') || 200)))
+      const rawId = normalizeString(url.searchParams.get('rawId') || '')
+      const atomId = normalizeString(url.searchParams.get('atomId') || '')
+      const canonicalId = normalizeString(url.searchParams.get('canonicalId') || '')
+      const pageId = normalizeString(url.searchParams.get('pageId') || '')
+      if (!rawId && !atomId && !canonicalId && !pageId) {
+        return send(res, 400, { error: 'rawId / atomId / canonicalId / pageId 至少提供一个' })
+      }
+      const includeStats = String(url.searchParams.get('includeStats') || '0') === '1'
+      const items = await listKnowledgeLineageInDb({
+        rawId,
+        atomId,
+        canonicalId,
+        pageId,
+        limit,
+      })
+      const stats = includeStats ? await getKnowledgeLineageStatsInDb() : null
+      return send(res, 200, {
+        items,
+        stats,
+        filters: { rawId, atomId, canonicalId, pageId, limit },
+      })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/gbrain-v2/retrieve') {
+      const payload = await readBody(req)
+      const query = normalizeSearchQuery(payload?.query || payload?.q || '')
+      if (!query) return send(res, 400, { error: 'query 必填' })
+      const settings = await loadGbrainV2SettingsInDb()
+      const result = await runGbrainV2AtomRetrieve({
+        query,
+        topK: Number(payload?.topK || payload?.top_k || DEFAULT_RETRIEVE_TOP_K),
+        limit: Number(payload?.limit || 300),
+        kind: payload?.kind || 'all',
+        qualityTier: payload?.qualityTier || 'all',
+        status: payload?.status || 'visible',
+        mode: settings.readMode,
+      })
+      return send(res, 200, result)
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/gbrain-v2/feed-status') {
+      const [feed, atomStats, lineageStats, settings] = await Promise.all([
+        loadGbrainV2FeedStatus(),
+        getKnowledgeAtomStatsInDb(),
+        getKnowledgeLineageStatsInDb(),
+        loadGbrainV2SettingsInDb(),
+      ])
+      return send(res, 200, {
+        feed,
+        settings,
+        atoms: atomStats,
+        lineage: lineageStats,
+      })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/gbrain-v2/feed-refresh') {
+      const payload = await readBody(req)
+      const settings = await loadGbrainV2SettingsInDb()
+      const limit = Math.max(1, Math.min(5000, Number(payload?.limit || 5000)))
+      const includeRaw = payload?.includeRaw === undefined
+        ? Boolean(settings.includeRawFallback)
+        : Boolean(payload.includeRaw)
+      const feedMode = String(payload?.feedMode || settings.feedMode || 'atom-reader-first')
+      const clean = payload?.clean === undefined ? true : Boolean(payload.clean)
+      const refreshed = await exportGbrainV2Feed({
+        limit,
+        includeRaw,
+        feedMode,
+        clean,
+      })
+      return send(res, 200, {
+        ok: true,
+        refreshedAt: new Date().toISOString(),
+        feed: {
+          outDir: refreshed.outDir,
+          recordsPath: refreshed.recordsPath,
+          manifestPath: refreshed.manifestPath,
+          feedMode: refreshed.feedMode,
+          stats: refreshed.stats,
+          manifest: refreshed.manifest,
+        },
+      })
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/openclaw-knowledge/preview') {
       const payload = await readBody(req)
       try {
@@ -4344,7 +5076,7 @@ const server = http.createServer(async (req, res) => {
       const scanned = await scanSources(sources, { persist: false })
       const index = {
         updatedAt: new Date().toISOString(),
-        sessions: mergeSyncedSessions(current.sessions || [], scanned.sessions || []),
+        sessions: mergeSyncedSessions(current.sessions || [], scanned.sessions || [], { pruneMissing: true }),
         issues: Array.isArray(scanned.issues) ? scanned.issues : [],
       }
       await mergeIndex(index)
@@ -4957,13 +5689,16 @@ const server = http.createServer(async (req, res) => {
         MAX_RETRIEVE_TOP_K,
         Math.max(1, Number(payload.topK || DEFAULT_RETRIEVE_TOP_K)),
       )
-      const candidateLimit = Math.max(topK * 8, 80)
       const includeMessages = Boolean(payload.includeMessages)
       const timeRange = payload.timeRange && typeof payload.timeRange === 'object' ? payload.timeRange : null
       const autoEmbed = payload.autoEmbed !== false
       const rewriteQuery = payload.rewriteQuery === true
       const generateAnswer = payload.generateAnswer === true
       const modelSettings = await loadModelSettingsInDb()
+      const gbrainV2Settings = await loadGbrainV2SettingsInDb()
+      const gbrainV2Mode = 'v2'
+      const hybridTopK = Math.min(MAX_RETRIEVE_TOP_K, Math.max(topK * 3, topK + 6))
+      const candidateLimit = Math.max(hybridTopK * 8, 80)
 
       let queryRewrite = {
         enabled: rewriteQuery,
@@ -5004,14 +5739,14 @@ const server = http.createServer(async (req, res) => {
       const rankedResult = await rankSessionsWithHybrid({
         query: retrievalQuery,
         provider,
-        topK,
+        topK: hybridTopK,
         candidateLimit,
         timeRange,
         autoEmbed,
         embeddingConfig: modelSettings.embedding,
       })
 
-      const ranked = rankedResult.hybridRanked.map((session) => {
+      const rankedV1 = rankedResult.hybridRanked.map((session) => {
         const messages = Array.isArray(session.messages) ? session.messages : []
         const lastMessage = messages[messages.length - 1] || null
         const matchedChunks = Array.isArray(session.matchedChunks) ? session.matchedChunks : []
@@ -5064,6 +5799,62 @@ const server = http.createServer(async (req, res) => {
             : undefined,
         }
       })
+
+      let gbrainV2 = null
+      let retrieveMode = 'v1'
+      let ranked = rankedV1.slice(0, topK)
+      let gbrainSessionBridge = null
+      if (query) {
+        try {
+          const retrieveResult = await runGbrainV2AtomRetrieve({
+            query: retrievalQuery || query,
+            topK,
+            limit: Math.max(topK * 30, 300),
+            kind: 'all',
+            qualityTier: 'all',
+            status: 'visible',
+            mode: gbrainV2Mode,
+          })
+
+          const bridge = rerankRetrieveResultsByAtomSignals({
+            results: rankedV1,
+            atomRetrieve: retrieveResult,
+            topK,
+            mode: gbrainV2Mode,
+            includeRawFallback: Boolean(gbrainV2Settings.includeRawFallback),
+          })
+          ranked = bridge.results
+          gbrainSessionBridge = {
+            applied: bridge.applied,
+            reason: bridge.reason,
+            tokenCount: bridge.tokenCount,
+            matchedCount: bridge.matchedCount,
+            includeRawFallback: Boolean(gbrainV2Settings.includeRawFallback),
+          }
+          retrieveMode = bridge.applied ? 'v2-session-bridge' : 'v2-fallback-v1'
+
+          gbrainV2 = {
+            settings: gbrainV2Settings,
+            retrieve: retrieveResult,
+            sessionBridge: gbrainSessionBridge,
+          }
+        } catch (error) {
+          retrieveMode = 'v2-fallback-v1'
+          ranked = rankedV1.slice(0, topK)
+          gbrainV2 = {
+            settings: gbrainV2Settings,
+            retrieve: null,
+            error: String(error),
+            sessionBridge: {
+              applied: false,
+              reason: 'v2-retrieve-error',
+              tokenCount: 0,
+              matchedCount: 0,
+              includeRawFallback: Boolean(gbrainV2Settings.includeRawFallback),
+            },
+          }
+        }
+      }
 
       const context_block =
         '以下是来自本地历史对话的相关记忆：\n\n' +
@@ -5126,6 +5917,8 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, {
         query,
         retrievalQuery,
+        retrieveMode,
+        gbrainV2Mode,
         topK,
         totalCandidates: rankedResult.totalCandidates,
         totalChunkCandidates: rankedResult.totalChunkCandidates,
@@ -5135,6 +5928,7 @@ const server = http.createServer(async (req, res) => {
         embedding: rankedResult.embedding,
         queryRewrite,
         answer,
+        gbrainV2,
         results: ranked,
       })
     }

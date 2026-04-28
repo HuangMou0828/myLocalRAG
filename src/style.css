@@ -1,8 +1,9 @@
 @import './styles/00-tailwind.css';
 @import './styles/10-theme-base.css';
 @import './styles/20-layout-shell.css';
+@import './styles/21-shared-components.css';
+@import './styles/22-session-workspace.css';
 @import './styles/30-feature-bug-trace.css';
-@import './styles/31-feature-component-library.css';
 @import './styles/32-feature-bug-inbox-feishu.css';
 @import './styles/33-feature-model-settings.css';
 @import './styles/34-feature-knowledge-sources.css';

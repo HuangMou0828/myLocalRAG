@@ -513,6 +513,91 @@ function inferCodexTitle(messages, filePath) {
   return sanitizeScannedTitle(firstUser.content, filename, 48)
 }
 
+function normalizeCodexRuntimeProvider(value) {
+  const lower = String(value || '').trim().toLowerCase()
+  if (!lower) return ''
+
+  if (lower === 'codex' || lower === 'openai') return 'codex'
+  if (lower === 'chatgpt') return 'chatgpt'
+  if (lower === 'claude-code' || lower === 'claude_code' || lower === 'claudecode' || lower === 'claude code') {
+    return 'claude-code'
+  }
+  if (lower === 'claude') return 'claude'
+  if (lower === 'cursor') return 'cursor'
+  if (lower === 'doubao') return 'doubao'
+  if (lower === 'gemini') return 'gemini'
+  if (lower === 'other') return 'other'
+
+  if (lower.includes('chatgpt')) return 'chatgpt'
+  if (lower.includes('codex')) return 'codex'
+  if (lower.includes('claude')) return 'claude'
+  if (lower.includes('cursor')) return 'cursor'
+  if (lower.includes('doubao')) return 'doubao'
+  if (lower.includes('gemini')) return 'gemini'
+  if (lower.startsWith('gpt-') || lower === 'gpt4' || lower === 'gpt4o' || lower === 'gpt4.1') return 'codex'
+  if (lower.startsWith('o1') || lower.startsWith('o3') || lower.startsWith('o4')) return 'codex'
+
+  if (
+    lower.startsWith('cherry-') ||
+    lower.includes('minimax') ||
+    lower.includes('mininmax') ||
+    lower === 'openclaw' ||
+    lower === 'webchat'
+  ) {
+    return 'other'
+  }
+
+  return ''
+}
+
+function inferCodexJsonlProvider(lines, source, sessionMeta, filePath) {
+  const sourceProvider = String(source?.provider || '').trim().toLowerCase()
+  const sourcePath = String(source?.path || '').trim().toLowerCase()
+  const transcriptPath = String(filePath || '').trim().toLowerCase()
+
+  // Native Codex transcripts always include session_meta/response_item/event_msg.
+  const looksLikeNativeCodex = lines.some((item) => {
+    const type = String(item?.type || '').toLowerCase()
+    return type === 'session_meta' || type === 'response_item' || type === 'event_msg'
+  })
+  if (looksLikeNativeCodex) return 'codex'
+
+  const hints = []
+  hints.push(sessionMeta?.payload?.model_provider)
+  hints.push(sessionMeta?.payload?.model)
+  hints.push(sessionMeta?.payload?.originator)
+
+  for (const line of lines) {
+    const type = String(line?.type || '').toLowerCase()
+    if (type === 'model_change') {
+      hints.push(line?.provider)
+      hints.push(line?.modelId)
+      continue
+    }
+    if (type === 'custom' && String(line?.customType || '').toLowerCase() === 'model-snapshot') {
+      hints.push(line?.data?.provider)
+      hints.push(line?.data?.modelId)
+      continue
+    }
+    if (type === 'message') {
+      hints.push(line?.message?.provider)
+      hints.push(line?.message?.model)
+      continue
+    }
+  }
+
+  for (const hint of hints) {
+    const normalized = normalizeCodexRuntimeProvider(hint)
+    if (normalized) return normalized
+  }
+
+  if (sourcePath.includes('/.codex/sessions/') || transcriptPath.includes('/.codex/sessions/')) return 'codex'
+  if (sourceProvider && sourceProvider !== 'codex') return sourceProvider
+
+  // For codex-labeled mixed sources (for example OpenClaw), avoid forcing unknown sessions into codex.
+  return 'other'
+}
+
 function parseCodexJsonl(rawText, source, filePath, fileInfo) {
   const lines = parseJsonlLines(rawText)
   const sessionMeta = lines.find((item) => {
@@ -520,6 +605,7 @@ function parseCodexJsonl(rawText, source, filePath, fileInfo) {
     return type === 'session_meta' || type === 'session'
   })
   const messages = lines.map((line, index) => normalizeCodexJsonlMessage(line, index)).filter(Boolean)
+  const resolvedProvider = inferCodexJsonlProvider(lines, source, sessionMeta, filePath)
 
   if (messages.length < 2) return []
   if (!messages.some((m) => m.role === 'user')) return []
@@ -536,14 +622,15 @@ function parseCodexJsonl(rawText, source, filePath, fileInfo) {
     {
       id: `${source.id}:${path.basename(filePath)}`,
       sourceId: source.id,
-      provider: source.provider,
+      provider: resolvedProvider,
       title: inferCodexTitle(messages, filePath),
       updatedAt,
-      tags: [source.provider, 'jsonl', 'event_stream'],
+      tags: Array.from(new Set([resolvedProvider, source.provider, 'jsonl', 'event_stream'].filter(Boolean))),
       meta: {
         codexSessionId,
         codexTranscriptPath: filePath,
         codexCwd: String(sessionMeta?.payload?.cwd || sessionMeta?.cwd || '').trim() || undefined,
+        codexSourceProvider: String(source?.provider || '').trim() || undefined,
       },
       messages,
     },

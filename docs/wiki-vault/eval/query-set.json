@@ -1,0 +1,863 @@
+{
+  "version": "v1",
+  "generatedAt": "2026-04-25T11:49:03.479Z",
+  "notes": "由 seed-query-set 自动生成，目标 50 条。",
+  "source": {
+    "atoms": 66,
+    "limit": 5000
+  },
+  "queries": [
+    {
+      "id": "issue-001",
+      "intent": "issue",
+      "query": "关于 \"mDNS watchdog 是 SIGTERM 根因\" 的假设评估 如何定位根因并给出修复路径",
+      "expectedSignals": [
+        "symptom",
+        "rootCause",
+        "fixPattern",
+        "validation"
+      ],
+      "seed": {
+        "atomId": "atom_fab7e4fabfff9712c7da881e",
+        "kind": "issue",
+        "title": "关于 \"mDNS watchdog 是 SIGTERM 根因\" 的假设评估",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "issue-002",
+      "intent": "issue",
+      "query": "如何避免清理配置文件夹时未先记录原有内容？ 如何定位根因并给出修复路径",
+      "expectedSignals": [
+        "symptom",
+        "rootCause",
+        "fixPattern",
+        "validation"
+      ],
+      "seed": {
+        "atomId": "atom_a413eaf94017fa64d6946810",
+        "kind": "issue",
+        "title": "如何避免清理配置文件夹时未先记录原有内容？",
+        "qualityTier": "clean",
+        "qualityScore": 88
+      }
+    },
+    {
+      "id": "pattern-003",
+      "intent": "pattern",
+      "query": "批量清理前先查memory记录 的最佳实践、边界和取舍是什么",
+      "expectedSignals": [
+        "recommendedShape",
+        "tradeoffs",
+        "evidenceRefs"
+      ],
+      "seed": {
+        "atomId": "atom_160490c9acf51a9266b24b7a",
+        "kind": "pattern",
+        "title": "批量清理前先查memory记录",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "pattern-004",
+      "intent": "pattern",
+      "query": "Gateway SIGTERM 根因分析与解决方案 的最佳实践、边界和取舍是什么",
+      "expectedSignals": [
+        "recommendedShape",
+        "tradeoffs",
+        "evidenceRefs"
+      ],
+      "seed": {
+        "atomId": "atom_cf79927d22a46ab075623e46",
+        "kind": "pattern",
+        "title": "Gateway SIGTERM 根因分析与解决方案",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "pattern-005",
+      "intent": "pattern",
+      "query": "OpenClaw 多副本路径分析与清理方案 的最佳实践、边界和取舍是什么",
+      "expectedSignals": [
+        "recommendedShape",
+        "tradeoffs",
+        "evidenceRefs"
+      ],
+      "seed": {
+        "atomId": "atom_e8853959cbb5daa35cc3a5ae",
+        "kind": "pattern",
+        "title": "OpenClaw 多副本路径分析与清理方案",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "pattern-006",
+      "intent": "pattern",
+      "query": "批量清理前应该如何避免误删关键记忆？ 的最佳实践、边界和取舍是什么",
+      "expectedSignals": [
+        "recommendedShape",
+        "tradeoffs",
+        "evidenceRefs"
+      ],
+      "seed": {
+        "atomId": "atom_538627514ef61a9b940b98cd",
+        "kind": "pattern",
+        "title": "批量清理前应该如何避免误删关键记忆？",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-007",
+      "intent": "synthesis",
+      "query": "2026-04-24 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_f78c5630f7f894c61f68f9de",
+        "kind": "context",
+        "title": "2026-04-24",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-008",
+      "intent": "synthesis",
+      "query": "五层记忆体系 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_8bd2f211373f6107d271fdb0",
+        "kind": "context",
+        "title": "五层记忆体系",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-009",
+      "intent": "synthesis",
+      "query": "2026-04-23 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_99fe50e212b2fb7552107567",
+        "kind": "context",
+        "title": "2026-04-23",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-010",
+      "intent": "synthesis",
+      "query": "--- 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_c03694deed8c5eb8a5c62aba",
+        "kind": "decision",
+        "title": "---",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-011",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-21 11:06:33 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_5a1f2b5e533a83433de163af",
+        "kind": "context",
+        "title": "Session: 2026-04-21 11:06:33 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-012",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-21 03:22:10 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_78333775efa03ee4e820a9ae",
+        "kind": "context",
+        "title": "Session: 2026-04-21 03:22:10 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-013",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-21 08:54:44 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_18b85c9a394c8f3355e57a4f",
+        "kind": "context",
+        "title": "Session: 2026-04-21 08:54:44 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-014",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-21 04:56:57 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_b4088569c81b9601d8555f4b",
+        "kind": "context",
+        "title": "Session: 2026-04-21 04:56:57 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-015",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-21 11:32:13 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_733a7654d53f8d512aa61df3",
+        "kind": "context",
+        "title": "Session: 2026-04-21 11:32:13 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-016",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-21 08:49:06 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_fcc09c14749597bb1126d9e8",
+        "kind": "context",
+        "title": "Session: 2026-04-21 08:49:06 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-017",
+      "intent": "synthesis",
+      "query": "Gateway SIGTERM 问题诊断报告 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_334f07e113795608f76b2e68",
+        "kind": "context",
+        "title": "Gateway SIGTERM 问题诊断报告",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-018",
+      "intent": "synthesis",
+      "query": "OpenClaw 多包管理器路径问题诊断报告 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_fe5935503a81996266d4b16a",
+        "kind": "context",
+        "title": "OpenClaw 多包管理器路径问题诊断报告",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-019",
+      "intent": "synthesis",
+      "query": "Light Sleep 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_7ddd05bb8dc0da8b370c8fe9",
+        "kind": "context",
+        "title": "Light Sleep",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-020",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-19 03:29:25 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_8190883ad0cce7d0876da3bf",
+        "kind": "context",
+        "title": "Session: 2026-04-19 03:29:25 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-021",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-19 03:26:29 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_5976c90ba9b9b3dac8870beb",
+        "kind": "context",
+        "title": "Session: 2026-04-19 03:26:29 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-022",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-20 04:46:23 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_fd8fd8d563a46939ee66bdf9",
+        "kind": "context",
+        "title": "Session: 2026-04-20 04:46:23 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-023",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-20 01:17:53 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_5f624bed1aebb13ee4be4d8f",
+        "kind": "context",
+        "title": "Session: 2026-04-20 01:17:53 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-024",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-20 08:21:43 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_8b76e9e0dabb9a1675034b9c",
+        "kind": "context",
+        "title": "Session: 2026-04-20 08:21:43 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-025",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-20 01:34:50 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_c81d479f27c4d89405ae35f1",
+        "kind": "context",
+        "title": "Session: 2026-04-20 01:34:50 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-026",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-20 08:52:23 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_bd0acd9d1f16d6d609a5c3c9",
+        "kind": "context",
+        "title": "Session: 2026-04-20 08:52:23 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-027",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-20 12:33:30 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_ec1e8b72a11e873dc4e7e946",
+        "kind": "context",
+        "title": "Session: 2026-04-20 12:33:30 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-028",
+      "intent": "synthesis",
+      "query": "2026-04-20 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_756169372131afdba93be124",
+        "kind": "context",
+        "title": "2026-04-20",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-029",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-21 01:06:11 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_4f3a749ea4ae320d7dabeb06",
+        "kind": "context",
+        "title": "Session: 2026-04-21 01:06:11 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-030",
+      "intent": "synthesis",
+      "query": "2026-04-18 下午补充 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_125b79a772122ce2f2b25459",
+        "kind": "context",
+        "title": "2026-04-18 下午补充",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-031",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-18 05:01:02 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_d675c74eabb6338c9d5fbbdc",
+        "kind": "context",
+        "title": "Session: 2026-04-18 05:01:02 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-032",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-17 15:20:19 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_89ca9a5342ade2e50c7c3e82",
+        "kind": "context",
+        "title": "Session: 2026-04-17 15:20:19 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-033",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-17 13:23:53 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_70903215ebf49b021da59a8b",
+        "kind": "context",
+        "title": "Session: 2026-04-17 13:23:53 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-034",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-17 08:19:09 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_9ec61e6c5f6f99ddc49d3a7a",
+        "kind": "context",
+        "title": "Session: 2026-04-17 08:19:09 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-035",
+      "intent": "synthesis",
+      "query": "2026-04-17 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_8fc7f1cfd7887e3e256a71fb",
+        "kind": "context",
+        "title": "2026-04-17",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-036",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-15 06:51:37 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_00613cbd1d93c7ec3f641b36",
+        "kind": "context",
+        "title": "Session: 2026-04-15 06:51:37 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-037",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-15 06:29:14 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_dfc8218a7155c6b8b468a7e6",
+        "kind": "context",
+        "title": "Session: 2026-04-15 06:29:14 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-038",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-15 14:19:06 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_49c107753f4ba58e366ad9a8",
+        "kind": "context",
+        "title": "Session: 2026-04-15 14:19:06 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-039",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-15 03:41:06 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_010f9a983cef5531ad2e7ef0",
+        "kind": "context",
+        "title": "Session: 2026-04-15 03:41:06 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-040",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-15 05:56:19 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_17c0cbdea86c0a5fbf0e82af",
+        "kind": "context",
+        "title": "Session: 2026-04-15 05:56:19 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-041",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-15 06:29:30 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_cc380a75e43034727d4a151d",
+        "kind": "context",
+        "title": "Session: 2026-04-15 06:29:30 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-042",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-16 12:33:20 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_a15685f8d1ab1ca322ccf7d0",
+        "kind": "context",
+        "title": "Session: 2026-04-16 12:33:20 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-043",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-16 11:15:30 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_4b11e4b297cb3f47005fcb83",
+        "kind": "context",
+        "title": "Session: 2026-04-16 11:15:30 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-044",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-16 14:10:51 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_a9c4e795ad9f4d51df7ad59f",
+        "kind": "context",
+        "title": "Session: 2026-04-16 14:10:51 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-045",
+      "intent": "synthesis",
+      "query": "2026-04-16 Session Log 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_3a0438f3ca5909a8071fe289",
+        "kind": "context",
+        "title": "2026-04-16 Session Log",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-046",
+      "intent": "synthesis",
+      "query": "2026-04-13 日志 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_95e5942c4dc5f10d53c3e8ab",
+        "kind": "context",
+        "title": "2026-04-13 日志",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-047",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-13 14:40:27 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_798bffb281b41e4c8037f637",
+        "kind": "context",
+        "title": "Session: 2026-04-13 14:40:27 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-048",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-13 14:59:30 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_11babd1f7a7253b040d50c85",
+        "kind": "context",
+        "title": "Session: 2026-04-13 14:59:30 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-049",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-14 08:51:44 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_19fc94fd802d468074ea7476",
+        "kind": "context",
+        "title": "Session: 2026-04-14 08:51:44 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    },
+    {
+      "id": "synthesis-050",
+      "intent": "synthesis",
+      "query": "Session: 2026-04-14 09:55:15 UTC 的结论、建议和下一步动作",
+      "expectedSignals": [
+        "conclusion",
+        "comparison",
+        "nextAction"
+      ],
+      "seed": {
+        "atomId": "atom_83c74e13be2ce3c93f3f101b",
+        "kind": "context",
+        "title": "Session: 2026-04-14 09:55:15 UTC",
+        "qualityTier": "clean",
+        "qualityScore": 100
+      }
+    }
+  ]
+}

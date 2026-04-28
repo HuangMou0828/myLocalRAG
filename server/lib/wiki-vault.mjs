@@ -4,7 +4,7 @@ import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises'
 import { createTwoFilesPatch } from 'diff'
 import { ensureObsidianReady, isObsidianCliEnabled, runObsidianCli } from './obsidian-cli.mjs'
 import { askModel } from './ask-model.mjs'
-import { listKnowledgeItemsInDb, loadModelSettingsInDb, patchKnowledgeItemMetaInDb } from './db.mjs'
+import { listKnowledgeAtomsInDb, listKnowledgeItemsInDb, loadModelSettingsInDb, patchKnowledgeItemMetaInDb } from './db.mjs'
 import { loadIndex } from './scanner.mjs'
 
 function normalizeText(input) {
@@ -62,6 +62,60 @@ function toFileSlug(input, fallback = 'untitled') {
     .slice(0, 80)
 
   return normalized || fallback
+}
+
+function buildHumanReadableNoteSlug(input, fallback = 'untitled', maxLength = 64) {
+  const slug = toFileSlug(input, fallback)
+    .replace(/[,'"`，。！？!?:;；：()（）]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+  return slug.slice(0, Math.max(8, Number(maxLength || 64))) || fallback
+}
+
+function buildShortCollisionSuffix(input) {
+  return stableHash32(input || '').slice(0, 4)
+}
+
+function buildReadableFileName(baseSlug, collisionSeed = '', forceSuffix = false) {
+  const normalizedBase = buildHumanReadableNoteSlug(baseSlug, 'untitled')
+  if (!forceSuffix) return `${normalizedBase}.md`
+  return `${normalizedBase}--${buildShortCollisionSuffix(collisionSeed || normalizedBase)}.md`
+}
+
+function assignReadableFileNames(entries = [], options = {}) {
+  const list = Array.isArray(entries) ? entries : []
+  const getBaseSlug = typeof options.getBaseSlug === 'function'
+    ? options.getBaseSlug
+    : (entry) => entry?.title || 'untitled'
+  const getCollisionSeed = typeof options.getCollisionSeed === 'function'
+    ? options.getCollisionSeed
+    : (entry) => entry?.id || entry?.title || ''
+  const reservedNames = new Set(
+    (Array.isArray(options.reservedNames) ? options.reservedNames : [])
+      .map((item) => String(item || '').trim())
+      .filter(Boolean),
+  )
+  const counts = new Map()
+  const baseFileNames = []
+
+  for (const entry of list) {
+    const baseSlug = buildHumanReadableNoteSlug(getBaseSlug(entry), 'untitled')
+    const baseFileName = `${baseSlug}.md`
+    baseFileNames.push(baseFileName)
+    counts.set(baseFileName, (counts.get(baseFileName) || 0) + 1)
+  }
+
+  return list.map((entry, index) => {
+    const baseFileName = baseFileNames[index] || 'untitled.md'
+    const baseSlug = path.posix.basename(baseFileName, '.md')
+    const collisionSeed = String(getCollisionSeed(entry) || `${baseSlug}-${index}`)
+    let fileName = buildReadableFileName(baseSlug, collisionSeed, counts.get(baseFileName) > 1)
+    while (reservedNames.has(fileName)) {
+      fileName = buildReadableFileName(baseSlug, `${collisionSeed}-${fileName}`, true)
+    }
+    reservedNames.add(fileName)
+    return fileName
+  })
 }
 
 function escapeYamlString(input) {
@@ -195,6 +249,11 @@ function parseMarkdownFrontmatterMap(markdownText = '') {
     meta[key] = value
   }
   return meta
+}
+
+function isKnowledgeEvidenceMarkdown(markdownText = '') {
+  const meta = parseMarkdownFrontmatterMap(markdownText)
+  return meta.type === 'knowledge-evidence'
 }
 
 function stripFrontmatter(markdownText = '') {
@@ -446,18 +505,34 @@ function normalizePromotionRecordMap(records = {}, mapper = (value) => value) {
   for (const [key, value] of Object.entries(records || {})) {
     const recordKey = String(key || '').trim()
     if (!recordKey || !value || typeof value !== 'object') continue
-    normalized[recordKey] = mapper(value)
+    normalized[recordKey] = mapper(value, recordKey)
   }
+  return normalized
+}
+
+function normalizeIssueTargetPath(targetPath = '', issueSlug = '') {
+  const normalized = normalizeVaultRelativePath(targetPath)
+  if (normalized && normalized.startsWith('issues/') && normalized.endsWith('.md')) return normalized
+  if (issueSlug) return buildIssueRelativePath(issueSlug)
+  return normalized
+}
+
+function normalizePatternTargetPath(targetPath = '', patternSlug = '') {
+  const normalized = normalizeVaultRelativePath(targetPath)
+  if (normalized && normalized.startsWith('patterns/') && normalized.endsWith('.md')) return normalized
+  if (patternSlug) return buildPatternRelativePath(patternSlug)
   return normalized
 }
 
 function normalizePromotionState(state = {}) {
   const normalized = createEmptyPromotionState()
 
-  normalized.issues = normalizePromotionRecordMap(state?.issues, (value) => ({
-    slug: String(value?.slug || '').trim(),
+  normalized.issues = normalizePromotionRecordMap(state?.issues, (value, recordKey) => {
+    const slug = String(value?.slug || recordKey || '').trim()
+    return {
+      slug,
     title: String(value?.title || '').trim(),
-    currentPath: normalizeVaultRelativePath(value?.currentPath || ''),
+      currentPath: normalizeIssueTargetPath(value?.currentPath || '', slug),
     project: String(value?.project || '').trim(),
     summary: String(value?.summary || '').trim(),
     evidenceItems: dedupeList(Array.isArray(value?.evidenceItems) ? value.evidenceItems : [], 20)
@@ -467,12 +542,15 @@ function normalizePromotionState(state = {}) {
     sourceKind: String(value?.sourceKind || 'manual-review').trim() || 'manual-review',
     approvedAt: String(value?.approvedAt || '').trim(),
     updatedAt: String(value?.updatedAt || '').trim(),
-  }))
+    }
+  })
 
-  normalized.patterns = normalizePromotionRecordMap(state?.patterns, (value) => ({
-    slug: String(value?.slug || '').trim(),
+  normalized.patterns = normalizePromotionRecordMap(state?.patterns, (value, recordKey) => {
+    const slug = String(value?.slug || recordKey || '').trim()
+    return {
+      slug,
     title: String(value?.title || '').trim(),
-    targetPath: normalizeVaultRelativePath(value?.targetPath || ''),
+      targetPath: normalizePatternTargetPath(value?.targetPath || '', slug),
     project: String(value?.project || '').trim(),
     summary: String(value?.summary || '').trim(),
     evidenceItems: dedupeList(Array.isArray(value?.evidenceItems) ? value.evidenceItems : [], 20)
@@ -482,7 +560,8 @@ function normalizePromotionState(state = {}) {
     sourceKind: String(value?.sourceKind || 'manual-review').trim() || 'manual-review',
     approvedAt: String(value?.approvedAt || '').trim(),
     updatedAt: String(value?.updatedAt || '').trim(),
-  }))
+    }
+  })
 
   normalized.syntheses = normalizePromotionRecordMap(state?.syntheses, (value) => ({
     targetPath: normalizeVaultRelativePath(value?.targetPath || ''),
@@ -516,7 +595,12 @@ async function loadPromotionState() {
   if (!raw.trim()) return createEmptyPromotionState()
 
   try {
-    return normalizePromotionState(JSON.parse(raw))
+    const parsed = JSON.parse(raw)
+    const normalized = normalizePromotionState(parsed)
+    if (JSON.stringify(parsed) !== JSON.stringify(normalized)) {
+      await writeFile(paths.promotionState, `${JSON.stringify(normalized, null, 2)}\n`, 'utf-8')
+    }
+    return normalized
   } catch {
     return createEmptyPromotionState()
   }
@@ -1182,10 +1266,12 @@ export async function createVaultNoteFromTemplate({ path: relativePath = '', tem
 }
 
 function buildSessionFileName(session) {
-  const provider = toFileSlug(session?.provider || 'session', 'session')
-  const title = toFileSlug(session?.title || '', 'untitled')
-  const idPart = stableHash32(session?.id || `${provider}-${title}`)
-  return `${provider}__${title}__${idPart}.md`
+  const summary = buildSessionSummary(session)
+  return buildReadableFileName(
+    session?.title || summary.firstUser || 'session',
+    session?.id || summary.firstUser || session?.title || 'session',
+    false,
+  )
 }
 
 function buildSessionSummary(session) {
@@ -1215,6 +1301,97 @@ function toWikiLink(relativePath, label = '') {
   const target = toWikiPath(relativePath)
   const safeLabel = sanitizeWikiLinkLabel(label)
   return safeLabel ? `[[${target}|${safeLabel}]]` : `[[${target}]]`
+}
+
+function normalizeLinkRepairKey(value = '') {
+  const normalized = String(value || '')
+    .replace(/\\/g, '/')
+    .split('|')[0]
+    .split('#')[0]
+    .trim()
+  if (!normalized) return ''
+  const basename = path.posix.basename(normalized, '.md')
+  return buildHumanReadableNoteSlug(basename.replace(/[-_]+/g, ' '), '', 80)
+}
+
+async function collectMarkdownFilesRecursive(rootDir, baseDir = rootDir) {
+  const entries = await readdir(rootDir, { withFileTypes: true }).catch(() => [])
+  const files = []
+  for (const entry of entries) {
+    const absolutePath = path.join(rootDir, entry.name)
+    if (entry.isDirectory()) {
+      if (entry.name === '.obsidian' || entry.name === '.gbrain-v2-feed' || entry.name === '.stfolder') continue
+      files.push(...await collectMarkdownFilesRecursive(absolutePath, baseDir))
+      continue
+    }
+    if (!entry.isFile() || !entry.name.endsWith('.md')) continue
+    files.push({
+      absolutePath,
+      relativePath: normalizeVaultRelativePath(path.relative(baseDir, absolutePath)),
+    })
+  }
+  return files
+}
+
+async function buildVaultReadableLinkIndex() {
+  const paths = getVaultPaths()
+  const files = await collectMarkdownFilesRecursive(paths.root)
+  const existingTargets = new Set()
+  const keyToPath = new Map()
+
+  for (const file of files) {
+    existingTargets.add(toWikiPath(file.relativePath))
+    const markdown = await readFile(file.absolutePath, 'utf-8').catch(() => '')
+    const meta = parseMarkdownFrontmatterMap(markdown)
+    const title = parseSimpleFrontmatterValue(markdown, 'title')
+      || normalizeText(markdown.match(/^#\s+(.+)$/m)?.[1] || '')
+      || path.posix.basename(file.relativePath, '.md')
+    const keys = new Set([
+      normalizeLinkRepairKey(file.relativePath),
+      normalizeLinkRepairKey(path.posix.basename(file.relativePath, '.md')),
+      normalizeLinkRepairKey(title),
+      normalizeLinkRepairKey(meta.title || ''),
+    ].filter(Boolean))
+    for (const key of keys) {
+      if (!keyToPath.has(key)) keyToPath.set(key, file.relativePath)
+    }
+  }
+
+  return {
+    files,
+    existingTargets,
+    keyToPath,
+  }
+}
+
+function rewriteReadableWikiLinks(markdown = '', repairIndex = null) {
+  if (!repairIndex) return { markdown, replacements: 0 }
+  const existingTargets = repairIndex.existingTargets instanceof Set ? repairIndex.existingTargets : new Set()
+  const keyToPath = repairIndex.keyToPath instanceof Map ? repairIndex.keyToPath : new Map()
+  let replacements = 0
+  const rewritten = String(markdown || '').replace(/\[\[([^\]]+)\]\]/g, (full, inner) => {
+    const [targetAndAnchor, label = ''] = String(inner || '').split('|')
+    const [targetPart, anchorPart = ''] = String(targetAndAnchor || '').split('#')
+    const normalizedTarget = toWikiPath(targetPart)
+    if (!normalizedTarget || existingTargets.has(normalizedTarget)) return full
+    const repairedPath = keyToPath.get(normalizeLinkRepairKey(targetPart))
+    if (!repairedPath) return full
+    const repairedTarget = `${toWikiPath(repairedPath)}${anchorPart ? `#${anchorPart}` : ''}`
+    replacements += 1
+    return label ? `[[${repairedTarget}|${label}]]` : `[[${repairedTarget}]]`
+  })
+  return { markdown: rewritten, replacements }
+}
+
+function formatEvidenceReference(entry = '') {
+  const normalized = normalizeVaultRelativePath(entry)
+  if (normalized && /^(?:inbox|sources|issues|patterns|projects|syntheses|concepts|entities|providers)\//.test(normalized)) {
+    return toWikiLink(normalized)
+  }
+  const raw = String(entry || '').trim()
+  if (!raw) return ''
+  const label = path.posix.basename(raw.replace(/\\/g, '/'), '.md').replace(/[-_]+/g, ' ').trim() || raw
+  return `\`${escapeMarkdownText(label)}\``
 }
 
 const LINT_NOTE_SPACES = ['root', 'sources', 'providers', 'projects', 'patterns', 'issues', 'syntheses', 'concepts', 'entities']
@@ -2134,7 +2311,7 @@ function buildSessionPublishedEntry(session) {
     sessionId: String(session?.id || ''),
     tags: Array.isArray(session?.tags) ? session.tags : [],
     concepts: getPublishedConceptsForSession(session),
-    relativePath: `sources/${buildSessionFileName(session)}`,
+    relativePath: `sources/${String(session?.__fileName || buildSessionFileName(session)).trim()}`,
   }
 }
 
@@ -2463,6 +2640,20 @@ function buildPatternRelativePath(patternSlug = '') {
   return `patterns/${toFileSlug(patternSlug || '', 'pattern')}.md`
 }
 
+function buildSynthesisRelativePath(synthesisSlug = '') {
+  return `syntheses/${toFileSlug(synthesisSlug || '', 'synthesis')}.md`
+}
+
+function normalizeSynthesisTargetPath(value = '', fallbackTitle = 'synthesis') {
+  const normalized = normalizeVaultRelativePath(value || '')
+  if (!normalized) return buildSynthesisRelativePath(fallbackTitle)
+  if (!normalized.startsWith('syntheses/')) {
+    return buildSynthesisRelativePath(path.posix.basename(normalized, path.posix.extname(normalized)) || fallbackTitle)
+  }
+  if (normalized.endsWith('.md')) return normalized
+  return `${normalized}.md`
+}
+
 function normalizeRepoFileReference(filePath = '', projectKey = '') {
   const raw = String(filePath || '').replace(/\\/g, '/').replace(/`/g, '').trim()
   if (!raw || /^https?:\/\//i.test(raw)) return ''
@@ -2662,9 +2853,11 @@ function isKnowledgePromotionQueueCandidate(evidence = {}) {
 }
 
 function buildKnowledgeItemRelativePath(item = {}) {
-  const idPart = toFileSlug(String(item?.id || stableHash32(item?.title || item?.content || 'knowledge')).replace(/^knowledge[_-]?/u, ''), 'item')
-  const titlePart = toFileSlug(item?.title || 'knowledge', 'knowledge').slice(0, 48)
-  return `inbox/knowledge__${titlePart}__${idPart}.md`
+  return `inbox/${buildReadableFileName(
+    item?.title || item?.summary || item?.content || 'knowledge',
+    item?.id || item?.title || item?.content || 'knowledge',
+    false,
+  )}`
 }
 
 function inferKnowledgePromotionKind(evidence = {}) {
@@ -2726,7 +2919,7 @@ function buildKnowledgeItemEvidence(item = {}) {
     messageCount: 1,
     sessionId: String(item?.id || ''),
     segmentId: String(item?.id || ''),
-    relativePath: buildKnowledgeItemRelativePath(item),
+    relativePath: normalizeVaultRelativePath(item?.__relativePath || buildKnowledgeItemRelativePath(item)),
     firstUserIntent: keyQuestion || title,
     latestAssistantReply: summary || buildPromotionQueueExcerpt(content, ''),
     bestAssistantAnswer: content || summary,
@@ -2735,6 +2928,7 @@ function buildKnowledgeItemEvidence(item = {}) {
     concepts,
     project,
     knowledgeItemId: String(item?.id || ''),
+    canonicalId: `knowledge-item:${String(item?.id || stableHash32(title || content || 'knowledge')).trim()}`,
     knowledgeSourceType: String(item?.sourceType || ''),
     sourceUrl: String(item?.sourceUrl || ''),
     sourceFile,
@@ -2757,6 +2951,7 @@ function renderKnowledgeItemEvidenceMarkdown(evidence = {}) {
     ...buildMarkdownFrontmatter({
       title: evidence.title || 'Knowledge Item',
       type: 'knowledge-evidence',
+      canonicalId: evidence.canonicalId || '',
       provider: 'knowledge',
       source: 'knowledge-items',
       knowledgeItemId: evidence.knowledgeItemId || '',
@@ -2806,7 +3001,7 @@ async function writeKnowledgeItemEvidenceNotes(evidences = []) {
   const expected = new Set()
   for (const evidence of Array.isArray(evidences) ? evidences : []) {
     const relativePath = normalizeVaultRelativePath(evidence?.relativePath || '')
-    if (!relativePath || !relativePath.startsWith('inbox/knowledge__')) continue
+    if (!relativePath || !relativePath.startsWith('inbox/')) continue
     const fileName = path.basename(relativePath)
     expected.add(fileName)
     await writeFile(path.join(paths.inboxDir, fileName), renderKnowledgeItemEvidenceMarkdown(evidence), 'utf-8')
@@ -2814,17 +3009,29 @@ async function writeKnowledgeItemEvidenceNotes(evidences = []) {
 
   const existing = await readdir(paths.inboxDir, { withFileTypes: true }).catch(() => [])
   for (const item of existing) {
-    if (!item.isFile() || !item.name.startsWith('knowledge__') || !item.name.endsWith('.md')) continue
+    if (!item.isFile() || !item.name.endsWith('.md')) continue
     if (expected.has(item.name)) continue
+    const markdown = await readFile(path.join(paths.inboxDir, item.name), 'utf-8').catch(() => '')
+    if (!isKnowledgeEvidenceMarkdown(markdown)) continue
     await unlink(path.join(paths.inboxDir, item.name)).catch(() => {})
   }
 }
 
 async function loadKnowledgePromotionEvidences(options = {}) {
   const result = await listKnowledgeItemsInDb({ limit: 500, status: 'all' }).catch(() => ({ items: [] }))
-  const evidences = (Array.isArray(result?.items) ? result.items : [])
+  const items = (Array.isArray(result?.items) ? result.items : [])
     .filter((item) => isKnowledgeItemPromotionCandidate(item))
-    .map((item) => buildKnowledgeItemEvidence(item))
+  const paths = getVaultPaths()
+  const reservedNames = ['README.md', path.basename(paths.promotionQueue), path.basename(paths.lintReport)]
+  const fileNames = assignReadableFileNames(items, {
+    getBaseSlug: (item) => item?.title || item?.summary || item?.content || 'knowledge',
+    getCollisionSeed: (item) => item?.id || item?.title || item?.content || 'knowledge',
+    reservedNames,
+  })
+  const evidences = items.map((item, index) => buildKnowledgeItemEvidence({
+    ...item,
+    __relativePath: `inbox/${fileNames[index] || buildReadableFileName(item?.title || 'knowledge', item?.id || '', false)}`,
+  }))
   if (options.writeEvidence !== false) {
     await writeKnowledgeItemEvidenceNotes(evidences)
   }
@@ -2844,6 +3051,12 @@ async function loadPromotionQueueEvidences(options = {}) {
 function filterApprovedKnowledgeEvidences(knowledgeEvidences = [], promotionState = createEmptyPromotionState()) {
   const approvedEvidencePaths = collectApprovedPromotionEvidencePaths(promotionState)
   return (Array.isArray(knowledgeEvidences) ? knowledgeEvidences : [])
+    .filter((item) => approvedEvidencePaths.has(normalizeVaultRelativePath(item?.relativePath || '')))
+}
+
+function filterApprovedPromotionEvidences(evidences = [], promotionState = createEmptyPromotionState()) {
+  const approvedEvidencePaths = collectApprovedPromotionEvidencePaths(promotionState)
+  return (Array.isArray(evidences) ? evidences : [])
     .filter((item) => approvedEvidencePaths.has(normalizeVaultRelativePath(item?.relativePath || '')))
 }
 
@@ -3305,7 +3518,6 @@ function collectIssueArtifacts(sourceEvidences = [], options = {}) {
 
 function renderIssueMarkdown(issue, existingMarkdown = '', promotionRecord = null) {
   const manualNotes = extractManualNotes(existingMarkdown)
-  const issueStatus = issue.evidenceCount <= 1 && !promotionRecord ? 'draft' : 'active'
   const issueSummary = buildIssueReaderSummary(issue)
   const lines = [
     ...buildMarkdownFrontmatter({
@@ -3313,12 +3525,12 @@ function renderIssueMarkdown(issue, existingMarkdown = '', promotionRecord = nul
       type: 'issue-note',
       schemaVersion: READER_PAGE_SCHEMA_VERSION,
       issue: issue.slug,
-      status: issueStatus,
+      status: 'active',
       project: issue.project || '',
       evidenceCount: issue.evidenceCount,
       updatedAt: issue.updatedAt || '',
-      promotionState: promotionRecord ? 'approved' : 'auto',
-      approvedAt: promotionRecord?.approvedAt || '',
+      promotionState: 'approved',
+      approvedAt: promotionRecord?.approvedAt || issue.updatedAt || new Date().toISOString(),
     }),
     `# ${escapeMarkdownText(issue.title)}`,
     '',
@@ -3410,8 +3622,8 @@ function renderPatternMarkdown(pattern, existingMarkdown = '', promotionRecord =
       evidenceCount: pattern.evidenceCount,
       updatedAt: pattern.updatedAt || '',
       status: 'active',
-      promotionState: promotionRecord ? 'approved' : 'auto',
-      approvedAt: promotionRecord?.approvedAt || '',
+      promotionState: 'approved',
+      approvedAt: promotionRecord?.approvedAt || pattern.updatedAt || new Date().toISOString(),
     }),
     `# ${escapeMarkdownText(pattern.title)}`,
     '',
@@ -3694,8 +3906,7 @@ export async function buildPromotionCandidatePreview(payload = {}) {
     }
   }
 
-  const targetPath = normalizeVaultRelativePath(payload?.targetPath || '')
-    || `syntheses/${toFileSlug(title || 'synthesis', 'synthesis')}.md`
+  const targetPath = normalizeSynthesisTargetPath(payload?.targetPath || '', title || 'synthesis')
   relativePath = targetPath
   previewState.syntheses[targetPath] = {
     targetPath,
@@ -3938,6 +4149,7 @@ function renderSessionMarkdown(session, manualNotes = '-', maxMessages = 40, con
     `aliases: ["${escapeYamlString(session?.title || 'Untitled Session')}"]`,
     'type: "source-session"',
     `sessionId: "${escapeYamlString(session?.id || '')}"`,
+    `sourceSessionId: "${escapeYamlString(session?.id || '')}"`,
     `provider: "${escapeYamlString(provider)}"`,
     `sourceId: "${escapeYamlString(session?.sourceId || '')}"`,
     `updatedAt: "${escapeYamlString(session?.updatedAt || '')}"`,
@@ -4011,17 +4223,30 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
   const sourceFiles = await readdir(paths.sourcesDir, { withFileTypes: true }).catch(() => [])
   const existingBySessionId = new Map()
   const expectedFileNames = new Set()
+  const reservedNames = new Set(['README.md'])
+  const sessionIds = new Set(list.map((item) => String(item?.id || '').trim()).filter(Boolean))
 
   for (const item of sourceFiles) {
     if (!item.isFile() || !item.name.endsWith('.md')) continue
     const filePath = path.join(paths.sourcesDir, item.name)
-    const meta = parseGeneratedMeta(await readFile(filePath, 'utf-8').catch(() => ''), `sources/${item.name}`)
-    if (!meta?.sessionId) continue
+    const markdown = await readFile(filePath, 'utf-8').catch(() => '')
+    const meta = parseGeneratedMeta(markdown, `sources/${item.name}`)
+    if (!meta?.sessionId) {
+      reservedNames.add(item.name)
+      continue
+    }
     existingBySessionId.set(meta.sessionId, item.name)
+    if (!sessionIds.has(meta.sessionId)) reservedNames.add(item.name)
   }
 
-  for (const session of list) {
-    const fileName = buildSessionFileName(session)
+  const sessionFileNames = assignReadableFileNames(list, {
+    getBaseSlug: (session) => session?.title || buildSessionSummary(session).firstUser || 'session',
+    getCollisionSeed: (session) => session?.id || session?.title || buildSessionSummary(session).firstUser || 'session',
+    reservedNames: Array.from(reservedNames),
+  })
+
+  for (const [index, session] of list.entries()) {
+    const fileName = sessionFileNames[index] || buildSessionFileName(session)
     expectedFileNames.add(fileName)
     const relativePath = `sources/${fileName}`
     const filePath = path.join(paths.sourcesDir, fileName)
@@ -4059,6 +4284,9 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
       if (!item.isFile() || !item.name.endsWith('.md')) continue
       if (item.name === 'README.md') continue
       if (expectedFileNames.has(item.name)) continue
+      const markdown = await readFile(path.join(paths.sourcesDir, item.name), 'utf-8').catch(() => '')
+      const meta = parseGeneratedMeta(markdown, `sources/${item.name}`)
+      if (!meta?.sessionId) continue
       await unlink(path.join(paths.sourcesDir, item.name)).catch(() => {})
     }
   }
@@ -4072,6 +4300,7 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
     action: 'publish-sessions',
     published,
   })
+  const linkRepair = await repairVaultReadableLinks().catch(() => ({ changedFiles: 0, replacements: 0 }))
   const obsidianPostPublish = await runObsidianPostPublishRefresh('index.md')
 
   return {
@@ -4084,6 +4313,7 @@ export async function publishSessionsToVault(sessions = [], options = {}) {
     synthesisStats: indexResult.synthesisStats || null,
     promotionStats: indexResult.promotionStats || null,
     lintStats: indexResult.lintStats || null,
+    linkRepair,
     propertySync,
     obsidianPostPublish,
   }
@@ -4108,8 +4338,9 @@ export async function rebuildVaultIndex(options = {}) {
     writeEvidence: options.writeKnowledgeEvidence !== false,
   })
   const promotionState = await loadPromotionState()
+  const approvedSourceEvidences = filterApprovedPromotionEvidences(sourceEvidences, promotionState)
   const approvedKnowledgeEvidences = filterApprovedKnowledgeEvidences(knowledgeEvidences, promotionState)
-  const readerFirstEvidences = [...sourceEvidences, ...approvedKnowledgeEvidences]
+  const readerFirstEvidences = [...approvedSourceEvidences, ...approvedKnowledgeEvidences]
   const providerEntries = [...entries, ...approvedKnowledgeEvidences]
   await rebuildProviderPages(providerEntries)
   const conceptEntries = readerFirstEvidences
@@ -4373,6 +4604,24 @@ export async function rebuildIssuePages(sourceEvidences = [], options = {}) {
   const paths = await ensureVaultScaffold()
   const promotionState = await loadPromotionState()
   const conceptCatalog = options.conceptCatalog instanceof Map ? options.conceptCatalog : null
+  const approvedIssueRecords = Object.entries(promotionState.issues || {})
+    .filter(([, record]) => isApprovedPromotionRecord(record))
+    .map(([slug, record]) => ({
+      slug: String(slug || '').trim(),
+      title: String(record?.title || slug || 'Issue').trim(),
+      project: String(record?.project || '').trim(),
+      symptoms: [],
+      causes: [],
+      fixes: [],
+      validation: [],
+      files: [],
+      concepts: [],
+      evidenceItems: dedupeList(Array.isArray(record?.evidenceItems) ? record.evidenceItems : [], 20),
+      evidenceCount: Math.max(0, dedupeList(Array.isArray(record?.evidenceItems) ? record.evidenceItems : [], 20).length),
+      updatedAt: String(record?.updatedAt || record?.approvedAt || '').trim(),
+      summary: String(record?.summary || '').trim(),
+      manualOnly: true,
+    }))
   const dismissedIssueSlugs = new Set(
     Object.entries(promotionState.issues || {})
       .filter(([, record]) => isDismissedPromotionRecord(record))
@@ -4383,7 +4632,7 @@ export async function rebuildIssuePages(sourceEvidences = [], options = {}) {
     .map((item) => buildIssueCandidate(item))
     .filter((item) => item && Number(item.confidence || 0) >= 0.55)
   const grouped = groupIssueCandidates(candidates)
-  const issues = Array.from(grouped.values())
+  const computedIssues = Array.from(grouped.values())
     .map((group) => {
       const allCandidates = Array.isArray(group.candidates) ? group.candidates : []
       const symptoms = dedupeList(allCandidates.map((item) => item.symptom), 5)
@@ -4437,6 +4686,30 @@ export async function rebuildIssuePages(sourceEvidences = [], options = {}) {
     })
     .filter((item) => !dismissedIssueSlugs.has(String(item?.slug || '').trim()))
     .sort((a, b) => b.evidenceCount - a.evidenceCount || a.title.localeCompare(b.title))
+  const issueMap = new Map()
+  for (const record of approvedIssueRecords) {
+    if (!record.slug || dismissedIssueSlugs.has(record.slug)) continue
+    const existing = issueMap.get(record.slug)
+      || computedIssues.find((item) => String(item?.slug || '').trim() === record.slug)
+    if (existing) {
+      issueMap.set(record.slug, {
+        ...existing,
+        title: existing.title || record.title,
+        project: existing.project || record.project,
+        evidenceItems: dedupeList([
+          ...(Array.isArray(existing.evidenceItems) ? existing.evidenceItems : []),
+          ...record.evidenceItems,
+        ], 20),
+        evidenceCount: Math.max(Number(existing.evidenceCount || 0), Number(record.evidenceCount || 0)),
+        updatedAt: String(record.updatedAt || existing.updatedAt || '').trim() || existing.updatedAt,
+        summary: existing.summary || record.summary,
+      })
+      continue
+    }
+    issueMap.set(record.slug, record)
+  }
+  const issues = Array.from(issueMap.values())
+    .sort((a, b) => Number(b.evidenceCount || 0) - Number(a.evidenceCount || 0) || String(a.title || '').localeCompare(String(b.title || '')))
 
   const existingFiles = await readdir(paths.issuesDir, { withFileTypes: true }).catch(() => [])
   const expected = new Set(['README.md', ...issues.map((item) => `${toFileSlug(item.slug, 'issue')}.md`)])
@@ -4453,7 +4726,6 @@ export async function rebuildIssuePages(sourceEvidences = [], options = {}) {
     const existingMarkdown = existingMarkdownResult.markdown
     const manualNotes = extractManualNotes(existingMarkdown)
     const manualApproval = isApprovedPromotionRecord(promotionState.issues[issue.slug]) ? promotionState.issues[issue.slug] : null
-    const issueStatus = issue.evidenceCount <= 1 && !manualApproval ? 'draft' : 'active'
     const issueSummary = buildIssueReaderSummary(issue)
     const lines = [
       ...buildMarkdownFrontmatter({
@@ -4461,17 +4733,17 @@ export async function rebuildIssuePages(sourceEvidences = [], options = {}) {
         type: 'issue-note',
         schemaVersion: READER_PAGE_SCHEMA_VERSION,
         issue: issue.slug,
-        status: issueStatus,
+        status: 'active',
         project: issue.project || '',
         evidenceCount: issue.evidenceCount,
         updatedAt: issue.updatedAt || '',
-        promotionState: manualApproval ? 'approved' : 'auto',
-        approvedAt: manualApproval?.approvedAt || '',
+        promotionState: 'approved',
+        approvedAt: manualApproval?.approvedAt || issue.updatedAt || new Date().toISOString(),
       }),
       `# ${escapeMarkdownText(issue.title)}`,
       '',
       '> [!summary] Symptom',
-      `> ${escapeMarkdownText(issueSummary)}`,
+      `> ${escapeMarkdownText(issueSummary || issue.summary || '待补充 issue 摘要。')}`,
       '',
       ...renderConceptBulletSection('Symptom', issue.symptoms, '_No stable symptom extracted yet._'),
       ...renderConceptBulletSection('Likely Causes', issue.causes, '_No stable cause extracted yet._'),
@@ -4529,6 +4801,24 @@ export async function rebuildPatternPages(sourceEvidences = [], options = {}) {
   const promotionState = await loadPromotionState()
   const issueList = Array.isArray(options.issues) ? options.issues : []
   const conceptCatalog = options.conceptCatalog instanceof Map ? options.conceptCatalog : null
+  const approvedPatternRecords = Object.entries(promotionState.patterns || {})
+    .filter(([, record]) => isApprovedPromotionRecord(record))
+    .map(([slug, record]) => ({
+      slug: String(slug || '').trim(),
+      title: String(record?.title || slug || 'Pattern').trim(),
+      summary: String(record?.summary || '').trim(),
+      whenToUse: [],
+      shape: [],
+      tradeoffs: [],
+      files: [],
+      concepts: [],
+      project: String(record?.project || '').trim(),
+      relatedIssues: issueList.filter((issue) => normalizeProjectKey(issue?.project || '') === normalizeProjectKey(record?.project || '')),
+      evidenceItems: dedupeList(Array.isArray(record?.evidenceItems) ? record.evidenceItems : [], 20),
+      evidenceCount: Math.max(0, dedupeList(Array.isArray(record?.evidenceItems) ? record.evidenceItems : [], 20).length),
+      manuallyApproved: true,
+      updatedAt: String(record?.updatedAt || record?.approvedAt || '').trim(),
+    }))
   const dismissedPatternSlugs = new Set(
     Object.entries(promotionState.patterns || {})
       .filter(([, record]) => isDismissedPromotionRecord(record))
@@ -4538,7 +4828,7 @@ export async function rebuildPatternPages(sourceEvidences = [], options = {}) {
   const candidates = (Array.isArray(sourceEvidences) ? sourceEvidences : [])
     .flatMap((item) => buildPatternCandidates(item))
   const grouped = groupPatternCandidates(candidates)
-  const patterns = Array.from(grouped.values())
+  const computedPatterns = Array.from(grouped.values())
     .map((group) => {
       const allCandidates = Array.isArray(group.candidates) ? group.candidates : []
       const evidenceItems = dedupeList(allCandidates.map((item) => item?.evidence?.relativePath || ''), 20)
@@ -4570,6 +4860,34 @@ export async function rebuildPatternPages(sourceEvidences = [], options = {}) {
     .filter((item) => !dismissedPatternSlugs.has(String(item?.slug || '').trim()))
     .filter((item) => item.evidenceCount >= 2 || item.manuallyApproved)
     .sort((a, b) => b.evidenceCount - a.evidenceCount || a.title.localeCompare(b.title))
+  const patternMap = new Map()
+  for (const record of approvedPatternRecords) {
+    if (!record.slug || dismissedPatternSlugs.has(record.slug)) continue
+    const existing = patternMap.get(record.slug)
+      || computedPatterns.find((item) => String(item?.slug || '').trim() === record.slug)
+    if (existing) {
+      patternMap.set(record.slug, {
+        ...existing,
+        title: existing.title || record.title,
+        summary: existing.summary || record.summary,
+        project: existing.project || record.project,
+        relatedIssues: Array.isArray(existing.relatedIssues) && existing.relatedIssues.length ? existing.relatedIssues : record.relatedIssues,
+        evidenceItems: dedupeList([
+          ...(Array.isArray(existing.evidenceItems) ? existing.evidenceItems : []),
+          ...record.evidenceItems,
+        ], 20),
+        evidenceCount: Math.max(Number(existing.evidenceCount || 0), Number(record.evidenceCount || 0)),
+        manuallyApproved: true,
+        updatedAt: String(record.updatedAt || existing.updatedAt || '').trim() || existing.updatedAt,
+      })
+      continue
+    }
+    patternMap.set(record.slug, record)
+  }
+  const patterns = Array.from(patternMap.values())
+    .filter((item) => !dismissedPatternSlugs.has(String(item?.slug || '').trim()))
+    .filter((item) => Number(item?.evidenceCount || 0) >= 2 || item?.manuallyApproved)
+    .sort((a, b) => Number(b.evidenceCount || 0) - Number(a.evidenceCount || 0) || String(a.title || '').localeCompare(String(b.title || '')))
 
   const existingFiles = await readdir(paths.patternsDir, { withFileTypes: true }).catch(() => [])
   const expected = new Set(['README.md', ...patterns.map((item) => `${toFileSlug(item.slug, 'pattern')}.md`)])
@@ -4596,8 +4914,8 @@ export async function rebuildPatternPages(sourceEvidences = [], options = {}) {
         evidenceCount: pattern.evidenceCount,
         updatedAt: pattern.updatedAt || '',
         status: 'active',
-        promotionState: manualApproval ? 'approved' : 'auto',
-        approvedAt: manualApproval?.approvedAt || '',
+        promotionState: 'approved',
+        approvedAt: manualApproval?.approvedAt || pattern.updatedAt || new Date().toISOString(),
       }),
       `# ${escapeMarkdownText(pattern.title)}`,
       '',
@@ -5219,7 +5537,7 @@ function buildPromotionQueueMarkdown(report = {}) {
         lines.push(`${bulletPrefix} Suggested action: ${escapeMarkdownText(item.suggestedActions.join('；'))}`)
       }
       if (Array.isArray(item.evidenceItems) && item.evidenceItems.length) {
-        lines.push(`${bulletPrefix} Evidence: ${item.evidenceItems.map((entry) => toWikiLink(entry)).join(' · ')}`)
+        lines.push(`${bulletPrefix} Evidence: ${item.evidenceItems.map((entry) => formatEvidenceReference(entry)).join(' · ')}`)
       }
       lines.push('')
     }
@@ -5380,6 +5698,19 @@ async function loadPromotionQueueTaskRefFromMarkdown(paths, token = '') {
   return `${queueRelativePath}:${Number(state.line || 0)}`
 }
 
+async function loadPromotionQueueTaskTokenFromMarkdownRef(paths, ref = '') {
+  const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
+  const normalizedRef = normalizePromotionQueueTaskRef(ref, queueRelativePath)
+  if (!normalizedRef) return ''
+  const lineNumber = Number(String(normalizedRef).split(':').at(-1) || 0)
+  if (lineNumber <= 0) return ''
+  const markdown = await readFile(paths.promotionQueue, 'utf-8').catch(() => '')
+  if (!markdown) return ''
+  const lines = String(markdown || '').split(/\r?\n/g)
+  const line = String(lines[lineNumber - 1] || '')
+  return extractPromotionQueueTaskToken(line)
+}
+
 async function markPromotionQueueTaskDoneFallback(paths, options = {}) {
   const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
   const token = String(options?.token || '').trim()
@@ -5466,7 +5797,9 @@ async function markPromotionQueueTaskDone(payload = {}) {
   const cliEnabled = isObsidianCliEnabled()
   const queueRelativePath = `inbox/${path.basename(paths.promotionQueue)}`
   const payloadRef = normalizePromotionQueueTaskRef(payload?.taskRef, queueRelativePath)
-  const token = buildPromotionQueueTaskToken(payload)
+  const explicitToken = buildPromotionQueueTaskToken(payload)
+  const refDerivedToken = explicitToken ? '' : await loadPromotionQueueTaskTokenFromMarkdownRef(paths, payloadRef).catch(() => '')
+  const token = explicitToken || refDerivedToken
   if (String(payload?.decision || '').trim() === 'revoke') {
     return {
       engine: cliEnabled ? 'obsidian-cli' : 'markdown-fallback',
@@ -6055,6 +6388,148 @@ function buildKnowledgePromotionQueueEntries(knowledgeEvidences = [], promotionS
   }
 }
 
+function normalizeAtomPromotionTitle(value = '') {
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function isGenericGbrainContextTitle(value = '') {
+  const normalized = normalizeAtomPromotionTitle(value)
+  if (!normalized) return true
+  if (/^-+$/u.test(normalized)) return true
+  if (/^session:\s*\d{4}-\d{2}-\d{2}/u.test(normalized)) return true
+  if (/^\d{4}-\d{2}-\d{2}(?:\s|$)/u.test(normalized)) return true
+  if (/^\d{4}-\d{2}-\d{2}\s*daily\s*log$/u.test(normalized)) return true
+  if (/^untitled$/u.test(normalized)) return true
+  return false
+}
+
+function buildAtomPromotionConfidence(atom = {}, fallback = 0.72) {
+  const qualityScore = Number(atom?.qualityScore || 0)
+  if (!Number.isFinite(qualityScore)) return fallback
+  return Math.max(0.55, Math.min(0.96, Number((qualityScore / 100).toFixed(2))))
+}
+
+function buildGbrainPromotionQueueEntries(atoms = [], knowledgeItems = [], promotionState = {}) {
+  const issueReviews = []
+  const patternCandidates = []
+  const synthesisCandidates = []
+  const itemsById = new Map(
+    (Array.isArray(knowledgeItems) ? knowledgeItems : [])
+      .map((item) => [String(item?.id || '').trim(), item]),
+  )
+
+  for (const atom of Array.isArray(atoms) ? atoms : []) {
+    const kind = String(atom?.kind || '').trim().toLowerCase()
+    const status = String(atom?.status || '').trim().toLowerCase()
+    const qualityTier = String(atom?.qualityTier || '').trim().toLowerCase()
+    const title = String(atom?.title || '').trim()
+    const rawId = String(atom?.rawId || '').trim()
+    const pageId = normalizeVaultRelativePath(atom?.pageId || '')
+    const sourceItem = itemsById.get(rawId)
+    const sourceSummary = String(sourceItem?.summary || sourceItem?.content || atom?.summary || '').trim()
+    const sourceEvidencePath = normalizeVaultRelativePath(sourceItem?.sourceFile || '')
+    const evidenceItems = dedupeList(
+      [
+        sourceEvidencePath,
+        ...((Array.isArray(atom?.sourceRefs) ? atom.sourceRefs : [])
+          .map((ref) => String(ref?.value || '').trim())
+          .filter((value) => value.startsWith('inbox/'))),
+      ],
+      12,
+    ).filter(Boolean)
+
+    if (!rawId || !title || !pageId) continue
+    if (status === 'archived') continue
+    if (qualityTier !== 'clean' && qualityTier !== 'suspect') continue
+
+    const common = {
+      sourceKind: 'gbrain-v2',
+      sourceLabel: 'V2 Atom',
+      segmentId: rawId,
+      segmentLabel: `V2 Atom · ${kind || 'context'}`,
+      project: pickDominantProject([
+        String(sourceItem?.meta?.project || '').trim(),
+        String(atom?.topics?.[0] || '').trim(),
+      ]),
+      evidenceItems,
+      updatedAt: String(atom?.updatedAt || sourceItem?.updatedAt || '').trim(),
+      atomId: String(atom?.atomId || '').trim(),
+      canonicalId: String(atom?.canonicalId || '').trim(),
+    }
+
+    if (kind === 'issue') {
+      const issueSlug = toFileSlug(path.posix.basename(pageId, '.md') || title, 'issue')
+      if (!promotionState?.issues?.[issueSlug]) {
+        issueReviews.push({
+          ...common,
+          kind: 'issue-review',
+          title,
+          currentPath: buildIssueRelativePath(issueSlug),
+          currentLabel: title,
+          confidence: buildAtomPromotionConfidence(atom, 0.84),
+          reason: '该 V2 Atom 已被识别为结构化 issue，lineage 和质量门禁已满足，可直接进入 Issue Review。',
+          summary: String(atom?.summary || sourceSummary || '').trim(),
+          suggestedActions: [
+            '确认问题描述、原因和修复路径是否已经足够稳定',
+            '确认后直接升格为 issue note',
+          ],
+        })
+      }
+      continue
+    }
+
+    if (kind === 'pattern') {
+      const patternSlug = toFileSlug(path.posix.basename(pageId, '.md') || title, 'pattern')
+      if (!promotionState?.patterns?.[patternSlug]) {
+        patternCandidates.push({
+          ...common,
+          kind: 'pattern-candidate',
+          title,
+          targetPath: buildPatternRelativePath(patternSlug),
+          confidence: buildAtomPromotionConfidence(atom, 0.82),
+          reason: '该 V2 Atom 已被识别为可复用 pattern，可直接进入 Pattern Candidate 审核。',
+          summary: String(atom?.summary || sourceSummary || '').trim(),
+          suggestedActions: [
+            '检查适用边界和 tradeoff 是否已经足够清楚',
+            '确认后直接升格为 pattern note',
+          ],
+        })
+      }
+      continue
+    }
+
+    if (!['synthesis', 'decision', 'context'].includes(kind)) continue
+    if (isGenericGbrainContextTitle(title)) continue
+    if (kind === 'context' && Number(atom?.qualityScore || 0) < 90) continue
+    const targetPath = normalizeSynthesisTargetPath(pageId, title)
+    if (promotionState?.syntheses?.[targetPath]) continue
+    synthesisCandidates.push({
+      ...common,
+      kind: 'synthesis-candidate',
+      title,
+      targetPath,
+      confidence: buildAtomPromotionConfidence(atom, kind === 'context' ? 0.72 : 0.8),
+      reason: kind === 'context'
+        ? '该高质量 V2 context atom 已具备独立可读性，可以作为 synthesis 候选进入审核。'
+        : '该 V2 Atom 已被识别为 synthesis / decision，可直接进入结论页审核。',
+      summary: String(atom?.summary || sourceSummary || '').trim(),
+      suggestedActions: [
+        '检查标题和摘要是否已经具备 reader-first 可读性',
+        '确认后升格为 synthesis note',
+      ],
+    })
+  }
+
+  return {
+    issueReviews,
+    patternCandidates,
+    synthesisCandidates,
+  }
+}
+
 function collectApprovedPromotionEvidencePaths(promotionState = {}) {
   return new Set(
     [
@@ -6081,8 +6556,9 @@ async function patchKnowledgePromotionLifecycle(payload = {}) {
   const segmentId = String(payload?.segmentId || '').trim()
   if (directId) ids.add(directId)
   if (String(payload?.sourceKind || '').trim() === 'knowledge-item' && segmentId) ids.add(segmentId)
+  if (String(payload?.sourceKind || '').trim() === 'gbrain-v2' && segmentId) ids.add(segmentId)
 
-  if (evidenceItems.some((item) => item.startsWith('inbox/knowledge__'))) {
+  if (evidenceItems.some((item) => item.startsWith('inbox/'))) {
     const evidences = await loadKnowledgePromotionEvidences({ writeEvidence: false })
     const evidencePathSet = new Set(evidenceItems)
     for (const evidence of evidences) {
@@ -6140,6 +6616,26 @@ export async function buildPromotionQueue(options = {}) {
       writeEvidence: options.writeReport !== false,
     })
   }
+  const gbrainAtoms = Array.isArray(options.gbrainAtoms)
+    ? options.gbrainAtoms
+    : await listKnowledgeAtomsInDb({
+      limit: 5000,
+      status: 'visible',
+      kind: 'all',
+      qualityTier: 'all',
+    })
+  const knowledgeItemsResult = Array.isArray(options.knowledgeItems)
+    ? { items: options.knowledgeItems }
+    : await listKnowledgeItemsInDb({
+      limit: 5000,
+      status: 'all',
+      sourceType: 'all',
+    })
+  const knowledgeItemsForAtoms = Array.isArray(options.knowledgeItems)
+    ? options.knowledgeItems
+    : Array.isArray(knowledgeItemsResult?.items)
+      ? knowledgeItemsResult.items
+      : []
 
   if (!issues.length) {
     issues = Array.from(groupIssueCandidates(
@@ -6275,20 +6771,24 @@ export async function buildPromotionQueue(options = {}) {
 
   const manualQueue = await buildManualPromotionQueueEntries(sourceEvidences, promotionState)
   const knowledgeQueue = buildKnowledgePromotionQueueEntries(knowledgeEvidences, promotionState)
+  const gbrainQueue = buildGbrainPromotionQueueEntries(gbrainAtoms, knowledgeItemsForAtoms, promotionState)
   const mergedIssueReviews = mergePromotionQueueItems([
     ...issueReviews,
     ...manualQueue.issueReviews,
     ...knowledgeQueue.issueReviews,
+    ...gbrainQueue.issueReviews,
   ]).sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0) || a.title.localeCompare(b.title))
   const mergedPatternCandidates = mergePromotionQueueItems([
     ...patternCandidates,
     ...manualQueue.patternCandidates,
     ...knowledgeQueue.patternCandidates,
+    ...gbrainQueue.patternCandidates,
   ]).sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0) || a.title.localeCompare(b.title))
   const mergedSynthesisCandidates = mergePromotionQueueItems([
     ...synthesisCandidates,
     ...manualQueue.synthesisCandidates,
     ...knowledgeQueue.synthesisCandidates,
+    ...gbrainQueue.synthesisCandidates,
   ]).sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
   const taskMetadata = await buildPromotionQueueTaskMetadata(paths)
   const queueIssueReviews = attachPromotionQueueTaskMetadata(mergedIssueReviews, taskMetadata)
@@ -6490,22 +6990,23 @@ async function refreshPromotionArtifacts(options = {}) {
     ? options.sourceEvidences
     : loaded.sourceEvidences
   const promotionState = await loadPromotionState()
+  const approvedSourceEvidences = filterApprovedPromotionEvidences(baseSourceEvidences, promotionState)
   const approvedKnowledgeEvidences = filterApprovedKnowledgeEvidences(loaded.knowledgeEvidences, promotionState)
-  const rebuildSourceEvidences = [...baseSourceEvidences, ...approvedKnowledgeEvidences]
-  const conceptCatalog = buildConceptCatalogFromEntries(rebuildSourceEvidences)
-  const issueStats = await rebuildIssuePages(rebuildSourceEvidences, {
+  const readerFirstEvidences = [...approvedSourceEvidences, ...approvedKnowledgeEvidences]
+  const conceptCatalog = buildConceptCatalogFromEntries(readerFirstEvidences)
+  const issueStats = await rebuildIssuePages(readerFirstEvidences, {
     conceptCatalog,
   })
-  const patternStats = await rebuildPatternPages(rebuildSourceEvidences, {
+  const patternStats = await rebuildPatternPages(readerFirstEvidences, {
     issues: issueStats.issues,
     conceptCatalog,
   })
-  const projectStats = await rebuildProjectPages(rebuildSourceEvidences, {
+  const projectStats = await rebuildProjectPages(readerFirstEvidences, {
     issues: issueStats.issues,
     patterns: patternStats.patterns,
     conceptCatalog,
   })
-  const synthesisStats = await rebuildSynthesisPages(rebuildSourceEvidences)
+  const synthesisStats = await rebuildSynthesisPages(readerFirstEvidences)
   const promotionStats = await buildPromotionQueue({
     sourceEvidences: baseSourceEvidences,
     knowledgeEvidences: loaded.knowledgeEvidences,
@@ -6518,7 +7019,7 @@ async function refreshPromotionArtifacts(options = {}) {
   })
 
   return {
-    sourceEvidences: rebuildSourceEvidences,
+    sourceEvidences: readerFirstEvidences,
     issueStats,
     patternStats,
     projectStats,
@@ -6631,8 +7132,7 @@ export async function decidePromotionCandidate(payload = {}) {
   }
 
   if (kind === 'synthesis-candidate') {
-    const targetPath = normalizeVaultRelativePath(payload?.targetPath || '')
-      || `syntheses/${toFileSlug(title || 'synthesis', 'synthesis')}.md`
+    const targetPath = normalizeSynthesisTargetPath(payload?.targetPath || '', title || 'synthesis')
     relativePath = targetPath
     if (decision === 'revoke') {
       delete state.syntheses[targetPath]
@@ -6715,7 +7215,7 @@ async function loadLintNotes() {
     { space: 'syntheses', dir: paths.synthesesDir },
     { space: 'concepts', dir: paths.conceptsDir },
     { space: 'entities', dir: paths.entitiesDir },
-    { space: 'inbox', dir: paths.inboxDir, prefixes: ['knowledge__'] },
+    { space: 'inbox', dir: paths.inboxDir, type: 'knowledge-evidence' },
     { space: 'Templates', dir: paths.templatesDir },
   ]
   const notes = []
@@ -6725,10 +7225,10 @@ async function loadLintNotes() {
     for (const item of entries) {
       if (!item.isFile() || !item.name.endsWith('.md')) continue
       if (Array.isArray(spec.include) && !spec.include.includes(item.name)) continue
-      if (Array.isArray(spec.prefixes) && !spec.prefixes.some((prefix) => item.name.startsWith(prefix))) continue
       const relativePath = spec.space === 'root' ? item.name : `${spec.space}/${item.name}`
       const markdown = await readFile(path.join(spec.dir, item.name), 'utf-8').catch(() => '')
       if (!markdown) continue
+      if (spec.type && parseSimpleFrontmatterValue(markdown, 'type') !== spec.type) continue
       const title = parseSimpleFrontmatterValue(markdown, 'title')
         || normalizeText(markdown.match(/^#\s+(.+)$/m)?.[1] || '')
         || item.name.replace(/\.md$/i, '')
@@ -7069,6 +7569,32 @@ export async function appendVaultLog({ action = 'publish', published = [] } = {}
   const existing = await readFile(paths.log, 'utf-8').catch(() => '# Vault Log\n\n')
   const fallbackLines = [existing.trimEnd(), '', ...lines, '']
   await writeFile(paths.log, fallbackLines.join('\n'), 'utf-8')
+}
+
+export async function repairVaultReadableLinks(options = {}) {
+  const paths = await ensureVaultScaffold()
+  const repairIndex = await buildVaultReadableLinkIndex()
+  const markdownFiles = Array.isArray(repairIndex.files) ? repairIndex.files : []
+  let changedFiles = 0
+  let replacements = 0
+
+  for (const file of markdownFiles) {
+    const markdown = await readFile(file.absolutePath, 'utf-8').catch(() => '')
+    if (!markdown) continue
+    const rewritten = rewriteReadableWikiLinks(markdown, repairIndex)
+    if (!rewritten.replacements || rewritten.markdown === markdown) continue
+    changedFiles += 1
+    replacements += rewritten.replacements
+    if (options.write !== false) {
+      await writeFile(file.absolutePath, rewritten.markdown, 'utf-8')
+    }
+  }
+
+  return {
+    vaultDir: paths.root,
+    changedFiles,
+    replacements,
+  }
 }
 
 async function syncPublishedSessionPropertiesWithObsidian(published = []) {

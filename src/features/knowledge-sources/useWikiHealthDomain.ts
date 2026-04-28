@@ -4,7 +4,7 @@ import { dedupeStrings, normalizeKeyword, severityRank } from './knowledgeWorkbe
 
 type HealthFinding = Awaited<ReturnType<WikiVaultApi['fetchLint']>>['findings'][number]
 type HealthSeverityFilter = 'all' | 'high' | 'medium' | 'low'
-type HealthActionQueueTarget = 'notes' | 'evidence' | 'promotion' | 'task-review'
+type HealthActionQueueTarget = 'notes' | 'evidence' | 'promotion'
 type WikiSearchResult = Awaited<ReturnType<WikiVaultApi['search']>>['results'][number]
 type HealthSuggestionMode = '' | 'repair' | 'anchor'
 
@@ -82,9 +82,10 @@ const HEALTH_ACTION_QUEUE_DEFS: Array<{
   {
     id: 'context-recheck',
     title: '回源补上下文',
-    description: '项目归属不清或证据不足的内容，先回源会话看能否补上下文。',
+    description: '项目归属不清或证据不足的内容，先补上下文，再回到默认候选审核流。',
     codes: ['issue-missing-project', 'pattern-missing-project', 'thin-issue-evidence'],
-    target: 'task-review',
+    target: 'promotion',
+    targetSection: 'issues',
   },
 ]
 

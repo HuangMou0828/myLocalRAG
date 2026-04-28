@@ -1,0 +1,3 @@
+query_id,result_rank,result_id,relevant,reason
+issue-001,1,issues/example,true,命中 symptom+fix
+issue-001,2,sources/example,false,只提到背景无修复结论

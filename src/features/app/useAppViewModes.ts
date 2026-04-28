@@ -64,9 +64,7 @@ export function useAppViewModes(options: UseAppViewModesOptions) {
       return '知识采集 / Raw Inbox'
     }
 
-    if (options.activeProvider.value === 'knowledge-task-review') {
-      return '知识工作台 / 任务筛选'
-    }
+    if (options.activeProvider.value === 'knowledge-task-review') return '知识工作台 / 任务复盘'
 
     if (options.activeProvider.value === 'knowledge-promotion-review') {
       return '知识工作台 / 升格审核'

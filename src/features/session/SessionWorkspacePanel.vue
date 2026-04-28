@@ -37,6 +37,7 @@ function readMaybeRef<T>(source: any): T | undefined {
 
 const {
   sessionListCollapsed,
+  sessionOverviewCollapsed,
   keyword,
   useVectorSearch,
   loadSessions,
@@ -469,7 +470,17 @@ watch(
       </Dialog>
 
       <section class="panel-soft session-search-panel">
-        <div class="session-search-head">
+        <div class="session-overview-toggle-row">
+          <button
+            type="button"
+            class="app-btn-ghost session-overview-toggle-btn"
+            @click="sessionOverviewCollapsed = !sessionOverviewCollapsed"
+          >
+            {{ sessionOverviewCollapsed ? '展开概览' : '收起概览' }}
+          </button>
+        </div>
+
+        <div v-show="!sessionOverviewCollapsed" class="session-search-head">
           <div class="session-search-copy">
             <small>Session Workspace</small>
             <h2>会话工作区</h2>
@@ -554,10 +565,18 @@ watch(
                 <span class="retrieve-chip" v-if="!useVectorSearch">关键词索引</span>
                 <span class="retrieve-chip" v-if="retrieving">语义检索中...</span>
                 <template v-else-if="retrieveMeta">
+                  <span class="retrieve-chip" v-if="retrieveMeta.retrieveMode">链路 {{ retrieveMeta.retrieveMode }}</span>
+                  <span class="retrieve-chip" v-if="retrieveMeta.gbrainV2Mode">读模 {{ retrieveMeta.gbrainV2Mode }}</span>
                   <span class="retrieve-chip">向量覆盖 {{ Math.round(Number(retrieveMeta.coverage || 0) * 100) }}%</span>
                   <span class="retrieve-chip">懒生成 {{ Number(retrieveMeta.regenerated || 0) }}</span>
                   <span class="retrieve-chip">来源 {{ retrieveMeta.source || '-' }}</span>
                   <span class="retrieve-chip">模型 {{ retrieveMeta.model || '-' }}</span>
+                  <span class="retrieve-chip" v-if="retrieveMeta.sessionBridgeApplied">
+                    V2重排 token {{ Number(retrieveMeta.sessionBridgeTokenCount || 0) }}
+                  </span>
+                  <span class="retrieve-meta-text" v-else-if="retrieveMeta.sessionBridgeReason && String(retrieveMeta.gbrainV2Mode || '') === 'v2'">
+                    V2回退：{{ retrieveMeta.sessionBridgeReason }}
+                  </span>
                   <span class="retrieve-chip warn-chip" v-if="retrieveMeta.fallback" :title="getRetrieveFallbackReason(retrieveMeta)">
                     已降级：{{ getRetrieveFallbackReason(retrieveMeta) }}
                   </span>
@@ -865,3 +884,4 @@ watch(
         </Transition>
       </div>
 </template>
+

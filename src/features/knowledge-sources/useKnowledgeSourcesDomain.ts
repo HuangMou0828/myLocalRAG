@@ -1,5 +1,6 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type {
+  GbrainV2Api,
   KnowledgeItemDto,
   KnowledgeItemsApi,
   SessionDataApi,
@@ -10,14 +11,37 @@ import { useRawInboxDomain } from './useRawInboxDomain'
 import { useTaskReviewDomain } from './useTaskReviewDomain'
 import { usePromotionReviewDomain } from './usePromotionReviewDomain'
 import { useWikiHealthDomain } from './useWikiHealthDomain'
+import { useGbrainV2Domain } from './useGbrainV2Domain'
 
 export type { PromotionQueueItem } from './usePromotionReviewDomain'
 export type { HealthFinding, HealthActionQueueItem, HealthSuggestionMode } from './useWikiHealthDomain'
 
 type KnowledgeWorkbenchTab = 'raw' | 'task-review' | 'promotion' | 'health'
 
+type WorkbenchHeroCard = {
+  id: string
+  title: string
+  count: number
+  description: string
+}
+
+type WorkbenchHero = {
+  eyebrow: string
+  title: string
+  description: string
+  cards: WorkbenchHeroCard[]
+}
+
+type WorkbenchTabMeta = {
+  id: KnowledgeWorkbenchTab
+  label: string
+  badge: string
+  description: string
+}
+
 interface UseKnowledgeSourcesDomainOptions {
   service: KnowledgeItemsApi
+  gbrainV2Service?: GbrainV2Api | null
   sessionService: SessionDataApi<SessionItem, Issue, SessionRetrieveResponse>
   wikiService: WikiVaultApi
   notify: (message: string, tone?: 'info' | 'success' | 'warning' | 'danger') => void
@@ -28,6 +52,33 @@ const STALE_AFTER_MS = 60_000
 
 export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOptions) {
   const workbenchTab = ref<KnowledgeWorkbenchTab>('raw')
+
+  const workbenchTabs = computed<WorkbenchTabMeta[]>(() => ([
+    {
+      id: 'raw',
+      label: '知识采集',
+      badge: '原料',
+      description: '管理 capture / note / document 原始素材',
+    },
+    {
+      id: 'task-review',
+      label: '任务复盘',
+      badge: '会话',
+      description: '审核会话来源，标记可升格候选后再进入升格审核',
+    },
+    {
+      id: 'promotion',
+      label: '升格审核',
+      badge: '候选',
+      description: '集中查看待升格 issue / pattern / synthesis 候选',
+    },
+    {
+      id: 'health',
+      label: '健康巡检',
+      badge: '巡检',
+      description: '查看 lint、知识空洞和长期积压提醒',
+    },
+  ]))
 
   // Deferred cross-domain pointers — wired after all sub-domains are created
   let _loadPromotionQueue: (force?: boolean) => Promise<void> = async () => {}
@@ -67,6 +118,11 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     openNoteViewer: (paths, title) => _openNoteViewer(paths, title),
   })
 
+  const gbrainV2 = useGbrainV2Domain({
+    service: options.gbrainV2Service,
+    notify: options.notify,
+  })
+
   // Wire cross-domain pointers
   _loadPromotionQueue = promotionReview.loadPromotionQueue
   _loadWikiHealth = wikiHealth.loadWikiHealth
@@ -74,6 +130,54 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
   _getKnowledgeItems = () => rawInbox.knowledgeItems.value
   _getPromotionQueue = () => promotionReview.promotionQueue.value as never
   _openNoteViewer = (paths, title) => promotionReview.openPromotionNoteViewer(paths, title)
+
+  function normalizeWorkbenchHeroCards(value: unknown): WorkbenchHeroCard[] {
+    if (!Array.isArray(value)) return []
+    return value
+      .map((card, index) => ({
+        id: String(card?.id || `summary-${index + 1}`),
+        title: String(card?.title || ''),
+        count: Number(card?.count || 0),
+        description: String(card?.description || ''),
+      }))
+      .filter((card) => card.title || card.description || card.count > 0)
+  }
+
+  const workbenchHero = computed<WorkbenchHero>(() => {
+    if (workbenchTab.value === 'task-review') {
+      return {
+        eyebrow: 'Task Review',
+        title: '先从会话源抽取任务段，再决定是否送入升格候选',
+        description: '这层负责把高噪声会话压成可审核任务，避免直接污染长期知识层。',
+        cards: normalizeWorkbenchHeroCards(taskReview.taskReviewSummaryCards.value),
+      }
+    }
+
+    if (workbenchTab.value === 'promotion') {
+      return {
+        eyebrow: 'Promotion Review',
+        title: '把接近稳定的候选集中审核，直接沉淀进新的 Vault',
+        description: '对 issue / pattern / synthesis 候选做 approve、dismiss 或 revoke，保持 reader-first 知识层干净。',
+        cards: normalizeWorkbenchHeroCards(promotionReview.promotionSummaryCards.value),
+      }
+    }
+
+    if (workbenchTab.value === 'health') {
+      return {
+        eyebrow: 'Wiki Health',
+        title: '持续巡检结构风险和知识空洞，让内容长期可维护',
+        description: '优先处理断链、孤儿页、弱摘要与长期积压，再决定是否回流到升格审核。',
+        cards: normalizeWorkbenchHeroCards(wikiHealth.healthSummaryCards.value),
+      }
+    }
+
+    return {
+      eyebrow: 'Raw Inbox',
+      title: '先接住原始片段，再决定后续筛选与升格路径',
+      description: '集中管理 capture / note / document 原料，补齐上下文后直接送入升格审核。',
+      cards: normalizeWorkbenchHeroCards(rawInbox.rawSummaryCards.value),
+    }
+  })
 
   /** 切换 workbench tab 并按需加载对应数据 */
   async function setWorkbenchTab(nextTab: KnowledgeWorkbenchTab) {
@@ -83,9 +187,17 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
         || (Date.now() - rawInbox.knowledgeItemsLoadedAt.value > STALE_AFTER_MS)
       if (isStale) await rawInbox.loadKnowledgeItems()
     }
-    if (nextTab === 'task-review') await taskReview.loadTaskReviewSessions(false)
-    if (nextTab === 'promotion') await promotionReview.loadPromotionQueue(false)
-    if (nextTab === 'health') await wikiHealth.loadWikiHealth(false)
+    if (nextTab === 'task-review') {
+      await taskReview.loadTaskReviewSessions(false)
+    }
+    if (nextTab === 'promotion') {
+      await promotionReview.loadPromotionQueue(false)
+      await gbrainV2.loadGbrainV2PromotionView(false)
+    }
+    if (nextTab === 'health') {
+      await wikiHealth.loadWikiHealth(false)
+      await gbrainV2.loadGbrainV2FeedStatus(false)
+    }
   }
 
   /** 保存并送审：保存后若 intakeStage 为 wiki-candidate，主动推送 Promotion 队列并跳转 tab */
@@ -99,6 +211,8 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
 
   return {
     workbenchTab,
+    workbenchTabs,
+    workbenchHero,
     setWorkbenchTab,
     saveAndSubmitKnowledgeItem,
 
@@ -235,6 +349,9 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     promotionViewerTitle: promotionReview.promotionViewerTitle,
     promotionViewerPaths: promotionReview.promotionViewerPaths,
     promotionViewerNotes: promotionReview.promotionViewerNotes,
+    promotionViewerUnresolved: promotionReview.promotionViewerUnresolved,
+    promotionMvpAutoLoading: promotionReview.promotionMvpAutoLoading,
+    promotionMvpAutoLastResult: promotionReview.promotionMvpAutoLastResult,
     promotionSummaryCards: promotionReview.promotionSummaryCards,
     loadPromotionQueue: promotionReview.loadPromotionQueue,
     applyPromotionCandidate: promotionReview.applyPromotionCandidate,
@@ -242,6 +359,7 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     revokePromotionCandidate: promotionReview.revokePromotionCandidate,
     previewPromotionCandidate: promotionReview.previewPromotionCandidate,
     openPromotionEvidence: promotionReview.openPromotionEvidence,
+    runMvpAutoPromotion: promotionReview.runMvpAutoPromotion,
     closePromotionPreview: promotionReview.closePromotionPreview,
     closePromotionViewer: promotionReview.closePromotionViewer,
 
@@ -262,6 +380,24 @@ export function useKnowledgeSourcesDomain(options: UseKnowledgeSourcesDomainOpti
     healthBatchActionLabel: wikiHealth.healthBatchActionLabel,
     healthRepairApplyingTarget: wikiHealth.healthRepairApplyingTarget,
     vaultRebuildLoading: wikiHealth.vaultRebuildLoading,
+    hasGbrainV2Service: gbrainV2.hasGbrainV2Service,
+    gbrainV2Loading: gbrainV2.gbrainV2Loading,
+    gbrainV2Error: gbrainV2.gbrainV2Error,
+    gbrainV2LoadedAt: gbrainV2.gbrainV2LoadedAt,
+    gbrainV2FeedStatus: gbrainV2.gbrainV2FeedStatus,
+    gbrainV2FeedRefreshing: gbrainV2.gbrainV2FeedRefreshing,
+    gbrainV2Settings: gbrainV2.gbrainV2Settings,
+    gbrainRetrieveQuery: gbrainV2.gbrainRetrieveQuery,
+    gbrainRetrieveLoading: gbrainV2.gbrainRetrieveLoading,
+    gbrainRetrieveResult: gbrainV2.gbrainRetrieveResult,
+    gbrainPromotionLoading: gbrainV2.gbrainPromotionLoading,
+    gbrainPromotionError: gbrainV2.gbrainPromotionError,
+    gbrainPromotionLoadedAt: gbrainV2.gbrainPromotionLoadedAt,
+    gbrainPromotionView: gbrainV2.gbrainPromotionView,
+    loadGbrainV2FeedStatus: gbrainV2.loadGbrainV2FeedStatus,
+    refreshGbrainV2Feed: gbrainV2.refreshGbrainV2Feed,
+    loadGbrainV2PromotionView: gbrainV2.loadGbrainV2PromotionView,
+    runGbrainV2Retrieve: gbrainV2.runGbrainV2Retrieve,
     loadWikiHealth: wikiHealth.loadWikiHealth,
     selectHealthFinding: wikiHealth.selectHealthFinding,
     loadHealthRepairSuggestions: wikiHealth.loadHealthRepairSuggestions,

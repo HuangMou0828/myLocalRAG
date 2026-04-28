@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { loadLocalEnv } from '../server/lib/load-env.mjs'
 import { loadSessionsByIds, querySessions } from '../server/lib/scanner.mjs'
-import { buildPromotionQueue, ensureVaultScaffold, publishSessionsToVault, rebuildVaultIndex } from '../server/lib/wiki-vault.mjs'
+import { buildPromotionQueue, ensureVaultScaffold, publishSessionsToVault, rebuildVaultIndex, repairVaultReadableLinks } from '../server/lib/wiki-vault.mjs'
 
 function usage() {
   console.log(
@@ -13,6 +13,7 @@ function usage() {
       '  node scripts/wiki-vault.mjs refresh-published',
       '  node scripts/wiki-vault.mjs rebuild-index',
       '  node scripts/wiki-vault.mjs rebuild-promotion-queue',
+      '  node scripts/wiki-vault.mjs repair-readable-links',
       '',
       'Examples:',
       '  node scripts/wiki-vault.mjs init',
@@ -20,6 +21,7 @@ function usage() {
       '  node scripts/wiki-vault.mjs publish --provider cursor --limit 10',
       '  node scripts/wiki-vault.mjs publish --session cursor:abc123,cursor:def456',
       '  node scripts/wiki-vault.mjs refresh-published',
+      '  node scripts/wiki-vault.mjs repair-readable-links',
     ].join('\n'),
   )
 }
@@ -98,6 +100,13 @@ async function runRebuildPromotionQueue() {
   console.log(`Queued items: ${result.summary?.totalItems || 0}`)
 }
 
+async function runRepairReadableLinks() {
+  const result = await repairVaultReadableLinks()
+  console.log(`Vault: ${result.vaultDir}`)
+  console.log(`Changed files: ${result.changedFiles}`)
+  console.log(`Repaired links: ${result.replacements}`)
+}
+
 async function main() {
   loadLocalEnv()
   const args = process.argv.slice(2)
@@ -130,6 +139,11 @@ async function main() {
 
   if (command === 'rebuild-promotion-queue') {
     await runRebuildPromotionQueue()
+    return
+  }
+
+  if (command === 'repair-readable-links') {
+    await runRepairReadableLinks()
     return
   }
 

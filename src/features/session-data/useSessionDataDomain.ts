@@ -95,11 +95,25 @@ interface RetrieveEmbeddingMeta {
   regenerated?: number
   coverage?: number
   error?: string | null
+  retrieveMode?: string
+  gbrainV2Mode?: string
+  sessionBridgeApplied?: boolean
+  sessionBridgeReason?: string
+  sessionBridgeTokenCount?: number
 }
 
 interface RetrieveResponse {
   retrievalQuery?: string
+  retrieveMode?: string
+  gbrainV2Mode?: string
   embedding?: RetrieveEmbeddingMeta
+  gbrainV2?: {
+    sessionBridge?: {
+      applied?: boolean
+      reason?: string
+      tokenCount?: number
+    } | null
+  } | null
   queryRewrite?: {
     enabled?: boolean
     applied?: boolean
@@ -350,7 +364,15 @@ export function useSessionDataDomain<
 
           const retrieveData = await options.service.retrieve(retrievePayload)
 
-          retrieveMeta.value = retrieveData.embedding || null
+          const sessionBridge = retrieveData?.gbrainV2?.sessionBridge
+          retrieveMeta.value = {
+            ...(retrieveData.embedding || {}),
+            retrieveMode: String(retrieveData.retrieveMode || ''),
+            gbrainV2Mode: String(retrieveData.gbrainV2Mode || ''),
+            sessionBridgeApplied: Boolean(sessionBridge?.applied),
+            sessionBridgeReason: String(sessionBridge?.reason || ''),
+            sessionBridgeTokenCount: Number(sessionBridge?.tokenCount || 0),
+          }
           const scoreMap = new Map(
             (retrieveData.results || []).map((item) => [
               String(item.sessionId),

@@ -123,13 +123,6 @@ export async function discoverSourceSuggestions(existingSources = []) {
       reason: 'Claude Code 本地会话目录（jsonl）',
     },
     {
-      name: 'OpenClaw 会话目录',
-      provider: 'codex',
-      format: 'auto',
-      path: '~/.openclaw/agents/main/sessions',
-      reason: 'OpenClaw 原生会话目录（jsonl）',
-    },
-    {
       name: 'Doubao IndexedDB 目录',
       provider: 'doubao',
       format: 'auto',

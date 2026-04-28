@@ -54,6 +54,7 @@ export function useAppShell() {
     messageTagApi,
     importApi,
     knowledgeItemsApi,
+    gbrainV2Api,
     wikiVaultApi,
     bugTraceApi,
     bugInboxFeishuApi,
@@ -260,6 +261,7 @@ export function useAppShell() {
 
   const knowledgeSourcesDomain = useKnowledgeSourcesDomain({
     service: knowledgeItemsApi,
+    gbrainV2Service: gbrainV2Api,
     sessionService: sessionDataApi,
     wikiService: wikiVaultApi,
     notify: uiToastDomain.showToast,
@@ -427,6 +429,8 @@ export function useAppShell() {
     feishuScheduleDataFilter: bugInboxFeishuDomain.feishuScheduleDataFilter,
     componentSettingsSubMenu: uiState.componentSettingsSubMenu,
     modelSettingsSubMenu: uiState.modelSettingsSubMenu,
+    sessionOverviewCollapsed: uiState.sessionOverviewCollapsed,
+    knowledgeOverviewCollapsed: uiState.knowledgeOverviewCollapsed,
   })
 
   const viewModes = useAppViewModes({
@@ -444,6 +448,8 @@ export function useAppShell() {
   const panelContexts = computed(() => useAppPanelContexts({
     uiState: {
       sessionListCollapsed: uiState.sessionListCollapsed,
+      sessionOverviewCollapsed: uiState.sessionOverviewCollapsed,
+      knowledgeOverviewCollapsed: uiState.knowledgeOverviewCollapsed,
       keyword: uiState.keyword,
       useVectorSearch: uiState.useVectorSearch,
       advancedFiltersOpen: uiState.advancedFiltersOpen,
