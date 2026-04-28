@@ -1,0 +1,68 @@
+{
+  "version": "gbrain-v2-governance-guard.v1",
+  "generatedAt": "2026-04-25T12:51:32.404Z",
+  "pass": true,
+  "currentPath": "/Users/hm/myLocalRAG/docs/wiki-vault/eval/governance-report-20260425-125132.json",
+  "baselinePath": "/Users/hm/myLocalRAG/docs/wiki-vault/eval/governance-report-20260425-125117.json",
+  "thresholds": {
+    "maxLegacyShare": 20,
+    "maxDuplicateShare": 25,
+    "maxLineageMissingShare": 5,
+    "maxStaleDraftShare": 35,
+    "minRawAtomCoverage": 95,
+    "maxAutoPromotionConstraintViolations": 0,
+    "maxDelta": 3
+  },
+  "checks": [
+    {
+      "name": "abs:legacyShare",
+      "pass": true,
+      "detail": "0% <= 20%"
+    },
+    {
+      "name": "abs:duplicateShare",
+      "pass": true,
+      "detail": "22.55% <= 25%"
+    },
+    {
+      "name": "abs:lineageMissingShare",
+      "pass": true,
+      "detail": "0% <= 5%"
+    },
+    {
+      "name": "abs:staleDraftShare",
+      "pass": true,
+      "detail": "0% <= 35%"
+    },
+    {
+      "name": "abs:rawToAtomAutomationCoverage",
+      "pass": true,
+      "detail": "100% >= 95%"
+    },
+    {
+      "name": "abs:autoPromotionConstraintViolationCount",
+      "pass": true,
+      "detail": "0 <= 0"
+    },
+    {
+      "name": "delta:legacyShare",
+      "pass": true,
+      "detail": "0% <= 3%"
+    },
+    {
+      "name": "delta:duplicateShare",
+      "pass": true,
+      "detail": "0% <= 3%"
+    },
+    {
+      "name": "delta:lineageMissingShare",
+      "pass": true,
+      "detail": "0% <= 3%"
+    },
+    {
+      "name": "delta:staleDraftShare",
+      "pass": true,
+      "detail": "-0.98% <= 3%"
+    }
+  ]
+}

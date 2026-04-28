@@ -1,0 +1,47 @@
+# GBrain V2 Dry Run Report
+
+- generatedAt: 2026-04-25T04:34:31.049Z
+- itemsAnalyzed: 102
+- sampleSize: 60
+
+## Tier Distribution
+
+- clean: 98
+- suspect: 4
+
+## Kind Distribution
+
+- pattern: 15
+- context: 83
+- decision: 1
+- issue: 3
+
+## Top Quality Issues
+
+- archived_item: 36
+- missing_summary: 13
+- short_content: 3
+- missing_content_hash: 1
+
+## Sample (lowest score first)
+
+- openclaw_05e14e86df90770fa9b303f7d5ab1c255989dfe7 | suspect(66) | context | 功能需求 20260411-001]
+- openclaw_ed3d33af7ca566a85d00b7b7bd488e896c598890 | suspect(66) | context | 功能需求 20260411-001]
+- knowledge_1775882078634_bs3zrk | suspect(78) | context | Embedding 重建后知识库搜索结果为空
+- openclaw_e1559c0a105e6858b1333096d05f8beb2069f00b | suspect(78) | context | 功能需求 20260411-001]
+- openclaw_41446c174546cd9bc220b62e3bb950603d4a357c | clean(84) | context | 五层记忆体系
+- openclaw_95c45b36de44dba810ad1601ac1e8a7725785c25 | clean(84) | context | 2026-03-27 工作记录
+- openclaw_9dc8757c686175c4383f75c73a2fec1934c6accc | clean(84) | context | Session: 2026-04-22 06:42:22 UTC
+- openclaw_c2ba2ea28a10cb82cedf8cc85cf0cc811d466997 | clean(84) | context | 飞书语音消息发送指南
+- openclaw_d7fdc5bd5bc0ee6c440eacf30fdae37539655ad8 | clean(84) | context | 2026-04-11
+- openclaw_fd695b674fc444ea1fc881bf96bee05c446f3fe4 | clean(84) | pattern | 批量清理前先查memory记录
+- openclaw_0ec9d4a4127fe800ff9abe2e2bf154e921aca8c6 | clean(88) | context | 2026-04-15 Daily Log
+- openclaw_6f86c37d27bfacf9a118f9be10d215fbea08516c | clean(88) | context | 2026-04-22
+- openclaw_9a8ffc66cd27355f02885870698137e93e11688c | clean(88) | issue | 如何避免清理配置文件夹时未先记录原有内容？
+- openclaw_e19310faf4d7fb18495b25a25380c243cf28fc4f | clean(88) | context | Session: 2026-04-10 17:21:25 UTC
+- openclaw_00ccab34c9e1d435c9a91c58daeda5e5f786e534 | clean(96) | issue | 如何避免批量清理配置文件夹时误删重要内容？
+- openclaw_07cb6a79a7993abbaa975245148a6dbae7654c54 | clean(96) | context | 2026-03-05 工作记录
+- openclaw_0b8857da000ad1baa5f15d896169e585538c0e73 | clean(96) | context | Session: 2026-03-05 09:59:29 UTC
+- openclaw_12965825c02247a6994f0cced9ad20a4800b4dd7 | clean(96) | pattern | 批量清理前先查memory记录
+- openclaw_1482c8cff1add44697abef8aaf4c349e912c6cbe | clean(96) | context | 2026-03-10 工作日志
+- openclaw_1955375d717f88ce0155645db78fe794ee77b2e8 | clean(96) | context | 还在原价用 Claude？这波羊毛不薅等于亏钱

@@ -1,5 +1,4 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch, type ShallowRef } from 'vue'
-import type { Issue, SessionItem } from '@/features/session/types'
 import type { BugTraceResultItem } from '@/features/bug-trace/useBugTraceDomain'
 import { createAppApiClients } from '@/features/app/createAppApiClients'
 import { useAppPanelContexts } from '@/features/app/useAppPanelContexts'
@@ -26,6 +25,7 @@ import { useWikiVaultSyncDomain } from '@/features/wiki-vault/useWikiVaultSyncDo
 import { providerCatalog, providerLogoMap, type ProviderId } from '@/features/navigation/providerCatalog'
 import type { AppSidebarConfig, AppSidebarMenuKey, AppToolbarConfig } from '@/features/app/appShellComponentConfigs'
 import { requestJson } from '@/services/httpClient'
+import type { Issue, SessionItem } from '@/services/sessionContracts'
 
 export function useAppShell() {
   const uiState = useAppUiState()
@@ -54,6 +54,7 @@ export function useAppShell() {
     messageTagApi,
     importApi,
     knowledgeItemsApi,
+    gbrainV2Api,
     wikiVaultApi,
     bugTraceApi,
     bugInboxFeishuApi,
@@ -260,6 +261,7 @@ export function useAppShell() {
 
   const knowledgeSourcesDomain = useKnowledgeSourcesDomain({
     service: knowledgeItemsApi,
+    gbrainV2Service: gbrainV2Api,
     sessionService: sessionDataApi,
     wikiService: wikiVaultApi,
     notify: uiToastDomain.showToast,
@@ -427,6 +429,8 @@ export function useAppShell() {
     feishuScheduleDataFilter: bugInboxFeishuDomain.feishuScheduleDataFilter,
     componentSettingsSubMenu: uiState.componentSettingsSubMenu,
     modelSettingsSubMenu: uiState.modelSettingsSubMenu,
+    sessionOverviewCollapsed: uiState.sessionOverviewCollapsed,
+    knowledgeOverviewCollapsed: uiState.knowledgeOverviewCollapsed,
   })
 
   const viewModes = useAppViewModes({
@@ -444,6 +448,8 @@ export function useAppShell() {
   const panelContexts = computed(() => useAppPanelContexts({
     uiState: {
       sessionListCollapsed: uiState.sessionListCollapsed,
+      sessionOverviewCollapsed: uiState.sessionOverviewCollapsed,
+      knowledgeOverviewCollapsed: uiState.knowledgeOverviewCollapsed,
       keyword: uiState.keyword,
       useVectorSearch: uiState.useVectorSearch,
       advancedFiltersOpen: uiState.advancedFiltersOpen,
@@ -643,7 +649,6 @@ export function useAppShell() {
       resetImportSelection: importDomain.resetImportSelection,
     },
     displayFormatDomain: {
-      renderMarkdown: displayFormatDomain.renderMarkdown,
       formatTime: displayFormatDomain.formatTime,
       formatScore: displayFormatDomain.formatScore,
     },

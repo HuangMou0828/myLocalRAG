@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import type { SessionDataApi } from '@/services/kbApiServices'
-import type { Issue, SessionItem, SessionRetrieveResponse, SessionReviewStatus } from '@/features/session/types'
+import type { Issue, SessionItem, SessionRetrieveResponse, SessionReviewStatus } from '@/services/sessionContracts'
 import { dedupeStrings } from './knowledgeWorkbenchUtils'
 
 type TaskReviewType =
@@ -451,7 +451,7 @@ function scoreAnswerEssence(scoreOptions: {
   else if (bestAnswer.length >= 120) score += 10
   else if (bestAnswer.length >= 80) score += 6
 
-  if (provider === 'codex' || provider === 'cursor') score += 8
+  if (provider === 'codex' || provider === 'cursor' || provider === 'claude-code') score += 8
   if (scoreOptions.taskType === 'general-knowledge') score += 10
   if (scoreOptions.taskType === 'architecture-discussion') score += 8
   if (scoreOptions.taskType === 'prompt-design') score += 6

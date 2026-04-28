@@ -25,6 +25,8 @@ interface UiSelectionCache {
   feishuScheduleDataFilter?: FeishuScheduleDataFilter
   componentSettingsSubMenu?: ComponentSettingsSubMenu
   modelSettingsSubMenu?: ModelSettingsSubMenu
+  sessionOverviewCollapsed?: boolean
+  knowledgeOverviewCollapsed?: boolean
 }
 
 interface UseUiSelectionCacheDomainOptions {
@@ -43,6 +45,8 @@ interface UseUiSelectionCacheDomainOptions {
   feishuScheduleDataFilter: Ref<FeishuScheduleDataFilter>
   componentSettingsSubMenu: Ref<ComponentSettingsSubMenu>
   modelSettingsSubMenu: Ref<ModelSettingsSubMenu>
+  sessionOverviewCollapsed: Ref<boolean>
+  knowledgeOverviewCollapsed: Ref<boolean>
   storageKey?: string
 }
 
@@ -94,6 +98,12 @@ export function useUiSelectionCacheDomain(options: UseUiSelectionCacheDomainOpti
       if (parsed?.modelSettingsSubMenu === 'management') {
         options.modelSettingsSubMenu.value = parsed.modelSettingsSubMenu
       }
+      if (typeof parsed?.sessionOverviewCollapsed === 'boolean') {
+        options.sessionOverviewCollapsed.value = parsed.sessionOverviewCollapsed
+      }
+      if (typeof parsed?.knowledgeOverviewCollapsed === 'boolean') {
+        options.knowledgeOverviewCollapsed.value = parsed.knowledgeOverviewCollapsed
+      }
     } catch {
       // ignore cache parse failure
     } finally {
@@ -118,6 +128,8 @@ export function useUiSelectionCacheDomain(options: UseUiSelectionCacheDomainOpti
       feishuScheduleDataFilter: options.feishuScheduleDataFilter.value,
       componentSettingsSubMenu: options.componentSettingsSubMenu.value,
       modelSettingsSubMenu: options.modelSettingsSubMenu.value,
+      sessionOverviewCollapsed: Boolean(options.sessionOverviewCollapsed.value),
+      knowledgeOverviewCollapsed: Boolean(options.knowledgeOverviewCollapsed.value),
     }
     localStorage.setItem(storageKey, JSON.stringify(payload))
   }
@@ -131,6 +143,10 @@ export function useUiSelectionCacheDomain(options: UseUiSelectionCacheDomainOpti
   })
 
   watch([options.bugTraceSubMenu, options.feishuMasterSubMenu, options.feishuScheduleDataFilter, options.componentSettingsSubMenu, options.modelSettingsSubMenu], () => {
+    saveUiSelectionCache()
+  })
+
+  watch([options.sessionOverviewCollapsed, options.knowledgeOverviewCollapsed], () => {
     saveUiSelectionCache()
   })
 

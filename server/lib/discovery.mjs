@@ -116,6 +116,13 @@ export async function discoverSourceSuggestions(existingSources = []) {
       reason: 'Codex Desktop/CLI 会话常见目录（jsonl）',
     },
     {
+      name: 'Claude Code 会话目录',
+      provider: 'claude-code',
+      format: 'auto',
+      path: '~/.claude/projects',
+      reason: 'Claude Code 本地会话目录（jsonl）',
+    },
+    {
       name: 'Doubao IndexedDB 目录',
       provider: 'doubao',
       format: 'auto',

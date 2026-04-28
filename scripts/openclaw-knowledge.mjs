@@ -407,11 +407,59 @@ async function loadOpenClawPayloads(root) {
       })
     }
   }
-  return { payloads, issues }
+
+  const byHash = new Map()
+  for (const payload of payloads) {
+    const contentHash = String(payload?.meta?.contentHash || '').trim()
+    if (!contentHash) continue
+    if (!byHash.has(contentHash)) byHash.set(contentHash, [])
+    byHash.get(contentHash).push(payload)
+  }
+
+  const dedupedPayloads = []
+  const duplicates = []
+
+  for (const [, group] of byHash) {
+    const sorted = group
+      .slice()
+      .sort((left, right) => String(left?.meta?.openclawPath || '').localeCompare(String(right?.meta?.openclawPath || '')))
+    const canonical = sorted.at(-1)
+    if (!canonical) continue
+    dedupedPayloads.push(canonical)
+
+    for (const duplicate of sorted.slice(0, -1)) {
+      duplicates.push({
+        action: 'deduped',
+        id: duplicate.id,
+        title: duplicate.title,
+        sourceType: duplicate.sourceType,
+        sourceSubtype: duplicate.sourceSubtype,
+        status: duplicate.status,
+        intakeStage: duplicate?.meta?.intakeStage || '',
+        confidence: duplicate?.meta?.confidence || '',
+        openclawPath: duplicate?.meta?.openclawPath || '',
+        canonicalId: canonical.id,
+        canonicalPath: canonical?.meta?.openclawPath || '',
+      })
+    }
+  }
+
+  dedupedPayloads.sort((left, right) =>
+    String(left?.meta?.openclawPath || '').localeCompare(String(right?.meta?.openclawPath || '')),
+  )
+
+  return {
+    payloads: dedupedPayloads,
+    issues,
+    duplicates,
+    scannedFiles: files.length,
+    dedupedCount: duplicates.length,
+  }
 }
 
-async function inspectPayloads(payloads) {
+async function inspectPayloads(payloads, options = {}) {
   const { getKnowledgeItemByIdInDb, listKnowledgeItemsInDb } = await loadDbApi()
+  const duplicateRows = Array.isArray(options?.duplicates) ? options.duplicates : []
   const rows = []
   const currentIds = new Set((Array.isArray(payloads) ? payloads : []).map((payload) => String(payload?.id || '').trim()).filter(Boolean))
   for (const payload of payloads) {
@@ -437,7 +485,7 @@ async function inspectPayloads(payloads) {
     })
   }
 
-  const existingOpenClaw = await listKnowledgeItemsInDb({ limit: 500, status: 'all', q: 'sourceSystem":"openclaw' })
+  const existingOpenClaw = await listKnowledgeItemsInDb({ limit: 5000, status: 'all', q: 'sourceSystem":"openclaw' })
     .catch(() => ({ items: [] }))
   for (const item of Array.isArray(existingOpenClaw?.items) ? existingOpenClaw.items : []) {
     const id = String(item?.id || '').trim()
@@ -458,34 +506,65 @@ async function inspectPayloads(payloads) {
       existingUpdatedAt: item?.updatedAt || '',
     })
   }
+
+  const existingRowIds = new Set(rows.map((item) => String(item?.id || '').trim()).filter(Boolean))
+  for (const row of duplicateRows) {
+    const id = String(row?.id || '').trim()
+    if (!id || existingRowIds.has(id)) continue
+    rows.push({
+      action: 'deduped',
+      id,
+      title: String(row?.title || ''),
+      sourceType: String(row?.sourceType || ''),
+      sourceSubtype: String(row?.sourceSubtype || ''),
+      status: String(row?.status || ''),
+      intakeStage: String(row?.intakeStage || ''),
+      confidence: String(row?.confidence || ''),
+      openclawPath: String(row?.openclawPath || ''),
+      existingUpdatedAt: '',
+      reason: String(row?.canonicalPath || '').trim() || 'duplicate-content',
+    })
+    existingRowIds.add(id)
+  }
   return rows
 }
 
-function summarizeRows(rows, issues = []) {
+function summarizeRows(rows, issues = [], options = {}) {
+  const dedupedSeed = Math.max(0, Number(options?.dedupedCount || 0))
   const summary = {
+    scanned: Math.max(0, Number(options?.scannedFiles || 0)),
     total: rows.length,
     new: 0,
     changed: 0,
     unchanged: 0,
     missing: 0,
+    deduped: dedupedSeed,
     imported: 0,
     archived: 0,
     skipped: 0,
     issues: issues.length,
   }
   for (const row of rows) {
+    if (row.action === 'deduped') {
+      if (!dedupedSeed) summary.deduped += 1
+      summary.skipped += 1
+      continue
+    }
     if (row.action in summary) summary[row.action] += 1
     if (row.action === 'new' || row.action === 'changed') summary.imported += 1
     else if (row.action === 'missing') summary.archived += 1
     else summary.skipped += 1
   }
+  if (!summary.scanned) summary.scanned = summary.total
   return summary
 }
 
-function printTable(rows, issues, { imported = false } = {}) {
-  const summary = summarizeRows(rows, issues)
+function printTable(rows, issues, { imported = false, scannedFiles = 0, dedupedCount = 0 } = {}) {
+  const summary = summarizeRows(rows, issues, { scannedFiles, dedupedCount })
   const verb = imported ? 'Import result' : 'Preview result'
-  console.log(`${verb}: ${summary.total} markdown files, ${summary.new} new, ${summary.changed} changed, ${summary.unchanged} unchanged, ${summary.issues} issues.`)
+  console.log(
+    `${verb}: scanned=${summary.scanned}, planned=${summary.total}, ${summary.new} new, ${summary.changed} changed, ${summary.missing} missing, ${summary.deduped} deduped, ${summary.unchanged} unchanged, ${summary.issues} issues.`,
+  )
 
   for (const row of rows.slice(0, 80)) {
     console.log(
@@ -528,7 +607,10 @@ async function runPreview(args) {
     return
   }
   console.log(`OpenClaw inbox: ${root}`)
-  printTable(rows, issues)
+  printTable(rows, issues, {
+    scannedFiles: Number(summary?.scanned || 0),
+    dedupedCount: Number(summary?.deduped || 0),
+  })
 }
 
 async function runImport(args) {
@@ -552,9 +634,9 @@ async function runImport(args) {
 export async function previewOpenClawKnowledge(options = {}) {
   const root = path.resolve(expandHome(options.root) || DEFAULT_OPENCLAW_KNOWLEDGE_ROOT)
   await ensureRoot(root)
-  const { payloads, issues } = await loadOpenClawPayloads(root)
-  const rows = await inspectPayloads(payloads)
-  const summary = summarizeRows(rows, issues)
+  const { payloads, issues, duplicates, scannedFiles, dedupedCount } = await loadOpenClawPayloads(root)
+  const rows = await inspectPayloads(payloads, { duplicates })
+  const summary = summarizeRows(rows, issues, { scannedFiles, dedupedCount })
   return { root, summary, rows, issues }
 }
 
@@ -562,8 +644,8 @@ export async function importOpenClawKnowledge(options = {}) {
   const { patchKnowledgeItemMetaInDb, upsertKnowledgeItemInDb } = await loadDbApi()
   const root = path.resolve(expandHome(options.root) || DEFAULT_OPENCLAW_KNOWLEDGE_ROOT)
   await ensureRoot(root)
-  const { payloads, issues } = await loadOpenClawPayloads(root)
-  const rows = await inspectPayloads(payloads)
+  const { payloads, issues, duplicates, scannedFiles } = await loadOpenClawPayloads(root)
+  const rows = await inspectPayloads(payloads, { duplicates })
   const importResults = []
 
   for (const row of rows) {
@@ -582,6 +664,10 @@ export async function importOpenClawKnowledge(options = {}) {
         } catch (error) {
           importResults.push({ ...row, imported: false, archived: false, reason: String(error?.message || error || 'archive-failed') })
         }
+        continue
+      }
+      if (row.action === 'deduped') {
+        importResults.push({ ...row, imported: false, reason: String(row?.reason || 'deduped') })
         continue
       }
       importResults.push({ ...row, imported: false, reason: 'unchanged' })
@@ -614,11 +700,13 @@ export async function importOpenClawKnowledge(options = {}) {
     action: row.archived ? 'archived' : row.imported ? 'imported' : row.action,
   }))
   const summary = {
+    scanned: Math.max(0, Number(scannedFiles || 0)),
     total: rows.length,
+    deduped: importResults.filter((row) => row.action === 'deduped').length,
     imported: importResults.filter((row) => row.imported).length,
     archived: importResults.filter((row) => row.archived).length,
-    skipped: importResults.filter((row) => !row.imported && row.reason === 'unchanged').length,
-    failed: importResults.filter((row) => !row.imported && row.reason !== 'unchanged').length,
+    skipped: importResults.filter((row) => !row.imported && (row.reason === 'unchanged' || row.action === 'deduped')).length,
+    failed: importResults.filter((row) => !row.imported && row.reason !== 'unchanged' && row.action !== 'deduped').length,
     issues: issues.length,
   }
   return { root, summary, rows: importedRows, issues }

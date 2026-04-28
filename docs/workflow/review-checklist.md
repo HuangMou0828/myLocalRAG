@@ -17,11 +17,30 @@
 - 是否补齐了新增逻辑的测试（或明确了补测计划）？
 - 测试是否覆盖关键分支和错误路径？
 
+## P1: 性能与体积
+
+- 新增 dependency 是否必要，是否与现有依赖功能重叠？
+- 新增依赖是否进入主 chunk；重型库（默认按 >20kB raw 评估）是否改为动态 `import()` / `defineAsyncComponent`？
+- 变更后是否运行 `npm run build`，并确认主包体积变化在预期内？
+- 涉及依赖新增或构建配置调整时，是否运行 `npm run build:analyze` 并检查体积分布？
+
 ## P2: 可维护性
 
 - 命名与职责是否清晰，模块是否过大？
 - 是否引入重复逻辑，可否抽取到 shared？
 - 文档是否更新（README / ARCHITECTURE / ADR）？
+
+## P2: CSS 规范（涉及样式变更时必查）
+
+- 是否新建了 `XX-feature-*.css` 全局文件？（**禁止**）
+- 是否向现有 `3X-feature-*.css` 文件追加了代码？（**禁止**）
+- 新 feature CSS 是否写入了 `<style scoped>`？
+- 全局 CSS 文件（`20-layout-shell.css`、`21-shared-components.css` 等）是否超出了行数上限？
+- 是否硬编码了颜色值？（应使用 `var(--token)` 替代）
+- 需要穿透子组件时，是否使用了 `:deep()` 而不是去掉 scoped？
+- `<style scoped>` 是否超过 150 行？（超过需说明理由或拆分组件）
+
+详细规则见 [css-standards.md](css-standards.md)。
 
 ## P2: 技术债跟踪
 

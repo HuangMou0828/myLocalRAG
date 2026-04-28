@@ -21,7 +21,7 @@ function roleFrom(value) {
 
 function normalizeProvider(value, fallback = 'other') {
   const lower = String(value || '').toLowerCase().trim()
-  if (['chatgpt', 'codex', 'claude', 'cursor', 'doubao', 'gemini', 'other'].includes(lower)) return lower
+  if (['chatgpt', 'codex', 'claude', 'claude-code', 'cursor', 'doubao', 'gemini', 'other'].includes(lower)) return lower
   return fallback
 }
 

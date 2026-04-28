@@ -1,0 +1,2667 @@
+{
+  "version": "gbrain-v2-dry-run.v1",
+  "generatedAt": "2026-04-25T04:25:14.084Z",
+  "summary": {
+    "total": 102,
+    "sampleSize": 120,
+    "byTier": {
+      "clean": 98,
+      "suspect": 4
+    },
+    "byKind": {
+      "pattern": 15,
+      "context": 83,
+      "decision": 1,
+      "issue": 3
+    },
+    "qualityIssueCounts": {
+      "archived_item": 36,
+      "missing_summary": 13,
+      "short_content": 3,
+      "missing_content_hash": 1
+    },
+    "lineageCoverage": 100
+  },
+  "samples": [
+    {
+      "rawId": "openclaw_05e14e86df90770fa9b303f7d5ab1c255989dfe7",
+      "atomId": "atom_5942239ee8a865627260be7a",
+      "canonicalId": "canon_4efd4acbbfbc0720f1f2edfd",
+      "pageId": "syntheses/功能需求-20260411-001",
+      "pageType": "synthesis-note",
+      "qualityScore": 66,
+      "qualityTier": "suspect",
+      "qualityIssues": [
+        "missing_summary",
+        "short_content",
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "wiki-candidate",
+      "confidence": "medium",
+      "title": "功能需求 20260411-001]",
+      "summary": "功能需求 20260411-001]",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/errors/ERR-20260411001].md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "errors/ERR-20260411001].md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_ed3d33af7ca566a85d00b7b7bd488e896c598890",
+      "atomId": "atom_a362f8d26dfca409071f2c9c",
+      "canonicalId": "canon_cb60afc38d1da2c9043d458c",
+      "pageId": "syntheses/功能需求-20260411-001",
+      "pageType": "synthesis-note",
+      "qualityScore": 66,
+      "qualityTier": "suspect",
+      "qualityIssues": [
+        "missing_summary",
+        "short_content",
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "reference-only",
+      "confidence": "medium",
+      "title": "功能需求 20260411-001]",
+      "summary": "功能需求 20260411-001]",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260411001].md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260411001].md"
+        }
+      ]
+    },
+    {
+      "rawId": "knowledge_1775882078634_bs3zrk",
+      "atomId": "atom_1600c382fcba5d3778f4d782",
+      "canonicalId": "canon_6c9552a916bc8c7914669a20",
+      "pageId": "syntheses/embedding-重建后知识库搜索结果为空",
+      "pageType": "synthesis-note",
+      "qualityScore": 78,
+      "qualityTier": "suspect",
+      "qualityIssues": [
+        "missing_summary",
+        "missing_content_hash"
+      ],
+      "kind": "context",
+      "intakeStage": "reference-only",
+      "confidence": "high",
+      "title": "Embedding 重建后知识库搜索结果为空",
+      "summary": "现象：在知识工作台重建 embedding 后，搜索“升格审核”没有返回任何知识条目，但 Raw Inbox 里能看到相关采集。",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "server/lib/wiki-vault.mjs"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_e1559c0a105e6858b1333096d05f8beb2069f00b",
+      "atomId": "atom_75ec18bfff8bfe2b501b2117",
+      "canonicalId": "canon_b1cc803fe8311f50c07b3934",
+      "pageId": "syntheses/功能需求-20260411-001",
+      "pageType": "synthesis-note",
+      "qualityScore": 78,
+      "qualityTier": "suspect",
+      "qualityIssues": [
+        "short_content",
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "needs-context",
+      "confidence": "low",
+      "title": "功能需求 20260411-001]",
+      "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260411001].md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260411001].md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_41446c174546cd9bc220b62e3bb950603d4a357c",
+      "atomId": "atom_d980eb3ac8cfbedaafc95329",
+      "canonicalId": "canon_a6a9cd6ec69f548a1c993bb9",
+      "pageId": "syntheses/五层记忆体系",
+      "pageType": "synthesis-note",
+      "qualityScore": 84,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "missing_summary",
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "needs-context",
+      "confidence": "medium",
+      "title": "五层记忆体系",
+      "summary": "功能需求",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260411-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260411-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_95c45b36de44dba810ad1601ac1e8a7725785c25",
+      "atomId": "atom_5ee3af883d6f353d5d036409",
+      "canonicalId": "canon_3a967288130459012cba6b5b",
+      "pageId": "syntheses/2026-03-27-工作记录",
+      "pageType": "synthesis-note",
+      "qualityScore": 84,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "missing_summary",
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-03-27 工作记录",
+      "summary": "2026-03-27 工作记录",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-03-27.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-03-27.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_9dc8757c686175c4383f75c73a2fec1934c6accc",
+      "atomId": "atom_820de76d16407bd50c4226fb",
+      "canonicalId": "canon_a8ed030d202c24020689c85d",
+      "pageId": "syntheses/session-2026-04-22-06-42-22-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 84,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "missing_summary",
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-22 06:42:22 UTC",
+      "summary": "Session: 2026-04-22 06:42:22 UTC",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-22-memory-wiki-config.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-22-memory-wiki-config.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_c2ba2ea28a10cb82cedf8cc85cf0cc811d466997",
+      "atomId": "atom_7243cae4df4bad5d99e92748",
+      "canonicalId": "canon_829e0996453f9cbd2063d864",
+      "pageId": "syntheses/飞书语音消息发送指南",
+      "pageType": "synthesis-note",
+      "qualityScore": 84,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "missing_summary",
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "飞书语音消息发送指南",
+      "summary": "飞书语音消息发送指南",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/飞书语音发送指南.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/飞书语音发送指南.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_d7fdc5bd5bc0ee6c440eacf30fdae37539655ad8",
+      "atomId": "atom_34b281163cc79433ea838a2d",
+      "canonicalId": "canon_b34ff4d5075df0535389531b",
+      "pageId": "syntheses/2026-04-11",
+      "pageType": "synthesis-note",
+      "qualityScore": 84,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "missing_summary",
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-04-11",
+      "summary": "2026-04-11",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-11.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-11.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_fd695b674fc444ea1fc881bf96bee05c446f3fe4",
+      "atomId": "atom_23c5072253afaceeaa516ded",
+      "canonicalId": "canon_af78f8e1e064ef0f0fcba520",
+      "pageId": "patterns/批量清理前先查memory记录",
+      "pageType": "pattern-note",
+      "qualityScore": 84,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "missing_summary",
+        "archived_item"
+      ],
+      "kind": "pattern",
+      "intakeStage": "wiki-candidate",
+      "confidence": "medium",
+      "title": "批量清理前先查memory记录",
+      "summary": "最佳实践",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260413-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260413-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_0ec9d4a4127fe800ff9abe2e2bf154e921aca8c6",
+      "atomId": "atom_25f0c406acd5a42fcf1b8c7f",
+      "canonicalId": "canon_3f11769053892fdcecc0db32",
+      "pageId": "syntheses/2026-04-15-daily-log",
+      "pageType": "synthesis-note",
+      "qualityScore": 88,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "missing_summary"
+      ],
+      "kind": "context",
+      "intakeStage": "reference-only",
+      "confidence": "medium",
+      "title": "2026-04-15 Daily Log",
+      "summary": "2026-04-15 Daily Log",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-15.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-15.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_6f86c37d27bfacf9a118f9be10d215fbea08516c",
+      "atomId": "atom_867661dede226c19792b7b69",
+      "canonicalId": "canon_dad3bee81a08be13d2feda8e",
+      "pageId": "syntheses/2026-04-22",
+      "pageType": "synthesis-note",
+      "qualityScore": 88,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "missing_summary"
+      ],
+      "kind": "context",
+      "intakeStage": "reference-only",
+      "confidence": "high",
+      "title": "2026-04-22",
+      "summary": "2026-04-22",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-22.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-22.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_9a8ffc66cd27355f02885870698137e93e11688c",
+      "atomId": "atom_a413eaf94017fa64d6946810",
+      "canonicalId": "canon_7ce1cf3226fe485120bbb5d1",
+      "pageId": "issues/如何避免清理配置文件夹时未先记录原有内容",
+      "pageType": "issue-note",
+      "qualityScore": 88,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "missing_summary"
+      ],
+      "kind": "issue",
+      "intakeStage": "reference-only",
+      "confidence": "high",
+      "title": "如何避免清理配置文件夹时未先记录原有内容？",
+      "summary": "错误教训",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/errors/ERR-20260413-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "errors/ERR-20260413-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_e19310faf4d7fb18495b25a25380c243cf28fc4f",
+      "atomId": "atom_e24558dbdd4cb1fa9c08ee3f",
+      "canonicalId": "canon_80912376cea89a85cab6d093",
+      "pageId": "syntheses/session-2026-04-10-17-21-25-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 88,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "missing_summary"
+      ],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-10 17:21:25 UTC",
+      "summary": "Session: 2026-04-10 17:21:25 UTC",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-10-config-warnings-fix.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-10-config-warnings-fix.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_00ccab34c9e1d435c9a91c58daeda5e5f786e534",
+      "atomId": "atom_4364a97758c8a0346c621099",
+      "canonicalId": "canon_2265e2d0bff755fd31b03c29",
+      "pageId": "issues/如何避免批量清理配置文件夹时误删重要内容",
+      "pageType": "issue-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "issue",
+      "intakeStage": "reference-only",
+      "confidence": "high",
+      "title": "如何避免批量清理配置文件夹时误删重要内容？",
+      "summary": "批量清理 OpenClaw 配置目录前，必须先记录当前文件结构和关键内容，否则极易误删重要项目。",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/errors/ERR-20260411-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "errors/ERR-20260411-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_07cb6a79a7993abbaa975245148a6dbae7654c54",
+      "atomId": "atom_995f6cdae5d54885dee51d4c",
+      "canonicalId": "canon_e756c0053bb07908168c2e6a",
+      "pageId": "syntheses/2026-03-05-工作记录",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-03-05 工作记录",
+      "summary": "今日工作内容",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-03-05.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-03-05.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_0b8857da000ad1baa5f15d896169e585538c0e73",
+      "atomId": "atom_7349e95c8e8f5c255466240a",
+      "canonicalId": "canon_f5ad672c0de4f962c4de194c",
+      "pageId": "syntheses/session-2026-03-05-09-59-29-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-03-05 09:59:29 UTC",
+      "summary": "Session Key : agent:main:main Session ID : e0b31fa5 956e 410d 9ee5 afdb9ede046f Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-03-05-0959.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-03-05-0959.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_12965825c02247a6994f0cced9ad20a4800b4dd7",
+      "atomId": "atom_25e2ad276f39792400fc0a87",
+      "canonicalId": "canon_222136297fb2f32c6b748834",
+      "pageId": "patterns/批量清理前先查memory记录",
+      "pageType": "pattern-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "pattern",
+      "intakeStage": "wiki-candidate",
+      "confidence": "medium",
+      "title": "批量清理前先查memory记录",
+      "summary": "When To Use",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260417-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260417-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_1482c8cff1add44697abef8aaf4c349e912c6cbe",
+      "atomId": "atom_7a904faa44563b5d684d167f",
+      "canonicalId": "canon_b909dbc5e8802504680d346d",
+      "pageId": "syntheses/2026-03-10-工作日志",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-03-10 工作日志",
+      "summary": "微信公众号发布",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-03-10.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-03-10.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_1955375d717f88ce0155645db78fe794ee77b2e8",
+      "atomId": "atom_7039e4bef082ed16d412fce9",
+      "canonicalId": "canon_fa5d0a9a455b09af05e99e0f",
+      "pageId": "syntheses/还在原价用-claude-这波羊毛不薅等于亏钱",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "还在原价用 Claude？这波羊毛不薅等于亏钱",
+      "summary": "📢 限时福利：错峰双倍活动正在进行",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-03-19-claude-dual-activity.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-03-19-claude-dual-activity.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_1a24681b04f6174276b4a264094854a22fe9e430",
+      "atomId": "atom_24135a8cec527d3b1bb9c570",
+      "canonicalId": "canon_a6a9cd6ec69f548a1c993bb9",
+      "pageId": "syntheses/五层记忆体系",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "needs-context",
+      "confidence": "low",
+      "title": "五层记忆体系",
+      "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1 Full Context",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260413-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260413-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_25050a42b8cfa6c1324f4f52726fce1696f087ae",
+      "atomId": "atom_da280f895765104aaaf00f58",
+      "canonicalId": "canon_559281816c58fd44c30d114d",
+      "pageId": "syntheses/五层记忆体系",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "needs-context",
+      "confidence": "low",
+      "title": "五层记忆体系",
+      "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260421-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260421-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_2c89f79ab1a021f8476c6c88cc319c555d019f7a",
+      "atomId": "atom_72ea4869b7f857b2ea8860f4",
+      "canonicalId": "canon_559281816c58fd44c30d114d",
+      "pageId": "syntheses/五层记忆体系",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "needs-context",
+      "confidence": "low",
+      "title": "五层记忆体系",
+      "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260419-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260419-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_5ee8644b574d3dbba51959ca7dd9a014e04e9d01",
+      "atomId": "atom_35fa806eaa67c7446d5fb896",
+      "canonicalId": "canon_8014df54a719441ad53e7a7a",
+      "pageId": "syntheses/session-2026-03-09-08-26-52-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-03-09 08:26:52 UTC",
+      "summary": "Session Key : agent:main:main Session ID : e945ae82 4618 4dc2 a5f8 1fd551518ab2 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-03-09-0826.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-03-09-0826.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_73fd8ef20efd018f1de5cff139774557e3f0d037",
+      "atomId": "atom_a0a641f275acfeba52c8dda0",
+      "canonicalId": "canon_559281816c58fd44c30d114d",
+      "pageId": "syntheses/五层记忆体系",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "needs-context",
+      "confidence": "low",
+      "title": "五层记忆体系",
+      "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260417-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260417-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_808eb326f7aadd5f96687ef2c0b6124640709560",
+      "atomId": "atom_3c131eaa3ca784c36dad06a5",
+      "canonicalId": "canon_0c28ea355bdc953781aad353",
+      "pageId": "patterns/批量清理前应该如何避免误删关键记忆和项目",
+      "pageType": "pattern-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "pattern",
+      "intakeStage": "reference-only",
+      "confidence": "high",
+      "title": "批量清理前应该如何避免误删关键记忆和项目？",
+      "summary": "批量清理 OpenClaw 配置、缓存、知识目录前，必须先读取 MEMORY.md 和目标目录内容，再记录清理意图和保留项。",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260411-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260411-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_a6fc80f3c0e2654d3e2576075af9a62c83b9194c",
+      "atomId": "atom_553f460c1f1d9ec5662b5027",
+      "canonicalId": "canon_222136297fb2f32c6b748834",
+      "pageId": "patterns/批量清理前先查memory记录",
+      "pageType": "pattern-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "pattern",
+      "intakeStage": "wiki-candidate",
+      "confidence": "medium",
+      "title": "批量清理前先查memory记录",
+      "summary": "When To Use",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260424-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260424-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_a7ed208a5bf2971fc7115c4a1f52ad488475dc97",
+      "atomId": "atom_4c6648695ab0097c6664bc57",
+      "canonicalId": "canon_559281816c58fd44c30d114d",
+      "pageId": "syntheses/五层记忆体系",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "needs-context",
+      "confidence": "low",
+      "title": "五层记忆体系",
+      "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260424-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260424-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_af2a198a99ae285c5ff0ab1181dccc8f2793ceaa",
+      "atomId": "atom_073129e23dc262402faf0614",
+      "canonicalId": "canon_222136297fb2f32c6b748834",
+      "pageId": "patterns/批量清理前先查memory记录",
+      "pageType": "pattern-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "pattern",
+      "intakeStage": "wiki-candidate",
+      "confidence": "medium",
+      "title": "批量清理前先查memory记录",
+      "summary": "When To Use",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260422-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260422-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_b989926351c7604c759cdbf3e65fd991e0445854",
+      "atomId": "atom_426e2a2bebe6d697e6d0d7bf",
+      "canonicalId": "canon_222136297fb2f32c6b748834",
+      "pageId": "patterns/批量清理前先查memory记录",
+      "pageType": "pattern-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "pattern",
+      "intakeStage": "wiki-candidate",
+      "confidence": "medium",
+      "title": "批量清理前先查memory记录",
+      "summary": "When To Use",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260419-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260419-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_bb1d0b43860499281c5c35c52317a4739490b4d3",
+      "atomId": "atom_239ef677c089e2177c21524a",
+      "canonicalId": "canon_b181c50a6faaf80011361107",
+      "pageId": "syntheses/2026-03-13-工作日志",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-03-13 工作日志",
+      "summary": "今日事项",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-03-13.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-03-13.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_bc8a878394862edd506205bf755c5448047272f3",
+      "atomId": "atom_619af0d13c46c819a3fd0c22",
+      "canonicalId": "canon_29d7d363474365a8028c4aba",
+      "pageId": "syntheses/session-2026-03-05-10-03-41-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-03-05 10:03:41 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 786d4e96 6432 46f0 9789 60bc3bf90cf0 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-03-05-1003.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-03-05-1003.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_be1c39f3e36e17a3def1edcce998a5ab15bba17b",
+      "atomId": "atom_b34ae60395366574d8aa2c93",
+      "canonicalId": "canon_222136297fb2f32c6b748834",
+      "pageId": "patterns/批量清理前先查memory记录",
+      "pageType": "pattern-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "pattern",
+      "intakeStage": "wiki-candidate",
+      "confidence": "medium",
+      "title": "批量清理前先查memory记录",
+      "summary": "When To Use",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260421-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260421-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_cbbe7b96ac8e9b9c16f3e689a5ddfe72c497be32",
+      "atomId": "atom_3d37c192e899b9ebd9fb6c65",
+      "canonicalId": "canon_559281816c58fd44c30d114d",
+      "pageId": "syntheses/五层记忆体系",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "needs-context",
+      "confidence": "low",
+      "title": "五层记忆体系",
+      "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260418-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260418-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_d6bf3ac0939a4623d92b93ac0dd94de85fd54282",
+      "atomId": "atom_b82233d1d3b58d0937d271b8",
+      "canonicalId": "canon_222136297fb2f32c6b748834",
+      "pageId": "patterns/批量清理前先查memory记录",
+      "pageType": "pattern-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "pattern",
+      "intakeStage": "wiki-candidate",
+      "confidence": "medium",
+      "title": "批量清理前先查memory记录",
+      "summary": "When To Use",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260420-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260420-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_ddb7ce3a89288d9516baf0139c394f57a4803d91",
+      "atomId": "atom_3c8e327548b89e02fd66b5e7",
+      "canonicalId": "canon_559281816c58fd44c30d114d",
+      "pageId": "syntheses/五层记忆体系",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "needs-context",
+      "confidence": "low",
+      "title": "五层记忆体系",
+      "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260423-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260423-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_dfef9f5e3dc3b823ecc036c454d546ddfacd605a",
+      "atomId": "atom_90a7b29213acd9dd5bb68d07",
+      "canonicalId": "canon_559281816c58fd44c30d114d",
+      "pageId": "syntheses/五层记忆体系",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "needs-context",
+      "confidence": "low",
+      "title": "五层记忆体系",
+      "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260422-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260422-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_f012dfa2090f18aba2ff67a453fe93e2fa61b82e",
+      "atomId": "atom_c38514a9049f206f68c988c0",
+      "canonicalId": "canon_222136297fb2f32c6b748834",
+      "pageId": "patterns/批量清理前先查memory记录",
+      "pageType": "pattern-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "pattern",
+      "intakeStage": "wiki-candidate",
+      "confidence": "medium",
+      "title": "批量清理前先查memory记录",
+      "summary": "When To Use",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260418-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260418-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_f77934a807bbfb75ac515892b7de85a5c47deab6",
+      "atomId": "atom_d8432ec36dbd5b0c9296cbc2",
+      "canonicalId": "canon_222136297fb2f32c6b748834",
+      "pageId": "patterns/批量清理前先查memory记录",
+      "pageType": "pattern-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "pattern",
+      "intakeStage": "wiki-candidate",
+      "confidence": "medium",
+      "title": "批量清理前先查memory记录",
+      "summary": "When To Use",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260423-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260423-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_fb01b04829664fc1d9a104f6fca4189e4768e3f4",
+      "atomId": "atom_327d906ec370efcdd1cf138b",
+      "canonicalId": "canon_559281816c58fd44c30d114d",
+      "pageId": "syntheses/五层记忆体系",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "needs-context",
+      "confidence": "low",
+      "title": "五层记忆体系",
+      "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260420-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260420-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_fe5570eb8b558d1cbcfc5370048c1c4f3c25fe7d",
+      "atomId": "atom_c8fcf1ca71b51f498a94dc41",
+      "canonicalId": "canon_e2208491bfab05f721171053",
+      "pageId": "syntheses/2026-03-23",
+      "pageType": "synthesis-note",
+      "qualityScore": 96,
+      "qualityTier": "clean",
+      "qualityIssues": [
+        "archived_item"
+      ],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-03-23",
+      "summary": "Session Start Time: 2026 03 23 19:36 Asia/Shanghai User: 黄谋 Notes: New session started after previous interruption",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-03-23.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-03-23.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_07728c44307aa96698de3e899938044570ac9884",
+      "atomId": "atom_538627514ef61a9b940b98cd",
+      "canonicalId": "canon_d42d4257166e774bda35cd91",
+      "pageId": "patterns/批量清理前应该如何避免误删关键记忆",
+      "pageType": "pattern-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "pattern",
+      "intakeStage": "reference-only",
+      "confidence": "low",
+      "title": "批量清理前应该如何避免误删关键记忆？",
+      "summary": "批量清理前先检查 memory，并把清理意图、保留项和风险点写入记录。",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/TEST-20260411-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/TEST-20260411-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_07912ca6d4a3eeff08c98a7cf16ecace3702a41f",
+      "atomId": "atom_125b79a772122ce2f2b25459",
+      "canonicalId": "canon_a08029f0997dfbcb03eaa242",
+      "pageId": "syntheses/2026-04-18-下午补充",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-04-18 下午补充",
+      "summary": "Light Sleep <! openclaw:dreaming:light:start Candidate: Reflections: Theme: assistant kept surfacing across 932 memories.; confidence: 1.00; evidence: memory/.dreams/session corpus/2026 04 10.txt:2 2, memory/.dreams/session corpus/2026 04 10.txt:4 4, memory...",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-18.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-18.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_0cb0b4913cfa5264f6bd23a9e9317b57fb337cc7",
+      "atomId": "atom_7ddd05bb8dc0da8b370c8fe9",
+      "canonicalId": "canon_fe12eae523285e370b2f2373",
+      "pageId": "syntheses/light-sleep",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Light Sleep",
+      "summary": "Light Sleep <! openclaw:dreaming:light:start Candidate: User: Startup context loaded by runtime Bootstrap files like SOUL.md, USER.md, and MEMORY.md are already provided separately when eligible. Recent daily memory was selected and loaded by runtime for th...",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-19.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-19.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_0cc749af94dad6852fd9533bdd4459d9846314ad",
+      "atomId": "atom_b4088569c81b9601d8555f4b",
+      "canonicalId": "canon_289c6d75fa42518e4d59c7fe",
+      "pageId": "syntheses/session-2026-04-21-04-56-57-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-21 04:56:57 UTC",
+      "summary": "Session Key : agent:main:main Session ID : f91a1caf a0dc 4de9 afe4 f6fbb2df04be Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-21-lark-account-config-bug.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-21-lark-account-config-bug.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_11dfe959470e4f1e782431a748b48a2b17ae61f2",
+      "atomId": "atom_d675c74eabb6338c9d5fbbdc",
+      "canonicalId": "canon_471152e97e3804419eb37773",
+      "pageId": "syntheses/session-2026-04-18-05-01-02-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-18 05:01:02 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 371be057 bb20 450e 8dd5 5f6b00bbe55d Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-18-dream-cache-undefined-bug.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-18-dream-cache-undefined-bug.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_1a9f5e9ded5726531e2257e424621d95b1fbfa52",
+      "atomId": "atom_8b76e9e0dabb9a1675034b9c",
+      "canonicalId": "canon_fc80f1f391007c43822ae275",
+      "pageId": "syntheses/session-2026-04-20-08-21-43-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-20 08:21:43 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 60009a6d 187a 4263 a06a 401fc41f1c64 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-20-discord-config-fix.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-20-discord-config-fix.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_1adc3e94e08633fb024239853cea5b970b3a7302",
+      "atomId": "atom_e8853959cbb5daa35cc3a5ae",
+      "canonicalId": "canon_c3c998c4119df5a749f97a07",
+      "pageId": "patterns/openclaw-多副本路径分析与清理方案",
+      "pageType": "pattern-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "pattern",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "OpenClaw 多副本路径分析与清理方案",
+      "summary": "撰写时间： 2026 04 21 前置文档： openclaw multipath diagnosis.md 结论： 1. 实际 只有 1 套在用 （pnpm 路径）， which openclaw 唯一指向它，LaunchAgent 也指向它， 当前不是问题 。 2. 文档里\"三套副本\"的描述 部分不准确 ——nvm 路径下根本没有 openclaw，所谓的\"npm 残骸\"实际位于 Homebrew 的 npm prefix 。 3. 真正剩下的\"垃圾\"只有一个孤儿目录 /opt/homebrew/lib/...",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/openclaw-multipath-rootcause-and-fix.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/openclaw-multipath-rootcause-and-fix.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_1cd5f6be7bf489e621dfc4dd6d269bdc167a89f9",
+      "atomId": "atom_138ab7692826ab8d689d0ab4",
+      "canonicalId": "canon_a6a9cd6ec69f548a1c993bb9",
+      "pageId": "syntheses/五层记忆体系",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "needs-context",
+      "confidence": "low",
+      "title": "五层记忆体系",
+      "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1 Full Context",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260415-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260415-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_2285142af628acbb9bb878247d058a9780bcd629",
+      "atomId": "atom_dfc8218a7155c6b8b468a7e6",
+      "canonicalId": "canon_d55dab7d35cde84c49caa432",
+      "pageId": "syntheses/session-2026-04-15-06-29-14-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-15 06:29:14 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 2e1cfbb3 8ccc 402a a26c e38e4a71edd9 Source : gateway:sessions.reset",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-15-feishu-sprint-lookup.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-15-feishu-sprint-lookup.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_22e8c3cb36debc2b066ec04ad397bef0755b5469",
+      "atomId": "atom_c03694deed8c5eb8a5c62aba",
+      "canonicalId": "canon_d1cab38f3afb57fbc3015769",
+      "pageId": "syntheses/untitled",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "decision",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "---",
+      "summary": "Decisions",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-21.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-21.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_24b44bb67bab7710e8f8c72fc88cd53f77d191c0",
+      "atomId": "atom_19fc94fd802d468074ea7476",
+      "canonicalId": "canon_456bc232f74d10df302ad365",
+      "pageId": "syntheses/session-2026-04-14-08-51-44-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-14 08:51:44 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 83444d88 7e53 4f0a 99e9 1e74fbcd55b9 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-14-discord-cron-routing-benefits.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-14-discord-cron-routing-benefits.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_30062328d0f6a319fe9c8837aa02b79f5f4c7ef9",
+      "atomId": "atom_95e5942c4dc5f10d53c3e8ab",
+      "canonicalId": "canon_daea38b2579a68052a089259",
+      "pageId": "syntheses/2026-04-13-日志",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-04-13 日志",
+      "summary": "飞书任务/待办查询经历",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-13.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-13.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_3233c675b39911b2955e51bfd4affa2fbe3905bb",
+      "atomId": "atom_4b11e4b297cb3f47005fcb83",
+      "canonicalId": "canon_e2d2b9c2d7a30db793c1fdab",
+      "pageId": "syntheses/session-2026-04-16-11-15-30-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-16 11:15:30 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 8fe1f5de 4b7a 4154 a8b4 623852da1e27 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-16-cron-fix.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-16-cron-fix.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_35002d065206f0b456559ba4999b34ee2650ccd5",
+      "atomId": "atom_8bd2f211373f6107d271fdb0",
+      "canonicalId": "canon_559281816c58fd44c30d114d",
+      "pageId": "syntheses/五层记忆体系",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "needs-context",
+      "confidence": "low",
+      "title": "五层记忆体系",
+      "summary": "五层记忆体系 让Agent真正记住经验并持续成长 P1",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/reference/FR-20260425-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "reference/FR-20260425-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_39f613543abffcaa0da4d7f93634800060437975",
+      "atomId": "atom_f6a0550b4880ea2a5fc03929",
+      "canonicalId": "canon_6e69b01d7f31df23ac4bbe09",
+      "pageId": "syntheses/session-2026-04-12-07-51-57-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-12 07:51:57 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 9db96497 4bd9 4f5b a56d 628ef4fffd11 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-12-heartbeat-exec-timeout.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-12-heartbeat-exec-timeout.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_41edbc781a8262348fbff8a461243b78bf119eb6",
+      "atomId": "atom_a61dc1408ac70ac37059cdfc",
+      "canonicalId": "canon_ceb1c4fdb2d75d4a59333bda",
+      "pageId": "syntheses/light-sleep",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Light Sleep",
+      "summary": "Light Sleep <! openclaw:dreaming:light:start Candidate: Reflections: Theme: assistant kept surfacing across 418 memories.; confidence: 1.00; evidence: memory/.dreams/session corpus/2026 04 10.txt:2 2, memory/.dreams/session corpus/2026 04 10.txt:4 4, memory...",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-12.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-12.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_4419447c3034c3b6705f0fbf27bb1935310c991b",
+      "atomId": "atom_f92dd8fcf69bcc748169bdb2",
+      "canonicalId": "canon_e2d3f6ef8e11c9cf511549c9",
+      "pageId": "syntheses/everything-claude-code-太顶了",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "everything-claude-code 太顶了",
+      "summary": "来源：https://mp.weixin.qq.com/s/K7nVgjV8uiieK9ZdP10FuA",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/everything-claude-code-article.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/everything-claude-code-article.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_47924c5d3fef59a390dba3f01fd4b36c362fd60a",
+      "atomId": "atom_bd0acd9d1f16d6d609a5c3c9",
+      "canonicalId": "canon_eefab3ad66c804c67b06d5bf",
+      "pageId": "syntheses/session-2026-04-20-08-52-23-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-20 08:52:23 UTC",
+      "summary": "Session Key : agent:main:main Session ID : ad6d78d4 bc2f 43ba a8e3 2d24813658d7 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-20-gateway-config.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-20-gateway-config.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_485074d27175bf0f5ea72d686684fa87fe8ccc8a",
+      "atomId": "atom_9ec61e6c5f6f99ddc49d3a7a",
+      "canonicalId": "canon_6fe4ad8da183603d52dab6c7",
+      "pageId": "syntheses/session-2026-04-17-08-19-09-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-17 08:19:09 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 019aa035 39f0 4a0c bbb7 8a6c68af8c1a Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-17-request-timed-out-before-a-res.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-17-request-timed-out-before-a-res.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_4868c1b8dd843ca0fad37725a2d1b58fadd67127",
+      "atomId": "atom_5a1f2b5e533a83433de163af",
+      "canonicalId": "canon_d79119ac1a542c419b494f3f",
+      "pageId": "syntheses/session-2026-04-21-11-06-33-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-21 11:06:33 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 24d43934 545f 4d0d b2b4 d18cfb1a1872 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-21-feishu-binding-session.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-21-feishu-binding-session.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_53add28c39104739c665aecd67612b03a940beaa",
+      "atomId": "atom_798bffb281b41e4c8037f637",
+      "canonicalId": "canon_515c9eaf52b357d09514e178",
+      "pageId": "syntheses/session-2026-04-13-14-40-27-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-13 14:40:27 UTC",
+      "summary": "Session Key : agent:main:main Session ID : dc9be37a dcf9 4c35 9536 ce79a321efec Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-13-ima-knowledge-base-auth.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-13-ima-knowledge-base-auth.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_55bcf753232c945599b7df367d04593f7509013c",
+      "atomId": "atom_99fe50e212b2fb7552107567",
+      "canonicalId": "canon_0ac42e73e4f18658283e5ae6",
+      "pageId": "syntheses/2026-04-23",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-04-23",
+      "summary": "HEARTBEAT.md 重大更新",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-23.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-23.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_568478a0e7760e192ac3b6498e7648d9e19a6765",
+      "atomId": "atom_334f07e113795608f76b2e68",
+      "canonicalId": "canon_e7c1e029c64283bec44f32bd",
+      "pageId": "syntheses/gateway-sigterm-问题诊断报告",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Gateway SIGTERM 问题诊断报告",
+      "summary": "撰写时间： 2026 04 21 12:39 Asia/Shanghai 问题： Gateway 进程周期性收到 SIGTERM 被杀死，launchd 自动重启，但重启后又被杀死，循环往复。",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/gateway-sigterm-diagnosis.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/gateway-sigterm-diagnosis.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_588a88113cb77923c09a50d58d491d08ccdf6d30",
+      "atomId": "atom_160490c9acf51a9266b24b7a",
+      "canonicalId": "canon_222136297fb2f32c6b748834",
+      "pageId": "patterns/批量清理前先查memory记录",
+      "pageType": "pattern-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "pattern",
+      "intakeStage": "wiki-candidate",
+      "confidence": "medium",
+      "title": "批量清理前先查memory记录",
+      "summary": "When To Use",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260425-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260425-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_5bbc66ae58983b13d366f03c6b3f9b190f2a59fb",
+      "atomId": "atom_0f321c9c05dc94f5661d5da5",
+      "canonicalId": "canon_d20bfbdc9eb957b740a4a972",
+      "pageId": "syntheses/session-2026-04-13-03-49-46-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-13 03:49:46 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 764b873c 5e18 4723 ad22 da080ca71749 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-13-ima-api-capabilities-explorati.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-13-ima-api-capabilities-explorati.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_644c97e78b0bc0494687675295ef928c5d688aa0",
+      "atomId": "atom_733a7654d53f8d512aa61df3",
+      "canonicalId": "canon_f28b6968a8213739632cc85c",
+      "pageId": "syntheses/session-2026-04-21-11-32-13-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-21 11:32:13 UTC",
+      "summary": "Session Key : agent:main:main Session ID : cd816eba c0bc 460e 8a2e b77892c6fd23 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-21-mcp-architecture.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-21-mcp-architecture.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_65b6b7cfeabbf86838241489afb46f999e605788",
+      "atomId": "atom_fd8fd8d563a46939ee66bdf9",
+      "canonicalId": "canon_55a4f7cf2a7d65c4571313de",
+      "pageId": "syntheses/session-2026-04-20-04-46-23-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-20 04:46:23 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 2f5a267b 9986 4a33 9b39 fbf25e347131 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-20-ai-news-cron-fail.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-20-ai-news-cron-fail.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_6c89c1ae30f952db1054181e90aa895e9b08fd41",
+      "atomId": "atom_00613cbd1d93c7ec3f641b36",
+      "canonicalId": "canon_39b8fbd22844c8da23719099",
+      "pageId": "syntheses/session-2026-04-15-06-51-37-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-15 06:51:37 UTC",
+      "summary": "Session Key : agent:main:main Session ID : df7f99b7 330a 4f9b 92dc 93af4a0bc477 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-15-feishu-mcp-tool-schema.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-15-feishu-mcp-tool-schema.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_6d1cfca527f08d03820ca71ac2b92f5abe37c6ac",
+      "atomId": "atom_bbe2aff9fbdd8fc1ce3ff4ac",
+      "canonicalId": "canon_1d0b6b4d67d051713214fc05",
+      "pageId": "syntheses/session-2026-04-13-08-33-59-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-13 08:33:59 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 58b0b57c e29d 4234 b38d e0342e9fc8a1 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-13-notion-api-advanced-notes-3-1-.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-13-notion-api-advanced-notes-3-1-.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_6e98ac96d734ed62022cfd4ef78bb2ddcae5e3db",
+      "atomId": "atom_fab7e4fabfff9712c7da881e",
+      "canonicalId": "canon_4b70197b6f3ab97b82a7bd59",
+      "pageId": "issues/关于-mdns-watchdog-是-sigterm-根因-的假设评估",
+      "pageType": "issue-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "issue",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "关于 \"mDNS watchdog 是 SIGTERM 根因\" 的假设评估",
+      "summary": "撰写时间： 2026 04 21 前置文档： gateway sigterm rootcause and fix.md 评估对象： 同事提出的新假设—— \"restart 的触发路径只有 3 种：config.patch/apply、update.run、config watcher，watchdog 不直接触发 restart。但 SIGTERM 的真正根因是 watchdog 每 20 30 秒检测 'non announced' 并 re advertise 失败时，可能触发了某种 restart 机制...",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/gateway-sigterm-mdns-hypothesis-review.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/gateway-sigterm-mdns-hypothesis-review.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_711ef26e403cf6d3cd16fc24799617916271e934",
+      "atomId": "atom_8fc7f1cfd7887e3e256a71fb",
+      "canonicalId": "canon_234d03af567c30a610b0e51e",
+      "pageId": "syntheses/2026-04-17",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-04-17",
+      "summary": "sync v3.py 慢的原因分析",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-17.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-17.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_758178da282768bf984512e6162d33231fdd307b",
+      "atomId": "atom_11babd1f7a7253b040d50c85",
+      "canonicalId": "canon_3a9ffa1e47e1c79d5f950386",
+      "pageId": "syntheses/session-2026-04-13-14-59-30-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-13 14:59:30 UTC",
+      "summary": "Session Key : agent:main:main Session ID : dcbe6f0d 3661 461f 9846 5a2f853ec779 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-13-ima-title-debug.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-13-ima-title-debug.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_7969eb6ebe0d1e0b0ea6889ca113bcf663429b00",
+      "atomId": "atom_c81d479f27c4d89405ae35f1",
+      "canonicalId": "canon_7b97f947b4eaa018a139b051",
+      "pageId": "syntheses/session-2026-04-20-01-34-50-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-20 01:34:50 UTC",
+      "summary": "Session Key : agent:main:main Session ID : f1e035a6 da96 40f4 99bb a1e80cddb558 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-20-fe-unscheduled-requirements.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-20-fe-unscheduled-requirements.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_7a7c60254144f31dcc506ce5b710ffa8dced82f3",
+      "atomId": "atom_8ce50ddc62dc64f81342533c",
+      "canonicalId": "canon_af78f8e1e064ef0f0fcba520",
+      "pageId": "patterns/批量清理前先查memory记录",
+      "pageType": "pattern-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "pattern",
+      "intakeStage": "wiki-candidate",
+      "confidence": "medium",
+      "title": "批量清理前先查memory记录",
+      "summary": "When To Use",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/patterns/LRN-20260415-001.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "patterns/LRN-20260415-001.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_7e8b054b58b333a3f32964125ca4d2c77c39895f",
+      "atomId": "atom_cbddb5aa7f4fd5b4f010d15c",
+      "canonicalId": "canon_8ae5372f33786a58024ad6bc",
+      "pageId": "syntheses/session-2026-04-12-06-19-17-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-12 06:19:17 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 421ebf05 9a7b 425c 8f3e 4c76c7677bac Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-12-heartbeat-exec-denied.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-12-heartbeat-exec-denied.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_8117172cefe8ed29e2454511cb18b577a56025fb",
+      "atomId": "atom_756169372131afdba93be124",
+      "canonicalId": "canon_af13a2f8663c3ebeed32df13",
+      "pageId": "syntheses/2026-04-20",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-04-20",
+      "summary": "Session Start Time: 09:40 CST 周一 User: 黄谋",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-20.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-20.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_870b0d7a4167dca3a2b497831cf286fbf34ef19a",
+      "atomId": "atom_5976c90ba9b9b3dac8870beb",
+      "canonicalId": "canon_eafbcf83b404554656bdb2db",
+      "pageId": "syntheses/session-2026-04-19-03-26-29-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-19 03:26:29 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 038c1c94 ee4d 4aa6 aaf3 360a806f793c Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-19-cron-timeout-debug.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-19-cron-timeout-debug.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_8c0a2df9ce29a96f6c1621f1d95fa14777d4b7f8",
+      "atomId": "atom_70903215ebf49b021da59a8b",
+      "canonicalId": "canon_c1546266062310503fc58fc8",
+      "pageId": "syntheses/session-2026-04-17-13-23-53-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-17 13:23:53 UTC",
+      "summary": "Session Key : agent:main:main Session ID : eefc8da7 744c 49a7 bb8b c0b5137c0607 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-17-promotion-queue-optimization.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-17-promotion-queue-optimization.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_8d0e0f3a393af02fec15c01a50d6fded734e6d54",
+      "atomId": "atom_f78c5630f7f894c61f68f9de",
+      "canonicalId": "canon_90b974b951958f82640628ae",
+      "pageId": "syntheses/2026-04-24",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-04-24",
+      "summary": "Session 11:50",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-24.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-24.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_8ed4b4828a99c22f202135c607e4d6143a6787a8",
+      "atomId": "atom_cf79927d22a46ab075623e46",
+      "canonicalId": "canon_10bd3c934a80cf662f245e55",
+      "pageId": "patterns/gateway-sigterm-根因分析与解决方案",
+      "pageType": "pattern-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "pattern",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Gateway SIGTERM 根因分析与解决方案",
+      "summary": "撰写时间： 2026 04 21 前置文档： gateway sigterm diagnosis.md 结论： SIGTERM 不是外部进程发的，是 openclaw 自己 在配置文件变化后，通过 triggerOpenClawRestart → cleanStaleGatewayProcessesSync 主动 kill 旧进程触发的\"自杀式重启\"。launchd 的 KeepAlive=true 把它拉起来，下一次配置写入又被杀，循环往复。",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/gateway-sigterm-rootcause-and-fix.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/gateway-sigterm-rootcause-and-fix.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_90e9f4f5a279db9917a87891dd214b2389202c00",
+      "atomId": "atom_fcc09c14749597bb1126d9e8",
+      "canonicalId": "canon_f7d2dda44c76963ff27576d6",
+      "pageId": "syntheses/session-2026-04-21-08-49-06-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-21 08:49:06 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 3f13e6a1 a472 407c b6b3 4832ae783748 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-21-prompt-tool-fix.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-21-prompt-tool-fix.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_98d3e10411ecdf7bdd917af1345b181389f3ba43",
+      "atomId": "atom_83c74e13be2ce3c93f3f101b",
+      "canonicalId": "canon_32f451179a5c81805156bf79",
+      "pageId": "syntheses/session-2026-04-14-09-55-15-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-14 09:55:15 UTC",
+      "summary": "Session Key : agent:main:main Session ID : c6f7babe 41fa 4fa9 aada b3c55753d252 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-14-discord-waveform-fix.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-14-discord-waveform-fix.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_a0c1f6ee22293d9fd39c502df1de92a07d0fe6cd",
+      "atomId": "atom_8190883ad0cce7d0876da3bf",
+      "canonicalId": "canon_95aad538cefeab2e1736b8bc",
+      "pageId": "syntheses/session-2026-04-19-03-29-25-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-19 03:29:25 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 218d286a d4ba 47e9 ab72 f1865f1e3ab1 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-19-0329.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-19-0329.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_a0fe387261456c20d959451df7a63aa543cadb6a",
+      "atomId": "atom_924936bb7bc8d53e0d46c2ff",
+      "canonicalId": "canon_5003abc47db9cd0ca478d15d",
+      "pageId": "syntheses/session-2026-04-12-08-39-36-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-12 08:39:36 UTC",
+      "summary": "Session Key : agent:main:main Session ID : a96b7bf1 837b 4ce2 b130 fb1c58b63d2a Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-12-weixin-plugin-install.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-12-weixin-plugin-install.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_add5447ec02f1dc19f58877e25264ae3051f078b",
+      "atomId": "atom_5f624bed1aebb13ee4be4d8f",
+      "canonicalId": "canon_6758ed32d2fc1f715d6e995c",
+      "pageId": "syntheses/session-2026-04-20-01-17-53-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-20 01:17:53 UTC",
+      "summary": "Session Key : agent:main:main Session ID : f335c9e3 958b 406d 813b 0b2b075a5670 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-20-ai-news-discord-config.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-20-ai-news-discord-config.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_b039718239f0b28df17c490bb90fc7eb64050011",
+      "atomId": "atom_b6cc069d08617320c72e85e9",
+      "canonicalId": "canon_07fbc8d12783acc0d286ab24",
+      "pageId": "syntheses/session-2026-04-11-09-37-34-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-11 09:37:34 UTC",
+      "summary": "Session Key : agent:main:main Session ID : cee5dccb 6d7d 4940 8036 6b3bfbce4ee1 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-11-date-parsing-fix.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-11-date-parsing-fix.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_bd06078bd355cb39f1c5b2aa39c2b7046c245edb",
+      "atomId": "atom_18b85c9a394c8f3355e57a4f",
+      "canonicalId": "canon_90e690b58e3663da1cac7f2c",
+      "pageId": "syntheses/session-2026-04-21-08-54-44-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-21 08:54:44 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 3f13e6a1 a472 407c b6b3 4832ae783748 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-21-feishu-permission-send-as-user.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-21-feishu-permission-send-as-user.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_c122a42f8261e83141ca906acad4247561d3893e",
+      "atomId": "atom_a9c4e795ad9f4d51df7ad59f",
+      "canonicalId": "canon_5c4158020689ee4bc2779e4b",
+      "pageId": "syntheses/session-2026-04-16-14-10-51-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-16 14:10:51 UTC",
+      "summary": "Session Key : agent:main:main Session ID : a6392621 2a50 49ec ba0c 15cb7dd70862 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-16-heartbeat-cooldown-risks.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-16-heartbeat-cooldown-risks.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_ca03fc3f9676f90229d5dcd1c85f93be84d14d6e",
+      "atomId": "atom_010f9a983cef5531ad2e7ef0",
+      "canonicalId": "canon_047b79cb91fd817b995d2452",
+      "pageId": "syntheses/session-2026-04-15-03-41-06-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-15 03:41:06 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 6a99eb94 5107 4533 9069 df03d9ed149c Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-15-heartbeat-session-fix.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-15-heartbeat-session-fix.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_d812e1f87f225c094fccbc24532fd79e2ab458b4",
+      "atomId": "atom_be5422b36141479ae9e4468a",
+      "canonicalId": "canon_7c272116626d391e30b68dee",
+      "pageId": "syntheses/2026-04-14-日记",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-04-14 日记",
+      "summary": "Discord 接入（进行中）",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-14.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-14.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_d920741a5ae39cc40b5851e7400353ef318d8e9f",
+      "atomId": "atom_17c0cbdea86c0a5fbf0e82af",
+      "canonicalId": "canon_86e3fa71c158168e9ae2f3fe",
+      "pageId": "syntheses/session-2026-04-15-05-56-19-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-15 05:56:19 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 3b581aa3 590a 462c 875f 8b5713f02d42 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-15-next-week-scheduling.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-15-next-week-scheduling.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_dc6795fa63c7691e6abebb6d2da3089abd569013",
+      "atomId": "atom_4f3a749ea4ae320d7dabeb06",
+      "canonicalId": "canon_36b795099b553cbd5bff868a",
+      "pageId": "syntheses/session-2026-04-21-01-06-11-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-21 01:06:11 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 0167b858 059f 4e9e b85f ebd71e724a55 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-21-memory-promotion.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-21-memory-promotion.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_e1701f940ebe66a377bb4120bda7e7dd49a4c749",
+      "atomId": "atom_fe5935503a81996266d4b16a",
+      "canonicalId": "canon_be00bbf6e396e344d0cad945",
+      "pageId": "syntheses/openclaw-多包管理器路径问题诊断报告",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "OpenClaw 多包管理器路径问题诊断报告",
+      "summary": "撰写时间： 2026 04 21 12:45 Asia/Shanghai 问题： 系统同时存在 npm、pnpm、Homebrew 三种包管理器安装的 OpenClaw副本，路径分散且版本不一致，难以确定哪个真正被使用。",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/openclaw-multipath-diagnosis.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/openclaw-multipath-diagnosis.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_e2393534549ca0395d96c9d3701dcc4910d5007e",
+      "atomId": "atom_3a0438f3ca5909a8071fe289",
+      "canonicalId": "canon_0910bd0720da4ad6a310166a",
+      "pageId": "syntheses/2026-04-16-session-log",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "2026-04-16 Session Log",
+      "summary": "Light Sleep <! openclaw:dreaming:light:start Candidate: L5 Health Check 执行结果: 断链：2个高危（均在 syntheses/功能需求 20260411 001.md ，引用了已删除的 inbox 条目）; Promotion Queue：0 pending，9 approved 待升格 confidence: 0.62 evidence: memory/2026 04 15.md:6 7 recalls: 0 status: stage...",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-16.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-16.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_f732fe979eacf7818fa15669a79ace05bdbe44bc",
+      "atomId": "atom_a15685f8d1ab1ca322ccf7d0",
+      "canonicalId": "canon_00f500c656edfc622b3e3b0b",
+      "pageId": "syntheses/session-2026-04-16-12-33-20-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-16 12:33:20 UTC",
+      "summary": "Session Key : agent:main:main Session ID : fec6aa0d 1f4b 4242 b992 bf4f660deeed Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-16-cron-consolidation.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-16-cron-consolidation.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_fa87a75757bcaef6c0c2aa52b6669ecf23e54947",
+      "atomId": "atom_78333775efa03ee4e820a9ae",
+      "canonicalId": "canon_e3d8d2fed85207456fecfacc",
+      "pageId": "syntheses/session-2026-04-21-03-22-10-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-21 03:22:10 UTC",
+      "summary": "Session Key : agent:main:main Session ID : d42ca1ea 3d36 4d1a 9ace d549537fad6b Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-21-feishu-oauth-fix.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-21-feishu-oauth-fix.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_fb6c5c54c7788d637501a4d177eb2a053377c708",
+      "atomId": "atom_cc380a75e43034727d4a151d",
+      "canonicalId": "canon_502c430bf26ad49a905d8445",
+      "pageId": "syntheses/session-2026-04-15-06-29-30-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-15 06:29:30 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 542ff365 df4d 4a11 8b78 39c849b2a695 Source : gateway:sessions.reset",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-15-sprint-id-lookup.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-15-sprint-id-lookup.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_fba5af066705555bfeea3ce897f45ff41010a812",
+      "atomId": "atom_89ca9a5342ade2e50c7c3e82",
+      "canonicalId": "canon_e0966087c2c798b79143ad3a",
+      "pageId": "syntheses/session-2026-04-17-15-20-19-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-17 15:20:19 UTC",
+      "summary": "Session Key : agent:main:main Session ID : cf648d30 0035 48be 90d3 7d35347d5484 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-17-feishu-channel-fix.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-17-feishu-channel-fix.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_ff18360ba2af5a2bb927968e68fd2370b24ffe31",
+      "atomId": "atom_ec1e8b72a11e873dc4e7e946",
+      "canonicalId": "canon_d6cd3494f165eeeef5f36f0e",
+      "pageId": "syntheses/session-2026-04-20-12-33-30-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-20 12:33:30 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 643d0b31 b9d4 4889 99d7 92647592fa18 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-20-openclaw-cleanup.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-20-openclaw-cleanup.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_ff4635e0a9eb449d55388c721b7ce30b6113bf00",
+      "atomId": "atom_49c107753f4ba58e366ad9a8",
+      "canonicalId": "canon_7e3742a1e78c38d5748216be",
+      "pageId": "syntheses/session-2026-04-15-14-19-06-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-15 14:19:06 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 07d13cdf 407c 4751 8e1d 10b16ba2a02b Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-15-gateway-launchd-decision.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-15-gateway-launchd-decision.md"
+        }
+      ]
+    },
+    {
+      "rawId": "openclaw_ff4754428b9e22a35a3383a762a2c9c57f701abc",
+      "atomId": "atom_12c357634d2c49b951990cf3",
+      "canonicalId": "canon_81e2ec308bbff1f342d4ff68",
+      "pageId": "syntheses/session-2026-04-13-09-18-40-utc",
+      "pageType": "synthesis-note",
+      "qualityScore": 100,
+      "qualityTier": "clean",
+      "qualityIssues": [],
+      "kind": "context",
+      "intakeStage": "inbox",
+      "confidence": "medium",
+      "title": "Session: 2026-04-13 09:18:40 UTC",
+      "summary": "Session Key : agent:main:main Session ID : 5f0bd33c 8393 4ce2 985b f19ec4fba590 Source : webchat",
+      "sourceRefs": [
+        {
+          "type": "file",
+          "value": "/Users/hm/.openclaw/knowledge/inbox/daily/2026-04-13-notion-skill.md"
+        },
+        {
+          "type": "openclaw-path",
+          "value": "daily/2026-04-13-notion-skill.md"
+        }
+      ]
+    }
+  ]
+}

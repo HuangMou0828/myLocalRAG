@@ -1,12 +1,13 @@
 import type { BugInboxItem, FeishuBugCandidate, FeishuTodoItem } from '@/features/bug-inbox/useBugInboxFeishuDomain'
 import type { BugTraceConversationDetail, BugTraceFilePreview, BugTraceResponse } from '@/features/bug-trace/useBugTraceDomain'
 import type { PromptEffectAssessmentResult, PromptOptimizeResult, PromptScoreResult } from '@/features/prompt-score/usePromptScoreDomain'
-import type { Issue, SessionItem, SessionRetrieveResponse } from '@/features/session/types'
 import type { JsonRequest } from '@/services/httpClient'
+import type { Issue, SessionItem, SessionRetrieveResponse } from '@/services/sessionContracts'
 import {
   createBugInboxFeishuApi,
   createBugTraceApi,
   createFeishuProjectSettingsApi,
+  createGbrainV2Api,
   createImportApi,
   createKnowledgeItemsApi,
   createMessageTagApi,
@@ -25,6 +26,7 @@ export function createAppApiClients(requestJson: JsonRequest) {
   const messageTagApi = createMessageTagApi(requestJson)
   const importApi = createImportApi(requestJson)
   const knowledgeItemsApi = createKnowledgeItemsApi(requestJson)
+  const gbrainV2Api = createGbrainV2Api(requestJson)
   const wikiVaultApi = createWikiVaultApi(requestJson)
   const bugTraceApi = createBugTraceApi<BugTraceFilePreview, BugTraceConversationDetail, BugTraceResponse>(requestJson)
   const bugInboxFeishuApi = createBugInboxFeishuApi<BugInboxItem, FeishuTodoItem, FeishuBugCandidate>(requestJson)
@@ -38,6 +40,7 @@ export function createAppApiClients(requestJson: JsonRequest) {
     messageTagApi,
     importApi,
     knowledgeItemsApi,
+    gbrainV2Api,
     wikiVaultApi,
     bugTraceApi,
     bugInboxFeishuApi,

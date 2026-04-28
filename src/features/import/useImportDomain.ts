@@ -79,6 +79,7 @@ export function useImportDomain(options: UseImportDomainOptions) {
     if (
       options.activeProvider.value === 'cursor'
       || options.activeProvider.value === 'codex'
+      || options.activeProvider.value === 'claude-code'
       || String(options.activeProvider.value || '').startsWith('knowledge-')
     ) {
       options.setErrorText('当前视图不支持手动导入，请切回具体会话来源或知识采集入口')

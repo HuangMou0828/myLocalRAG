@@ -13,6 +13,7 @@ type PromotionQueueItem = {
   evidenceItems: string[]
   sourceKind?: string
   sourceLabel?: string
+  taskToken?: string
   taskRef?: string
   updatedAt?: string
   /** 原始采集条目 ID，用于 approve 后回写 promotionRef 链路 */
@@ -47,6 +48,9 @@ export function usePromotionReviewDomain(options: UsePromotionReviewDomainOption
   const promotionViewerTitle = ref('')
   const promotionViewerPaths = ref<string[]>([])
   const promotionViewerNotes = ref<PromotionEvidenceNote[]>([])
+  const promotionViewerUnresolved = ref<Array<{ path: string; reason: string }>>([])
+  const promotionMvpAutoLoading = ref(false)
+  const promotionMvpAutoLastResult = ref<Awaited<ReturnType<WikiVaultApi['autoPromoteMvp']>> | null>(null)
 
   const promotionSummaryCards = computed(() => {
     const summary = promotionQueue.value?.summary
@@ -118,6 +122,7 @@ export function usePromotionReviewDomain(options: UsePromotionReviewDomainOption
         segmentId: item.segmentId,
         sourceKind: item.sourceKind,
         sourceLabel: item.sourceLabel,
+        taskToken: item.taskToken,
         taskRef: item.taskRef,
         project: item.project,
         summary: item.summary,
@@ -144,14 +149,6 @@ export function usePromotionReviewDomain(options: UsePromotionReviewDomainOption
         options.notify('已驳回自动候选', 'success')
       } else {
         options.notify('已撤销人工确认，候选会回到自动判断态', 'success')
-      }
-      const taskSync = decisionResult?.taskSync
-      if (
-        decision !== 'revoke'
-        && String(taskSync?.engine || '') === 'obsidian-cli'
-        && taskSync?.done === false
-      ) {
-        options.notify('候选已处理，但 Obsidian 任务未自动勾选，可在 promotion-queue 手动确认一次。', 'warning')
       }
     } catch (error) {
       const fallbackMessage = decision === 'approve'
@@ -206,17 +203,39 @@ export function usePromotionReviewDomain(options: UsePromotionReviewDomainOption
     promotionViewerError.value = ''
     promotionViewerTitle.value = title
     promotionViewerPaths.value = relativePaths
+    promotionViewerUnresolved.value = []
     try {
       const settled = await Promise.allSettled(relativePaths.map((relativePath) => options.wikiService.fetchNote(relativePath)))
-      promotionViewerNotes.value = settled
-        .filter((item): item is PromiseFulfilledResult<{ ok: boolean; note: PromotionEvidenceNote }> => item.status === 'fulfilled')
-        .map((item) => item.value?.note || null)
-        .filter(Boolean)
+      const notes: PromotionEvidenceNote[] = []
+      const unresolved: Array<{ path: string; reason: string }> = []
+
+      settled.forEach((result, index) => {
+        const path = relativePaths[index] || ''
+        if (result.status === 'fulfilled') {
+          const note = result.value?.note || null
+          if (note) {
+            notes.push(note)
+          } else {
+            unresolved.push({ path, reason: '返回为空' })
+          }
+          return
+        }
+        const reason = result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason || '读取失败')
+        unresolved.push({ path, reason })
+      })
+
+      promotionViewerNotes.value = notes
+      promotionViewerUnresolved.value = unresolved
       if (!promotionViewerNotes.value.length) {
-        promotionViewerError.value = '未读取到详情内容'
+        promotionViewerError.value = unresolved.length
+          ? `未读取到详情内容（${unresolved.length} 条路径未命中）`
+          : '未读取到详情内容'
       }
     } catch (error) {
       promotionViewerNotes.value = []
+      promotionViewerUnresolved.value = []
       promotionViewerError.value = String(error instanceof Error ? error.message : error || '读取详情失败')
     } finally {
       promotionViewerLoading.value = false
@@ -227,6 +246,44 @@ export function usePromotionReviewDomain(options: UsePromotionReviewDomainOption
     await openPromotionNoteViewer(paths, '证据详情')
   }
 
+  async function runMvpAutoPromotion({
+    dryRun = true,
+    maxItems = 30,
+    minConfidence = 0.82,
+  }: {
+    dryRun?: boolean
+    maxItems?: number
+    minConfidence?: number
+  } = {}) {
+    if (promotionMvpAutoLoading.value) return null
+    promotionMvpAutoLoading.value = true
+    try {
+      const result = await options.wikiService.autoPromoteMvp({
+        dryRun,
+        maxItems,
+        minConfidence,
+        writeReport: true,
+      })
+      promotionMvpAutoLastResult.value = result
+      await Promise.all([
+        loadPromotionQueue(true),
+        options.loadWikiHealth(true),
+        options.loadKnowledgeItems(),
+      ])
+      if (dryRun) {
+        options.notify(`MVP 自动放行 dry-run 完成：候选 ${result.autoSummary.approved}/${result.autoSummary.scanned}`, 'info')
+      } else {
+        options.notify(`MVP 自动放行完成：已自动升格 ${result.autoSummary.approved} 条`, 'success')
+      }
+      return result
+    } catch (error) {
+      options.notify(String(error instanceof Error ? error.message : error || 'MVP 自动放行失败'), 'danger')
+      return null
+    } finally {
+      promotionMvpAutoLoading.value = false
+    }
+  }
+
   function closePromotionViewer() {
     promotionViewerOpen.value = false
     promotionViewerLoading.value = false
@@ -234,6 +291,7 @@ export function usePromotionReviewDomain(options: UsePromotionReviewDomainOption
     promotionViewerTitle.value = ''
     promotionViewerPaths.value = []
     promotionViewerNotes.value = []
+    promotionViewerUnresolved.value = []
   }
 
   function closePromotionPreview() {
@@ -257,6 +315,9 @@ export function usePromotionReviewDomain(options: UsePromotionReviewDomainOption
     promotionViewerTitle,
     promotionViewerPaths,
     promotionViewerNotes,
+    promotionViewerUnresolved,
+    promotionMvpAutoLoading,
+    promotionMvpAutoLastResult,
     promotionSummaryCards,
     loadPromotionQueue,
     applyPromotionCandidate,
@@ -265,6 +326,7 @@ export function usePromotionReviewDomain(options: UsePromotionReviewDomainOption
     previewPromotionCandidate,
     openPromotionNoteViewer,
     openPromotionEvidence,
+    runMvpAutoPromotion,
     closePromotionViewer,
     closePromotionPreview,
   }

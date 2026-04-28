@@ -1,241 +1,797 @@
-.component-library-panel {
-  margin-top: 0.35rem;
+/*
+ * 21-shared-components.css
+ * Shared / reusable UI component styles extracted from 20-layout-shell.css.
+ * Import order: must come AFTER 20-layout-shell.css in style.css.
+ *
+ * Contents:
+ *   GROUP 1  — Utility containers           (.stack, .source-list)
+ *   GROUP 2  — Accordion components         (.accordion-list … .accordion-body > *)
+ *              incl. .provider-chip (reusable across features)
+ *   GROUP 3  — Icon button base             (.icon-btn)
+ *   GROUP 4  — Icon button hover/svg + Vue accordion transitions
+ *   GROUP 5  — Source item + preview tags   (.source-item, .preview-tags, .preview-list)
+ *   GROUP 6  — Modal backdrop + close btn   (.import-modal-backdrop, .modal-close-btn, .confirm-*)
+ *   GROUP 7  — SVG alignment helpers        (.inline-svg, .role-icon, .icon-label)
+ *   GROUP 8  — Design-system inputs/btns    (.app-input, .app-select, .app-btn*, .app-textarea, .error)
+ *   GROUP 9  — Markdown renderer + code     (.md-content, .code-syntax-*)
+ *   GROUP 10 — Skeleton / loading states    (@keyframes shimmer, .skeleton*)
+ *   GROUP 11 — Empty states                 (.empty-dashboard-state, .empty-state-*, .empty-cta-btn)
+ */
+
+/* ============================================================
+   GROUP 1 — Utility containers
+   ============================================================ */
+
+.stack {
   display: grid;
-  gap: 0.82rem;
+  gap: 0.6rem;
 }
 
-.component-library-overview {
-  position: relative;
-  overflow: hidden;
+.source-list {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: stretch;
-  gap: 1rem;
-  padding: 1.05rem;
-  border: 1px solid var(--border-soft);
-  border-radius: 0.75rem;
-  background:
-    radial-gradient(circle at 92% 0%, var(--accent-soft-bg), transparent 38%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 58%),
-    rgba(8, 15, 31, 0.64);
-  box-shadow: var(--shadow-sm);
+  gap: 0.6rem;
+  max-height: 42vh;
+  overflow: auto;
 }
 
-.component-library-overview::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03), transparent 40%);
-  opacity: 0.3;
-}
+/* ============================================================
+   GROUP 2 — Accordion components (incl. .provider-chip)
+   ============================================================ */
 
-.component-library-overview-copy,
-.component-library-overview-stats {
-  position: relative;
-  z-index: 1;
-}
-
-.component-library-overview-copy {
-  min-width: 0;
-  display: grid;
-  align-content: center;
-  gap: 0.24rem;
-}
-
-.component-library-overview-copy small {
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.component-library-overview-copy h2 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: clamp(1.08rem, 1.6vw, 1.36rem);
-  line-height: 1.15;
-}
-
-.component-library-overview-copy p {
-  max-width: 42rem;
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.82rem;
-  line-height: 1.6;
-}
-
-.component-library-overview-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(6.4rem, 1fr));
-  gap: 0.56rem;
-}
-
-.component-library-overview-stats article {
-  min-height: 4.45rem;
-  display: grid;
-  align-content: center;
-  gap: 0.16rem;
-  padding: 0.65rem 0.72rem;
-  border: 1px solid var(--border-soft);
-  border-radius: 0.75rem;
-  background: rgba(2, 6, 23, 0.28);
-}
-
-.component-library-overview-stats strong {
-  color: var(--text-primary);
-  font-size: 1.05rem;
-  line-height: 1.1;
-}
-
-.component-library-overview-stats small {
-  color: var(--text-muted);
-  font-size: 0.68rem;
-  line-height: 1.25;
-}
-
-.component-library-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.8rem;
-  padding: 0.78rem 0.85rem;
-  border: 1px solid var(--border-light);
-  border-radius: 0.75rem;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 64%),
-    rgba(8, 15, 31, 0.5);
-}
-
-.component-library-head h3 {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.3;
-  color: var(--text-primary);
-}
-
-.component-library-head small {
-  color: var(--text-muted);
-  display: block;
-  margin-top: 0.18rem;
-  line-height: 1.45;
-}
-
-.component-library-meta {
-  margin: 0;
-  border: 1px solid var(--accent-ring);
-  border-radius: 999px;
-  background: var(--accent-soft-bg);
-  color: var(--text-secondary);
-  font-size: 0.72rem;
-  line-height: 1.2;
-  padding: 0.22rem 0.56rem;
-  white-space: nowrap;
-}
-
-.component-library-controls {
-  border: 1px solid var(--border-light);
-  border-radius: 0.75rem;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 62%),
-    rgba(8, 15, 31, 0.5);
-  padding: 0.72rem;
-  display: grid;
-  gap: 0.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(9.8rem, 1fr));
-}
-
-.component-library-controls label {
-  display: grid;
-  align-content: center;
-  gap: 0.25rem;
-  min-height: 2.1rem;
-  color: var(--text-secondary);
-}
-
-.component-library-controls label small {
-  color: var(--text-muted);
-  font-size: 0.68rem;
-}
-
-.component-library-controls input[type='number'] {
-  height: 2rem;
-}
-
-.component-switch {
-  display: inline-flex !important;
-  align-items: center;
-  gap: 0.45rem;
-  border: 1px solid var(--border-soft);
-  border-radius: 0.5rem;
-  background: rgba(12, 25, 45, 0.42);
-  padding: 0.36rem 0.5rem;
-  font-size: 0.74rem;
-  line-height: 1.2;
-  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
-}
-
-.component-switch:hover {
-  border-color: var(--border-strong);
-  background: rgba(18, 38, 66, 0.5);
-  transform: translateY(-1px);
-}
-
-.component-switch input {
-  width: 14px;
-  height: 14px;
-  margin: 0;
-  accent-color: var(--accent-primary);
-}
-
-.component-library-preview {
-  border: 1px solid var(--border-light);
-  border-radius: 0.75rem;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 58%),
-    rgba(8, 15, 31, 0.46);
-  padding: 0.78rem;
+.accordion-list {
   display: grid;
   gap: 0.55rem;
-  box-shadow: var(--shadow-sm);
 }
 
-.component-library-preview header {
+.accordion-item {
+  border: 1px solid var(--border-light);
+  border-radius: 0.78rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 58%),
+    var(--bg-panel-soft);
+  box-shadow: inset 0 1px 0 var(--border-light);
+  overflow: hidden;
+}
+
+.accordion-head {
+  border-radius: 0;
+  border: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.6rem;
-  color: var(--text-secondary);
-  min-width: 0;
+  gap: 0.62rem;
+  padding: 0.68rem 0.78rem;
+  text-align: left;
 }
 
-.component-library-preview header strong {
+.provider-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--bg-element);
+  color: var(--text-primary);
+  border: 1px solid var(--border-soft);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.provider-chip .inline-svg {
+  flex-shrink: 0;
+  display: block;
+}
+
+.accordion-toggle-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  background: var(--bg-element);
+  transition: transform 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.accordion-toggle-icon svg {
+  width: 0.88rem;
+  height: 0.88rem;
+}
+
+.accordion-toggle-icon.open {
+  transform: rotate(180deg);
+  border-color: var(--border-focus);
+  color: var(--accent-primary);
+}
+
+.accordion-title {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.accordion-title strong {
   color: var(--text-primary);
   font-size: 0.84rem;
-}
-
-.component-library-preview header small {
-  color: var(--text-muted);
   line-height: 1.35;
 }
 
-.component-library-preview header button {
-  width: auto;
+.accordion-title small {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.4;
 }
 
-.component-library-preview--confirm {
-  gap: 0.68rem;
+.accordion-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  gap: 0.45rem;
+  padding: 0.08rem 0.68rem 0.62rem;
+}
+
+.accordion-body > * {
+  min-height: 0;
+}
+
+/* ============================================================
+   GROUP 3 — Icon button base
+   ============================================================ */
+
+.icon-btn {
+  width: 2.42rem;
+  min-width: 2.42rem;
+  height: 2.42rem;
+  padding: 0;
+  flex: 0 0 2.42rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.82rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.024), transparent 58%),
+    var(--bg-element);
+  border: 1px solid var(--border-light);
+  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.icon-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--border-soft);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 58%),
+    var(--bg-element-hover);
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   GROUP 4 — Icon button hover/svg overrides + Vue accordion transitions
+   ============================================================ */
+
+.icon-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-element-hover);
+  border-color: var(--border-focus);
+}
+
+.icon-btn svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.accordion-enter-active,
+.accordion-leave-active {
+  transition:
+    grid-template-rows 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.18s ease,
+    padding-top 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    padding-bottom 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
   overflow: hidden;
 }
 
-.component-library-preview--toast {
-  gap: 0.62rem;
+.accordion-enter-active > *,
+.accordion-leave-active > * {
+  overflow: hidden;
 }
 
-.component-library-preview--form {
-  gap: 0.66rem;
+.accordion-enter-from,
+.accordion-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
+
+.accordion-enter-to,
+.accordion-leave-from {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+/* ============================================================
+   GROUP 5 — Source item + preview tags/list
+   ============================================================ */
+
+.source-item {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-element);
+  padding: 0.6rem;
+  border-radius: 0.65rem;
+}
+
+.source-item code {
+  font-size: 0.75rem;
+  color: var(--info-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.preview-tags span {
+  font-size: 0.72rem;
+  color: var(--info-text);
+  border: 1px solid var(--info-border);
+  background: var(--info-soft);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+}
+
+.preview-list {
+  display: grid;
+  gap: 0.18rem;
+}
+
+/* ============================================================
+   GROUP 6 — Modal backdrop, close button, confirm text/title
+   ============================================================ */
+
+.import-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 8, 22, 0.72);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+  padding: 1rem;
+}
+
+.modal-close-btn {
+  width: 1.92rem;
+  height: 1.92rem;
+  min-width: 1.92rem;
+  padding: 0;
+  border-radius: 0.62rem;
+  display: inline-grid;
+  place-items: center;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: var(--bg-element) !important;
+  border: 1px solid var(--border-soft) !important;
+}
+
+.app-btn-ghost.modal-close-btn {
+  width: 1.92rem;
+  min-width: 1.92rem;
+  height: 1.92rem;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 1.92rem;
+}
+
+.modal-close-btn:hover {
+  border-color: var(--border-focus) !important;
+  color: var(--text-primary);
+}
+
+.confirm-text {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.confirm-title {
+  color: var(--text-primary);
+  font-weight: 700;
+  background: var(--bg-element-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: 0.7rem;
+  padding: 0.45rem 0.6rem;
+}
+
+/* ============================================================
+   GROUP 7 — SVG alignment helpers
+   ============================================================ */
+
+/* --- Alignments for SVG Icons --- */
+.inline-svg {
+  display: inline-block;
+  vertical-align: -0.125em;
+}
+
+.role-icon {
+  display: inline-block;
+  vertical-align: -0.125em;
+  margin-right: 0.35rem;
+  color: var(--text-secondary);
+}
+
+.icon-label {
+  display: inline-block;
+  vertical-align: -0.125em;
+  margin-right: 0.25rem;
+}
+
+/* ============================================================
+   GROUP 8 — Design-system inputs, selects, buttons, textarea
+   ============================================================ */
+
+.app-input:not([type='checkbox']):not([type='radio']),
+.app-select,
+.app-btn,
+.app-btn-ghost,
+.app-btn-secondary,
+.app-btn-danger,
+.app-textarea {
+  width: 100%;
+  border: 1px solid var(--border-light);
+  border-radius: 0.7rem;
+  background: var(--bg-element);
+  color: var(--text-primary);
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.app-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2.9rem;
+  background-color: var(--bg-element);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.34rem) calc(50% - 2px),
+    calc(100% - 1rem) calc(50% - 2px);
+  background-repeat: no-repeat;
+  background-size: 7px 7px, 7px 7px;
+}
+
+.app-input:not([type='checkbox']):not([type='radio']):focus,
+.app-select:focus,
+.app-textarea:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px var(--accent-primary-glow);
+}
+
+.app-btn,
+.app-btn-ghost,
+.app-btn-secondary,
+.app-btn-danger {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 2.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  line-height: 1.2;
+}
+
+.app-btn {
+  border-color: var(--accent-ring);
+  background: var(--accent-primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.app-btn:hover {
+  background: var(--accent-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.app-btn:focus-visible,
+.app-btn-ghost:focus-visible,
+.app-btn-secondary:focus-visible,
+.app-btn-danger:focus-visible,
+.icon-btn:focus-visible,
+.provider-item:focus-visible,
+.accordion-head:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-underlay), 0 0 0 4px var(--accent-primary-glow);
+}
+
+.app-btn-ghost {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-soft);
+  color: var(--text-secondary);
+}
+
+.app-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.app-btn-secondary {
+  background: var(--bg-element);
+  border: 1px solid var(--border-soft);
+  color: var(--text-primary);
+}
+
+.app-btn-secondary:hover {
+  background: var(--bg-element-hover);
+  border-color: var(--border-strong);
+}
+
+.accordion-head.app-btn,
+.accordion-head.app-btn-ghost {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 4rem;
+  padding: 0.8rem 0.9rem;
+  background: transparent;
+  text-align: left;
+  box-shadow: none;
+}
+
+.accordion-head .accordion-title {
+  justify-items: start;
+  text-align: left;
+}
+
+.accordion-head .accordion-toggle-icon {
+  margin-left: auto;
+}
+
+.app-btn:disabled,
+.app-btn-ghost:disabled,
+.app-btn-secondary:disabled,
+.app-btn-danger:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.error {
+  color: var(--danger-text);
+}
+
+/* ============================================================
+   GROUP 9 — Markdown renderer + code syntax block
+   ============================================================ */
+
+.md-content {
+  color: var(--text-primary);
+  line-height: 1.72;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.md-content > :first-child {
+  margin-top: 0;
+}
+
+.md-content > :last-child {
+  margin-bottom: 0;
+}
+
+.md-content p,
+.md-content ul,
+.md-content ol,
+.md-content blockquote,
+.md-content pre {
+  margin: 0.45rem 0;
+}
+
+.md-content ul,
+.md-content ol {
+  padding-left: 1.2rem;
+}
+
+.md-content code {
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.85em;
+  background: var(--bg-element-soft);
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.3rem;
+  color: var(--accent-primary);
+}
+
+.md-content pre {
+  overflow-x: auto;
+  padding: 0.85rem;
+  border-radius: 0.62rem;
+  background: var(--bg-panel-soft);
+  border: 1px solid var(--border-light);
+  white-space: pre;
+}
+
+.md-content pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+.code-syntax-block {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.code-syntax-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.code-syntax-toolbar small {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.code-syntax-lang-select.app-select {
+  width: auto;
+  min-width: 7.2rem;
+  height: 1.7rem;
+  padding: 0 1.5rem 0 0.45rem;
+  border-radius: 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.code-syntax-pre {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.5rem;
+  background: transparent;
+  overflow: auto;
+}
+
+.code-syntax-code {
+  display: block;
+  min-width: max-content;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.md-content blockquote {
+  padding-left: 1rem;
+  border-left: 3px solid var(--border-light);
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0.8rem 0;
+}
+
+.md-content h1,
+.md-content h2,
+.md-content h3,
+.md-content h4 {
+  margin: 0.55rem 0 0.25rem;
+  color: var(--text-primary);
+}
+
+.md-content a {
+  color: var(--accent-primary-hover);
+}
+
+/* ============================================================
+   GROUP 10 — Skeleton / loading states
+   ============================================================ */
+
+/* Skeleton & Loading States */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg,
+    rgba(15, 23, 42, 0.52) 25%,
+    rgba(100, 116, 139, 0.14) 50%,
+    rgba(15, 23, 42, 0.52) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite linear;
+  border-radius: 999px;
+}
+
+.skeleton-card {
+  height: 100px;
+  margin-bottom: 0.75rem;
+  border-radius: 16px;
+  border: 1px solid var(--border-light);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 58%),
+    var(--bg-panel-soft);
+}
+
+.skeleton-text {
+  height: 0.8rem;
+  background-color: var(--bg-element);
+}
+
+.skeleton-text.short { width: 40%; }
+.skeleton-text.medium { width: 70%; }
+.skeleton-text.long { width: 90%; }
+
+/* ============================================================
+   GROUP 11 — Enhanced empty states
+   ============================================================ */
+
+/* Enhanced Empty States */
+.empty-dashboard-state {
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  justify-items: center;
+  gap: 0.72rem;
+  text-align: center;
+  padding: 3rem 1.5rem;
+  height: 100%;
+  min-height: 320px;
+  opacity: 1;
+  border-radius: 1.15rem;
+  border: 1px dashed var(--border-soft);
+  background:
+    radial-gradient(circle at 50% 0%, var(--accent-primary-glow), transparent 34%),
+    var(--bg-element-soft);
+}
+
+.empty-state-icon {
+  width: 3rem;
+  height: 3rem;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  margin-bottom: 0.2rem;
+  border-radius: 1rem;
+  border: 1px solid var(--accent-ring);
+  background: var(--accent-soft-bg);
+  color: var(--accent-primary);
+  opacity: 1;
+  filter: none;
+}
+
+.empty-state-icon > svg {
+  display: block;
+  stroke-width: 1.9;
+}
+
+.empty-state-title {
+  font-size: 1.32rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.empty-state-desc {
+  max-width: 32rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 0 0.4rem;
+}
+
+.empty-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+}
+
+.empty-cta-btn {
+  display: flex;
+  width: auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  background: var(--bg-element);
+  border: 1px solid var(--border-light);
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.empty-cta-btn:hover {
+  background: var(--bg-element-hover);
+  transform: translateY(-2px);
+  border-color: var(--accent-primary);
+}
+
+/* ─── Migrated from 20-layout-shell.css ─── */
+
+.form-modal-dialog {
+  width: min(36rem, 96vw);
+}
+
+.form-modal-title-wrap {
+  min-width: 0;
+}
+
+.form-modal-title {
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.form-modal-desc {
+  margin-top: 0.18rem;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.form-modal-body {
+  display: grid;
+  gap: 0.78rem;
+}
+
+.form-modal-field {
+  display: grid;
+  gap: 0.38rem;
+}
+
+.form-modal-field small {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+}
+
+.form-modal-actions button,
+.form-modal-actions .app-btn-ghost,
+.form-modal-actions .app-btn-danger,
+.form-modal-actions .app-btn-secondary {
+  width: auto;
+  min-width: 4.6rem;
+  min-height: 2rem;
+  padding: 0 0.78rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================================
+   GROUP 12 — Shared UI components (migrated from 31-feature-component-library.css)
+   Includes: component-list-*, component-form-*, component-modal-*,
+             component-confirm-*, component-toast-*, feishu-severity/defect-tag
+   ============================================================ */
 
 .component-list-preview {
   margin: 0;
@@ -577,30 +1133,6 @@
   padding: 0 0.45rem;
   border-radius: 0.45rem;
   font-size: 0.7rem;
-}
-
-.component-library-gallery {
-  display: grid;
-  gap: 0.65rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.component-gallery-card {
-  border: 1px solid var(--border-light);
-  border-radius: 0.75rem;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 62%),
-    rgba(8, 15, 31, 0.44);
-  padding: 0.72rem;
-  display: grid;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.component-gallery-card h4 {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--text-primary);
 }
 
 .component-list-empty {
@@ -1507,210 +2039,11 @@
   padding: 0.08rem 0.4rem;
 }
 
-.component-library-preview--icon {
-  gap: 0.65rem;
-}
-
-.component-icon-grid {
-  display: grid;
-  gap: 0.5rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.component-icon-card {
-  border: 1px solid var(--border-soft);
-  border-radius: 0.5rem;
-  background: rgba(15, 23, 42, 0.36);
-  padding: 0.5rem;
-  display: grid;
-  gap: 0.4rem;
-}
-
-.component-icon-card--used {
-  border-color: var(--accent-ring);
-  background: var(--accent-soft-bg);
-}
-
-.component-icon-card-head {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.component-icon-preview {
-  width: 1.9rem;
-  min-width: 1.9rem;
-  height: 1.9rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--border-soft);
-  background: rgba(2, 6, 23, 0.56);
-  color: var(--text-secondary);
-  display: inline-grid;
-  place-items: center;
-}
-
-.component-icon-meta {
-  min-width: 0;
-  display: grid;
-  gap: 0.12rem;
-}
-
-.component-icon-meta strong {
-  font-size: 0.78rem;
-  color: var(--text-primary);
-  line-height: 1.2;
-}
-
-.component-icon-meta small {
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  line-height: 1.2;
-}
-
-.component-icon-usage,
-.component-icon-unused-tag {
-  margin-left: auto;
-  border-radius: 999px;
-  border: 1px solid var(--border-soft);
-  background: rgba(51, 65, 85, 0.24);
-  color: var(--text-secondary);
-  font-size: 0.64rem;
-  line-height: 1.2;
-  padding: 0.1rem 0.38rem;
-  white-space: nowrap;
-}
-
-.component-icon-unused-tag {
-  color: var(--text-secondary);
-  border-color: var(--accent-ring);
-  background: var(--accent-soft-bg);
-}
-
-.component-icon-used-files {
-  display: grid;
-  gap: 0.24rem;
-}
-
-.component-icon-used-files small {
-  border: 1px dashed var(--border-soft);
-  border-radius: 0.375rem;
-  background: rgba(2, 6, 23, 0.38);
-  color: var(--text-muted);
-  font-size: 0.67rem;
-  line-height: 1.3;
-  padding: 0.16rem 0.34rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.hljs-theme-gallery {
-  display: grid;
-  gap: 0.6rem;
-}
-
-.hljs-theme-gallery-head {
-  display: grid;
-  gap: 0.18rem;
-}
-
-.hljs-theme-gallery-head h4 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 0.92rem;
-}
-
-.hljs-theme-gallery-head small {
-  color: var(--text-muted);
-  font-size: 0.72rem;
-}
-
-.hljs-theme-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.62rem;
-}
-
-.hljs-theme-card {
-  border: 1px solid var(--border-soft);
-  border-radius: 0.5rem;
-  background: rgba(15, 23, 42, 0.38);
-  padding: 0.55rem;
-  display: grid;
-  gap: 0.5rem;
-}
-
-.hljs-theme-card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.4rem;
-}
-
-.hljs-theme-name-wrap {
-  display: grid;
-  gap: 0.08rem;
-}
-
-.hljs-theme-name-wrap strong {
-  color: var(--text-primary);
-  font-size: 0.82rem;
-  line-height: 1.2;
-}
-
-.hljs-theme-name-wrap small {
-  color: var(--text-muted);
-  font-size: 0.68rem;
-  line-height: 1.2;
-}
-
-.hljs-theme-current {
-  flex-shrink: 0;
-  font-size: 0.66rem;
-  line-height: 1.1;
-  padding: 0.16rem 0.38rem;
-  border-radius: 999px;
-  border: 1px solid var(--accent-ring);
-  color: var(--text-secondary);
-  background: var(--accent-soft-bg);
-}
-
-.hljs-theme-frame {
-  width: 100%;
-  height: 280px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 0.55rem;
-  background: var(--bg-app);
-}
-
-@media (max-width: 980px) {
-  .component-library-overview {
-    grid-template-columns: 1fr;
-  }
-
-  .component-library-overview-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
 
 @media (max-width: 760px) {
-  .component-library-overview-stats,
-  .component-library-gallery,
-  .component-icon-grid,
-  .hljs-theme-grid,
   .component-modal-type-grid,
   .component-form-gallery-inline,
   .component-form-surface--inline .component-form-grid {
     grid-template-columns: 1fr;
-  }
-
-  .component-library-head,
-  .component-library-preview header {
-    display: grid;
-  }
-
-  .component-library-meta {
-    width: fit-content;
   }
 }

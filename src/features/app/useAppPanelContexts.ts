@@ -7,6 +7,8 @@ type MaybeRef<T> = Ref<T> | ComputedRef<T>
 
 interface UseAppPanelContextsUiState {
   sessionListCollapsed: unknown
+  sessionOverviewCollapsed: unknown
+  knowledgeOverviewCollapsed: unknown
   keyword: unknown
   useVectorSearch: unknown
   advancedFiltersOpen: unknown
@@ -118,7 +120,6 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
     bugTraceConversationDetailLoadingKey: bugTraceDomain.bugTraceConversationDetailLoadingKey,
     getConversationDetail: bugTraceDomain.getConversationDetail,
     getVisibleConversationTurns: bugTraceDomain.getVisibleConversationTurns,
-    renderMarkdown: displayFormatDomain.renderMarkdown,
     prepareBugTracePatch: bugTraceDomain.prepareBugTracePatch,
     toggleBugTracePatch: bugTraceDomain.toggleBugTracePatch,
     bugTraceExpandedPatch: bugTraceDomain.bugTraceExpandedPatch,
@@ -262,6 +263,7 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
 
   const knowledgeSourcesPanelCtx = {
     isKnowledgeSourcesMode: viewModes.isKnowledgeSourcesMode,
+    knowledgeOverviewCollapsed: uiState.knowledgeOverviewCollapsed,
     workbenchTab: knowledgeSourcesDomain.workbenchTab,
     workbenchTabs: knowledgeSourcesDomain.workbenchTabs,
     workbenchHero: knowledgeSourcesDomain.workbenchHero,
@@ -372,6 +374,8 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
     promotionViewerTitle: knowledgeSourcesDomain.promotionViewerTitle,
     promotionViewerPaths: knowledgeSourcesDomain.promotionViewerPaths,
     promotionViewerNotes: knowledgeSourcesDomain.promotionViewerNotes,
+    promotionMvpAutoLoading: knowledgeSourcesDomain.promotionMvpAutoLoading,
+    promotionMvpAutoLastResult: knowledgeSourcesDomain.promotionMvpAutoLastResult,
     promotionSummaryCards: knowledgeSourcesDomain.promotionSummaryCards,
     healthLoading: knowledgeSourcesDomain.healthLoading,
     wikiHealth: knowledgeSourcesDomain.wikiHealth,
@@ -388,12 +392,29 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
     healthBatchActionLoading: knowledgeSourcesDomain.healthBatchActionLoading,
     healthBatchActionLabel: knowledgeSourcesDomain.healthBatchActionLabel,
     healthRepairApplyingTarget: knowledgeSourcesDomain.healthRepairApplyingTarget,
-    renderMarkdown: displayFormatDomain.renderMarkdown,
+    hasGbrainV2Service: knowledgeSourcesDomain.hasGbrainV2Service,
+    gbrainV2Loading: knowledgeSourcesDomain.gbrainV2Loading,
+    gbrainV2Error: knowledgeSourcesDomain.gbrainV2Error,
+    gbrainV2LoadedAt: knowledgeSourcesDomain.gbrainV2LoadedAt,
+    gbrainV2FeedStatus: knowledgeSourcesDomain.gbrainV2FeedStatus,
+    gbrainV2FeedRefreshing: knowledgeSourcesDomain.gbrainV2FeedRefreshing,
+    gbrainV2Settings: knowledgeSourcesDomain.gbrainV2Settings,
+    gbrainRetrieveQuery: knowledgeSourcesDomain.gbrainRetrieveQuery,
+    gbrainRetrieveLoading: knowledgeSourcesDomain.gbrainRetrieveLoading,
+    gbrainRetrieveResult: knowledgeSourcesDomain.gbrainRetrieveResult,
+    gbrainPromotionLoading: knowledgeSourcesDomain.gbrainPromotionLoading,
+    gbrainPromotionError: knowledgeSourcesDomain.gbrainPromotionError,
+    gbrainPromotionLoadedAt: knowledgeSourcesDomain.gbrainPromotionLoadedAt,
+    gbrainPromotionView: knowledgeSourcesDomain.gbrainPromotionView,
     setWorkbenchTab: knowledgeSourcesDomain.setWorkbenchTab,
     loadKnowledgeItems: knowledgeSourcesDomain.loadKnowledgeItems,
     loadTaskReviewSessions: knowledgeSourcesDomain.loadTaskReviewSessions,
     loadPromotionQueue: knowledgeSourcesDomain.loadPromotionQueue,
     loadWikiHealth: knowledgeSourcesDomain.loadWikiHealth,
+    loadGbrainV2FeedStatus: knowledgeSourcesDomain.loadGbrainV2FeedStatus,
+    refreshGbrainV2Feed: knowledgeSourcesDomain.refreshGbrainV2Feed,
+    loadGbrainV2PromotionView: knowledgeSourcesDomain.loadGbrainV2PromotionView,
+    runGbrainV2Retrieve: knowledgeSourcesDomain.runGbrainV2Retrieve,
     selectKnowledgeItem: knowledgeSourcesDomain.selectKnowledgeItem,
     selectTaskReviewSession: knowledgeSourcesDomain.selectTaskReviewSession,
     selectTaskReviewSegment: knowledgeSourcesDomain.selectTaskReviewSegment,
@@ -419,6 +440,7 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
     revokePromotionCandidate: knowledgeSourcesDomain.revokePromotionCandidate,
     previewPromotionCandidate: knowledgeSourcesDomain.previewPromotionCandidate,
     openPromotionEvidence: knowledgeSourcesDomain.openPromotionEvidence,
+    runMvpAutoPromotion: knowledgeSourcesDomain.runMvpAutoPromotion,
     openHealthFindingNote: knowledgeSourcesDomain.openHealthFindingNote,
     openHealthFindingEvidence: knowledgeSourcesDomain.openHealthFindingEvidence,
     openHealthQueueNotes: knowledgeSourcesDomain.openHealthQueueNotes,
@@ -475,6 +497,7 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
 
   const sessionWorkspaceCtx = {
     sessionListCollapsed: uiState.sessionListCollapsed,
+    sessionOverviewCollapsed: uiState.sessionOverviewCollapsed,
     keyword: uiState.keyword,
     useVectorSearch: uiState.useVectorSearch,
     loadSessions: sessionDataDomain.loadSessions,
@@ -519,7 +542,6 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
     setFlowNodeRef: sessionFlowDomain.setFlowNodeRef,
     openPromptScoreModal: promptScoreDomain.openPromptScoreModal,
     openTagModal: messageTagDomain.openTagModal,
-    renderMarkdown: displayFormatDomain.renderMarkdown,
     getAssistantDisplayChunks: sessionFlowDomain.getAssistantDisplayChunks,
   }
 
@@ -674,7 +696,6 @@ export function useAppPanelContexts(options: UseAppPanelContextsOptions) {
     promptOptimizeResult: promptScoreDomain.promptOptimizeResult,
     promptOptimizeError: promptScoreDomain.promptOptimizeError,
     formatTime: displayFormatDomain.formatTime,
-    renderMarkdown: displayFormatDomain.renderMarkdown,
     stripOuterCodeFence: promptScoreDomain.stripOuterCodeFence,
     collectPromptSources: promptScoreDomain.collectPromptSources,
     getSourceRadar: promptScoreDomain.getSourceRadar,

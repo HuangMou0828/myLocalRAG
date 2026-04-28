@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogScrollContent, DialogTitle } from '@/components/ui/dialog'
+import MarkdownContent from '@/components/MarkdownContent.vue'
 import {
   ChevronDown,
   ChevronUp,
@@ -36,6 +37,7 @@ function readMaybeRef<T>(source: any): T | undefined {
 
 const {
   sessionListCollapsed,
+  sessionOverviewCollapsed,
   keyword,
   useVectorSearch,
   loadSessions,
@@ -77,7 +79,6 @@ const {
   setFlowNodeRef,
   openPromptScoreModal,
   openTagModal,
-  renderMarkdown,
   getAssistantDisplayChunks,
 } = props.ctx
 
@@ -85,28 +86,6 @@ const matchedEvidenceOpen = ref(false)
 const matchedEvidenceSession = ref<any | null>(null)
 const reviewStatusModalOpen = ref(false)
 const pendingReviewStatus = ref<'pending' | 'kept' | 'downgraded' | 'hidden'>('pending')
-
-const activeAdvancedFilterCountResolved = computed(() => Number(readMaybeRef(activeAdvancedFilterCount) || 0))
-const searchModeLabelResolved = computed(() => (Boolean(readMaybeRef(useVectorSearch)) ? '语义检索' : '关键词检索'))
-const activeFilterSummaryResolved = computed(() => {
-  const parts: string[] = []
-  const currentProviderFilter = String(readMaybeRef(providerFilter) || '').trim()
-  const currentTimeRange = String(readMaybeRef(timeRangePreset) || 'all').trim()
-  const currentTagFilter = String(readMaybeRef(tagFilter) || 'all').trim()
-  const currentConversationId = String(readMaybeRef(cursorConversationIdFilter) || '').trim()
-
-  if (currentProviderFilter) parts.push(`AI ${getProviderDisplayLabel(currentProviderFilter)}`)
-  if (currentTimeRange && currentTimeRange !== 'all') {
-    if (currentTimeRange === 'today') parts.push('今天')
-    else if (currentTimeRange === '7d') parts.push('近 7 天')
-    else if (currentTimeRange === '30d') parts.push('近 30 天')
-    else if (currentTimeRange === '90d') parts.push('近 90 天')
-  }
-  if (currentTagFilter && currentTagFilter !== 'all') parts.push(`标签 ${currentTagFilter}`)
-  if (currentConversationId) parts.push('会话 ID')
-
-  return parts.slice(0, 4)
-})
 
 function getMatchedSnippets(session: any): string[] {
   return Array.isArray(session?.matchedSnippets) ? session.matchedSnippets.filter(Boolean).slice(0, 6) : []
@@ -491,7 +470,17 @@ watch(
       </Dialog>
 
       <section class="panel-soft session-search-panel">
-        <div class="session-search-head">
+        <div class="session-overview-toggle-row">
+          <button
+            type="button"
+            class="app-btn-ghost session-overview-toggle-btn"
+            @click="sessionOverviewCollapsed = !sessionOverviewCollapsed"
+          >
+            {{ sessionOverviewCollapsed ? '展开概览' : '收起概览' }}
+          </button>
+        </div>
+
+        <div v-show="!sessionOverviewCollapsed" class="session-search-head">
           <div class="session-search-copy">
             <small>Session Workspace</small>
             <h2>会话工作区</h2>
@@ -542,56 +531,66 @@ watch(
           </div>
 
           <div class="session-search-secondary-row">
-            <div class="session-search-toolbar-row">
-            <button
-              type="button"
-              class="app-btn-ghost session-filter-toolbar-btn"
-              :class="{ active: useVectorSearch }"
-              @click="onToggleVectorSearch"
-            >
-              {{ useVectorSearch ? '语义检索' : '关键词检索' }}
-            </button>
-
-            <button
-              type="button"
-              class="app-btn-ghost advanced-toggle-btn session-filter-toolbar-btn"
-              :class="{ active: advancedFiltersOpen || activeAdvancedFilterCount > 0 }"
-              @click="advancedFiltersOpen = !advancedFiltersOpen"
-            >
-              高级筛选
-              <span class="advanced-badge" v-if="activeAdvancedFilterCount > 0">{{ activeAdvancedFilterCount }}</span>
-            </button>
-
-            <button
-              type="button"
-              class="app-btn-ghost session-filter-toolbar-btn session-filter-reset-btn"
-              @click="onResetSessionFilters"
-            >
-              重置
-            </button>
-          </div>
-
-            <div class="session-search-summary-row">
-              <span class="session-search-summary-chip">{{ searchModeLabelResolved }}</span>
-              <span
-                v-for="item in activeFilterSummaryResolved"
-                :key="item"
-                class="session-search-summary-chip"
+            <div class="session-search-toolbar-meta-row">
+              <div class="session-search-toolbar-row">
+              <button
+                type="button"
+                class="app-btn-ghost session-filter-toolbar-btn"
+                :class="{ active: useVectorSearch }"
+                @click="onToggleVectorSearch"
               >
-                {{ item }}
-              </span>
-              <span
-                v-if="activeAdvancedFilterCountResolved > 0"
-                class="session-search-summary-chip session-search-summary-chip--accent"
+                {{ useVectorSearch ? '语义检索' : '关键词检索' }}
+              </button>
+
+              <button
+                type="button"
+                class="app-btn-ghost advanced-toggle-btn session-filter-toolbar-btn"
+                :class="{ active: advancedFiltersOpen || activeAdvancedFilterCount > 0 }"
+                @click="advancedFiltersOpen = !advancedFiltersOpen"
               >
-                {{ activeAdvancedFilterCountResolved }} 个高级条件
-              </span>
+                高级筛选
+                <span class="advanced-badge" v-if="activeAdvancedFilterCount > 0">{{ activeAdvancedFilterCount }}</span>
+              </button>
+
+              <button
+                type="button"
+                class="app-btn-ghost session-filter-toolbar-btn session-filter-reset-btn"
+                @click="onResetSessionFilters"
+              >
+                重置
+              </button>
+            </div>
+
+              <div class="retrieve-meta-row session-retrieve-meta-inline" v-if="hasKeyword">
+                <span class="retrieve-chip" v-if="!useVectorSearch">关键词索引</span>
+                <span class="retrieve-chip" v-if="retrieving">语义检索中...</span>
+                <template v-else-if="retrieveMeta">
+                  <span class="retrieve-chip" v-if="retrieveMeta.retrieveMode">链路 {{ retrieveMeta.retrieveMode }}</span>
+                  <span class="retrieve-chip" v-if="retrieveMeta.gbrainV2Mode">读模 {{ retrieveMeta.gbrainV2Mode }}</span>
+                  <span class="retrieve-chip">向量覆盖 {{ Math.round(Number(retrieveMeta.coverage || 0) * 100) }}%</span>
+                  <span class="retrieve-chip">懒生成 {{ Number(retrieveMeta.regenerated || 0) }}</span>
+                  <span class="retrieve-chip">来源 {{ retrieveMeta.source || '-' }}</span>
+                  <span class="retrieve-chip">模型 {{ retrieveMeta.model || '-' }}</span>
+                  <span class="retrieve-chip" v-if="retrieveMeta.sessionBridgeApplied">
+                    V2重排 token {{ Number(retrieveMeta.sessionBridgeTokenCount || 0) }}
+                  </span>
+                  <span class="retrieve-meta-text" v-else-if="retrieveMeta.sessionBridgeReason && String(retrieveMeta.gbrainV2Mode || '') === 'v2'">
+                    V2回退：{{ retrieveMeta.sessionBridgeReason }}
+                  </span>
+                  <span class="retrieve-chip warn-chip" v-if="retrieveMeta.fallback" :title="getRetrieveFallbackReason(retrieveMeta)">
+                    已降级：{{ getRetrieveFallbackReason(retrieveMeta) }}
+                  </span>
+                  <span class="retrieve-meta-text" v-else-if="retrieveMeta.error" :title="retrieveMeta.error">
+                    提示：{{ retrieveMeta.error }}
+                  </span>
+                </template>
+              </div>
             </div>
           </div>
 
           <div class="advanced-filters" v-show="advancedFiltersOpen">
             <input class="app-input"
-              v-if="activeProvider === 'cursor' || activeProvider === 'codex'"
+              v-if="activeProvider === 'cursor' || activeProvider === 'codex' || activeProvider === 'claude-code'"
               v-model="cursorConversationIdFilter"
               type="text"
               placeholder="按会话 ID 搜索（支持部分匹配）"
@@ -615,23 +614,6 @@ watch(
               <option value="all">全部标签</option>
               <option v-for="tag in availableTags" :key="tag" :value="tag">{{ tag }}</option>
             </select>
-          </div>
-
-          <div class="retrieve-meta-row" v-if="hasKeyword">
-            <span class="retrieve-chip" v-if="!useVectorSearch">关键词索引</span>
-            <span class="retrieve-chip" v-if="retrieving">语义检索中...</span>
-            <template v-else-if="retrieveMeta">
-              <span class="retrieve-chip">向量覆盖 {{ Math.round(Number(retrieveMeta.coverage || 0) * 100) }}%</span>
-              <span class="retrieve-chip">懒生成 {{ Number(retrieveMeta.regenerated || 0) }}</span>
-              <span class="retrieve-chip">来源 {{ retrieveMeta.source || '-' }}</span>
-              <span class="retrieve-chip">模型 {{ retrieveMeta.model || '-' }}</span>
-              <span class="retrieve-chip warn-chip" v-if="retrieveMeta.fallback" :title="getRetrieveFallbackReason(retrieveMeta)">
-                已降级：{{ getRetrieveFallbackReason(retrieveMeta) }}
-              </span>
-              <span class="retrieve-meta-text" v-else-if="retrieveMeta.error" :title="retrieveMeta.error">
-                提示：{{ retrieveMeta.error }}
-              </span>
-            </template>
           </div>
         </div>
       </section>
@@ -708,7 +690,7 @@ watch(
 
           <div v-else class="empty-dashboard-state">
             <div class="empty-state-icon">
-              <MessageSquareOff :size="64" />
+              <MessageSquareOff :size="38" />
             </div>
             <h3 class="empty-state-title">还没有会话内存</h3>
             <p class="empty-state-desc">
@@ -835,11 +817,11 @@ watch(
                 </div>
 
                 <div class="flow-body" v-if="node.role !== 'assistant'">
-                  <div
+                  <MarkdownContent
                     v-for="(chunk, idx) in node.chunks"
                     :key="`${node.id}-${idx}`"
                     class="md-content"
-                    v-html="renderMarkdown(chunk.content)"
+                    :content="chunk.content"
                   />
                 </div>
 
@@ -849,14 +831,14 @@ watch(
                     <div class="assistant-reasoning-body">
                       <div class="assistant-step assistant-step-reasoning" v-for="(chunk, idx) in node.reasoningChunks" :key="`${node.id}-reason-${idx}`">
                         <span class="assistant-dot" />
-                        <div class="md-content" v-html="renderMarkdown(chunk.content)" />
+                        <MarkdownContent class="md-content" :content="chunk.content" />
                       </div>
                     </div>
                   </details>
 
                   <div class="assistant-step" v-for="(chunk, idx) in getAssistantDisplayChunks(node)" :key="`${node.id}-${idx}`">
                     <span class="assistant-dot" />
-                    <div class="md-content" v-html="renderMarkdown(chunk.content)" />
+                    <MarkdownContent class="md-content" :content="chunk.content" />
                   </div>
                 </div>
               </article>
@@ -880,7 +862,7 @@ watch(
           <section class="panel-soft detail empty" v-else>
             <div class="empty-dashboard-state">
               <div class="empty-state-icon">
-                <Brain :size="64" />
+                <Brain :size="38" />
               </div>
               <h1 class="empty-state-title">{{ filteredSessions.length ? '从左侧选择一个会话' : '开启你的 AI 记忆库' }}</h1>
               <p class="empty-state-desc">
@@ -902,3 +884,4 @@ watch(
         </Transition>
       </div>
 </template>
+

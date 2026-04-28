@@ -1,0 +1,20 @@
+{
+  "version": "gbrain-v2-backfill.v1",
+  "generatedAt": "2026-04-25T04:37:06.931Z",
+  "total": 102,
+  "success": 102,
+  "failed": 0,
+  "status": "all",
+  "sourceType": "all",
+  "byTier": {
+    "clean": 98,
+    "suspect": 4
+  },
+  "byKind": {
+    "pattern": 15,
+    "context": 83,
+    "decision": 1,
+    "issue": 3
+  },
+  "failures": []
+}

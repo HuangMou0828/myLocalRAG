@@ -97,11 +97,13 @@ export interface OpenClawKnowledgeSyncResultDto {
   ok?: boolean
   root: string
   summary: {
+    scanned?: number
     total: number
     new?: number
     changed?: number
     unchanged?: number
     missing?: number
+    deduped?: number
     imported?: number
     archived?: number
     skipped?: number
@@ -133,6 +135,184 @@ export interface KnowledgeItemsApi {
   deleteItem(id: string): Promise<{ removed: boolean }>
   previewOpenClaw(payload?: { root?: string }): Promise<OpenClawKnowledgeSyncResultDto>
   importOpenClaw(payload?: { root?: string }): Promise<OpenClawKnowledgeSyncResultDto>
+}
+
+export interface KnowledgeAtomDto {
+  atomId: string
+  rawId: string
+  canonicalId: string
+  pageId: string
+  pageType: string
+  pageBucket: string
+  kind: 'issue' | 'pattern' | 'project' | 'synthesis' | 'decision' | 'context'
+  title: string
+  summary: string
+  topics: string[]
+  sourceRefs: Array<{ type: string; value: string }>
+  intakeStage: string
+  confidence: string
+  qualityScore: number
+  qualityTier: 'clean' | 'suspect' | 'legacy'
+  qualityIssues: string[]
+  status: 'draft' | 'active' | 'archived'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface KnowledgeLineageDto {
+  rawId: string
+  atomId: string
+  canonicalId: string
+  pageId: string
+  eventType: string
+  meta: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface KnowledgeAtomStatsDto {
+  total: number
+  draft: number
+  active: number
+  archived: number
+  byKind: Record<string, number>
+  byTier: {
+    clean: number
+    suspect: number
+    legacy: number
+  }
+}
+
+export interface KnowledgeLineageStatsDto {
+  total: number
+  uniqueRawIds: number
+  uniqueAtomIds: number
+  uniqueCanonicalIds: number
+  uniquePageIds: number
+}
+
+export interface GbrainV2FeedStatusDto {
+  dualWriteEnabled: boolean
+  feedDir: string
+  manifestPath: string
+  recordsPath: string
+  manifestExists: boolean
+  recordsExists: boolean
+  manifest: {
+    version?: string
+    generatedAt?: string
+    includeRaw?: boolean
+    limit?: number
+    feedMode?: 'atom-only' | 'atom-reader-first' | 'reader-first-only'
+    stats?: {
+      atoms?: number
+      readerFirst?: number
+      raw?: number
+      total?: number
+    }
+  } | null
+  files: {
+    manifestSize: number
+    recordsSize: number
+    recordsMtime: string
+    manifestMtime: string
+  }
+}
+
+export interface GbrainV2SettingsDto {
+  enabled: boolean
+  readMode: 'v2'
+  feedMode: 'atom-only' | 'atom-reader-first' | 'reader-first-only'
+  includeRawFallback: boolean
+  dualWriteEnabled: boolean
+  updatedAt: string | null
+}
+
+export interface GbrainV2Api {
+  fetchAtoms(params?: {
+    limit?: number
+    kind?: 'all' | 'issue' | 'pattern' | 'project' | 'synthesis' | 'decision' | 'context'
+    qualityTier?: 'all' | 'clean' | 'suspect' | 'legacy'
+    status?: 'all' | 'visible' | 'draft' | 'active' | 'archived'
+    q?: string
+    includeStats?: boolean
+  }): Promise<{
+    items: KnowledgeAtomDto[]
+    stats: KnowledgeAtomStatsDto | null
+    filters: {
+      limit: number
+      kind: string
+      qualityTier: string
+      status: string
+      q: string
+    }
+  }>
+  fetchLineage(params: {
+    rawId?: string
+    atomId?: string
+    canonicalId?: string
+    pageId?: string
+    limit?: number
+    includeStats?: boolean
+  }): Promise<{
+    items: KnowledgeLineageDto[]
+    stats: KnowledgeLineageStatsDto | null
+    filters: {
+      rawId: string
+      atomId: string
+      canonicalId: string
+      pageId: string
+      limit: number
+    }
+  }>
+  retrieve(payload: {
+    query: string
+    topK?: number
+    limit?: number
+    readMode?: 'v2'
+    kind?: 'all' | 'issue' | 'pattern' | 'project' | 'synthesis' | 'decision' | 'context'
+    qualityTier?: 'all' | 'clean' | 'suspect' | 'legacy'
+    status?: 'all' | 'visible' | 'draft' | 'active' | 'archived'
+  }): Promise<{
+    query: string
+    topK: number
+    tokens: string[]
+    mode: 'v2'
+    totalScanned: number
+    totalMatched: number
+    results: Array<KnowledgeAtomDto & {
+      score: number
+      snippet: string
+    }>
+  }>
+  fetchFeedStatus(): Promise<{
+    feed: GbrainV2FeedStatusDto
+    settings: GbrainV2SettingsDto
+    atoms: KnowledgeAtomStatsDto
+    lineage: KnowledgeLineageStatsDto
+  }>
+  refreshFeed(payload?: {
+    limit?: number
+    includeRaw?: boolean
+    feedMode?: 'atom-only' | 'atom-reader-first' | 'reader-first-only'
+    clean?: boolean
+  }): Promise<{
+    ok: boolean
+    refreshedAt: string
+    feed: {
+      outDir: string
+      recordsPath: string
+      manifestPath: string
+      feedMode: 'atom-only' | 'atom-reader-first' | 'reader-first-only'
+      stats: {
+        atoms: number
+        readerFirst: number
+        raw: number
+        total: number
+      }
+      manifest: Record<string, unknown>
+    }
+  }>
 }
 
 export interface SessionDataApi<TSession, TIssue, TRetrieveResponse> {
@@ -758,6 +938,7 @@ export interface WikiVaultApi {
     segmentId?: string
     sourceKind?: string
     sourceLabel?: string
+    taskToken?: string
     taskRef?: string
     question?: string
     project?: string
@@ -798,6 +979,7 @@ export interface WikiVaultApi {
     segmentId?: string
     sourceKind?: string
     sourceLabel?: string
+    taskToken?: string
     taskRef?: string
     question?: string
     project?: string
@@ -816,6 +998,47 @@ export interface WikiVaultApi {
       reason?: string
       error?: string
     }
+  }>
+  autoPromoteMvp(payload?: {
+    dryRun?: boolean
+    maxItems?: number
+    minConfidence?: number
+    writeReport?: boolean
+  }): Promise<{
+    ok: boolean
+    dryRun: boolean
+    maxItems: number
+    minConfidence: number
+    generatedAt: string
+    queueSummary: {
+      totalItems: number
+      issueReviewCount: number
+      patternCandidateCount: number
+      synthesisCandidateCount: number
+    }
+    autoSummary: {
+      scanned: number
+      approved: number
+      skipped: number
+      failed: number
+      threshold: {
+        value: number
+        passed: number
+        blocked: number
+      }
+      reasons: Record<string, number>
+    }
+    decisions: Array<{
+      kind: string
+      title: string
+      decision: 'approve'
+      ok: boolean
+      reason?: string
+      relativePath?: string
+      confidence?: number
+      minConfidence?: number
+      passedThreshold?: boolean
+    }>
   }>
   previewPromotion(payload: {
     kind: 'issue-review' | 'pattern-candidate' | 'synthesis-candidate'
@@ -1223,6 +1446,101 @@ export function createKnowledgeItemsApi(request: JsonRequest): KnowledgeItemsApi
   }
 }
 
+export function createGbrainV2Api(request: JsonRequest): GbrainV2Api {
+  return {
+    fetchAtoms(params = {}) {
+      const search = new URLSearchParams()
+      if (params.limit) search.set('limit', String(Math.max(1, Number(params.limit) || 200)))
+      if (params.kind && params.kind !== 'all') search.set('kind', params.kind)
+      if (params.qualityTier && params.qualityTier !== 'all') search.set('qualityTier', params.qualityTier)
+      if (params.status && params.status !== 'all') search.set('status', params.status)
+      if (params.q) search.set('q', String(params.q || '').trim())
+      if (params.includeStats === false) search.set('includeStats', '0')
+      const query = search.toString()
+      return request<{
+        items: KnowledgeAtomDto[]
+        stats: KnowledgeAtomStatsDto | null
+        filters: {
+          limit: number
+          kind: string
+          qualityTier: string
+          status: string
+          q: string
+        }
+      }>(`/api/gbrain-v2/atoms${query ? `?${query}` : ''}`)
+    },
+    fetchLineage(params) {
+      const search = new URLSearchParams()
+      if (params.rawId) search.set('rawId', String(params.rawId || '').trim())
+      if (params.atomId) search.set('atomId', String(params.atomId || '').trim())
+      if (params.canonicalId) search.set('canonicalId', String(params.canonicalId || '').trim())
+      if (params.pageId) search.set('pageId', String(params.pageId || '').trim())
+      if (params.limit) search.set('limit', String(Math.max(1, Number(params.limit) || 200)))
+      if (params.includeStats) search.set('includeStats', '1')
+      return request<{
+        items: KnowledgeLineageDto[]
+        stats: KnowledgeLineageStatsDto | null
+        filters: {
+          rawId: string
+          atomId: string
+          canonicalId: string
+          pageId: string
+          limit: number
+        }
+      }>(`/api/gbrain-v2/lineage?${search.toString()}`)
+    },
+    retrieve(payload) {
+      return request<{
+        query: string
+        topK: number
+        tokens: string[]
+        mode: 'v2'
+        totalScanned: number
+        totalMatched: number
+        results: Array<KnowledgeAtomDto & {
+          score: number
+          snippet: string
+        }>
+      }>('/api/gbrain-v2/retrieve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+    },
+    fetchFeedStatus() {
+      return request<{
+        feed: GbrainV2FeedStatusDto
+        settings: GbrainV2SettingsDto
+        atoms: KnowledgeAtomStatsDto
+        lineage: KnowledgeLineageStatsDto
+      }>('/api/gbrain-v2/feed-status')
+    },
+    refreshFeed(payload = {}) {
+      return request<{
+        ok: boolean
+        refreshedAt: string
+        feed: {
+          outDir: string
+          recordsPath: string
+          manifestPath: string
+          feedMode: 'atom-only' | 'atom-reader-first' | 'reader-first-only'
+          stats: {
+            atoms: number
+            readerFirst: number
+            raw: number
+            total: number
+          }
+          manifest: Record<string, unknown>
+        }
+      }>('/api/gbrain-v2/feed-refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+    },
+  }
+}
+
 export function createWikiVaultApi(request: JsonRequest): WikiVaultApi {
   return {
     fetchStats(provider = '') {
@@ -1328,6 +1646,13 @@ export function createWikiVaultApi(request: JsonRequest): WikiVaultApi {
     },
     decidePromotion(payload) {
       return request('/api/wiki-vault/promotion-decision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+    },
+    autoPromoteMvp(payload = {}) {
+      return request('/api/wiki-vault/promotion-auto-mvp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

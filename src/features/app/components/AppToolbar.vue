@@ -27,8 +27,13 @@ const feishuScheduleAriaLabel = computed(() =>
     : '刷新飞书待办',
 )
 
-const isSyncProvider = computed(() => config.value.provider.active === 'cursor' || config.value.provider.active === 'codex')
-const syncProviderLabel = computed(() => (config.value.provider.active === 'codex' ? 'Codex' : 'Cursor'))
+const syncProviderLabelMap: Record<string, string> = {
+  codex: 'Codex',
+  cursor: 'Cursor',
+  'claude-code': 'Claude Code',
+}
+const isSyncProvider = computed(() => ['cursor', 'codex', 'claude-code'].includes(config.value.provider.active))
+const syncProviderLabel = computed(() => syncProviderLabelMap[config.value.provider.active] || '当前来源')
 const isKnowledgeProvider = computed(() => String(config.value.provider.active || '').startsWith('knowledge-'))
 const toolbarProviderLabel = computed(() =>
   String(config.value.provider.active || '')
@@ -47,6 +52,7 @@ const showEmbeddingAction = computed(() =>
 const showImportAction = computed(() =>
   config.value.provider.active !== 'cursor'
   && config.value.provider.active !== 'codex'
+  && config.value.provider.active !== 'claude-code'
   && config.value.provider.active !== 'bug-cursor'
   && config.value.provider.active !== 'feishu-master'
   && config.value.provider.active !== 'component-library'
@@ -68,8 +74,8 @@ const showToolbarUtilityCluster = computed(() =>
   || showEmbeddingAction.value
 )
 const knowledgeToolbarDescription = computed(() => {
-  if (config.value.provider.active === 'knowledge-task-review') return '先按任务视角筛掉噪声和上下文碎片，再决定是否进入主检索'
-  if (config.value.provider.active === 'knowledge-promotion-review') return '把接近稳定的候选集中审核，避免直接把正式 wiki 写乱'
+  if (config.value.provider.active === 'knowledge-task-review') return '先从会话任务段提炼有效信号，再送入升格候选，避免高噪声直接进长期知识层'
+  if (config.value.provider.active === 'knowledge-promotion-review') return '把接近稳定的候选集中审核，直接沉淀进新的 Vault'
   if (config.value.provider.active === 'knowledge-health') return '持续查看 lint、知识空洞和长期积压提醒，保持 wiki 可维护'
   return '先收集原始片段、主观笔记和完整文档，再决定怎么编译成 wiki'
 })
