@@ -1,6 +1,8 @@
-# Multi-AI Session Hub
+# AIMemoryHub
 
-统一接入多个 AI 的本地历史会话目录，自动扫描并建立检索索引。
+AIMemoryHub（formerly `myLocalRAG`）是一个统一接入多个 AI 本地历史会话、知识采集、升格审核与 Vault 发布的长期记忆工作台。
+
+当前阶段我们优先完成仓库名与主文档品牌切换；项目内部的一些历史命名（如路径、示例 project 名、旧文档引用）会分阶段逐步迁移。
 
 ## 运行
 

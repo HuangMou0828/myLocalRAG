@@ -1,5 +1,7 @@
 # Architecture Guardrails
 
+> Project naming note: the repository is now branded as `AIMemoryHub` (formerly `myLocalRAG`). During the migration window, legacy names may still appear in paths, examples, and older documents.
+
 ## 1. 目标
 
 本文件用于防止代码结构回退。规则以“可执行检查 + 评审清单 + ADR 记录”三件套落地，默认要求所有 PR 遵守。
