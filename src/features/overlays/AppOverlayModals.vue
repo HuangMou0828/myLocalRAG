@@ -621,7 +621,7 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
 
                   <label class="form-modal-field">
                     <small>项目 / 工作流</small>
-                    <input class="app-input" v-model="quickCaptureProject" type="text" placeholder="myLocalRAG / srs-h5" />
+                    <input class="app-input" v-model="quickCaptureProject" type="text" placeholder="AIMemoryHub / srs-h5" />
                   </label>
 
                   <label class="form-modal-field">
@@ -1182,7 +1182,7 @@ const promptEffectSummaryView = computed(() => parsePromptEffectSummary(promptEf
             <p class="wiki-vault-publish-eyebrow">可选阅读层</p>
             <DialogTitle class="wiki-vault-publish-title">发布到 Obsidian Vault</DialogTitle>
             <DialogDescription class="wiki-vault-publish-desc">
-              myLocalRAG 继续作为主知识库，Vault 只承接可阅读、可携带的 Markdown 输出。
+              AIMemoryHub 继续作为主知识库，Vault 只承接可阅读、可携带的 Markdown 输出。
             </DialogDescription>
           </div>
           <DialogClose as-child>

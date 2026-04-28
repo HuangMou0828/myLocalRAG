@@ -1,6 +1,6 @@
-# myLocalRAG Docs
+# AIMemoryHub Docs
 
-这个目录是 myLocalRAG 的长期说明区：既给人快速理解系统，也给 LLM/Agent 在接手任务前建立上下文。
+这个目录是 AIMemoryHub（formerly `myLocalRAG`）的长期说明区：既给人快速理解系统，也给 LLM/Agent 在接手任务前建立上下文。
 
 如果你不知道从哪里开始，先读本文件，再按任务进入对应文档。
 
@@ -65,10 +65,10 @@
 当前推荐链路是：
 
 ```text
-OpenClaw inbox -> myLocalRAG Raw Inbox -> Promotion Review -> Vault / Obsidian
+OpenClaw inbox -> AIMemoryHub Raw Inbox -> Promotion Review -> Vault / Obsidian
 ```
 
-`~/.openclaw/knowledge/inbox` 是 OpenClaw 给 myLocalRAG 的待同步原料区，不是 L5 本体。L5 本体是 myLocalRAG 里的长期 Wiki/Vault 记忆。
+`~/.openclaw/knowledge/inbox` 是 OpenClaw 给 AIMemoryHub 的待同步原料区，不是 L5 本体。L5 本体是 AIMemoryHub 里的长期 Wiki/Vault 记忆。
 
 ### 我要维护 Wiki / Obsidian
 

@@ -1,6 +1,6 @@
 # Wiki Promotion Pipeline
 
-This document defines how myLocalRAG should promote existing `vault/sources/*.md` evidence pages into the reader-first knowledge layer:
+This document defines how AIMemoryHub should promote existing `vault/sources/*.md` evidence pages into the reader-first knowledge layer:
 
 - `vault/projects/`
 - `vault/patterns/`
@@ -435,7 +435,7 @@ Given the current vault, the best first implementation step is:
   - session/workspace UI patterns
   - bug trace patterns
   - wiki-vault patterns
-- write one project hub for `myLocalRAG`,
+- write one project hub for `AIMemoryHub`,
 - then only create promoted pages when confidence clears threshold.
 
 Avoid bulk-generating hundreds of pages on day one.

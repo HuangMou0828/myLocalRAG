@@ -2,7 +2,7 @@
 
 > 版本：v0.1（评估稿）  
 > 日期：2026-04-25  
-> 适用范围：`myLocalRAG` 知识工作台、`wiki-vault` 生产链路、gbrain 检索链路
+> 适用范围：`AIMemoryHub` 知识工作台、`wiki-vault` 生产链路、gbrain 检索链路
 
 ## 1. 背景与动机
 

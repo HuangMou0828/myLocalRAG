@@ -1,10 +1,10 @@
 # Obsidian Vault Publication Layer
 
-This document describes the optional publication layer that compiles myLocalRAG knowledge into an Obsidian-readable Markdown vault.
+This document describes the optional publication layer that compiles AIMemoryHub knowledge into an Obsidian-readable Markdown vault.
 
 ## Architecture
 
-- `myLocalRAG` stays responsible for scanning, indexing, retrieval, and future ingest orchestration.
+- `AIMemoryHub` stays responsible for scanning, indexing, retrieval, and future ingest orchestration.
 - Knowledge Workbench is the primary place for capture, task review, promotion review, and health checks.
 - `vault/` is the Obsidian-facing reading/export layer, not the source of truth.
 - Syncthing should sync `vault/` only.

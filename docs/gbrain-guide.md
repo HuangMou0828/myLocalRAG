@@ -71,7 +71,7 @@ cd ~/gbrain && bun run src/cli.ts get "vault/projects/openclaw"
 cd ~/gbrain && bun run src/cli.ts sync --repo ~/myLocalRAG
 ```
 
-每次修改 myLocalRAG 的文档后手动执行，确保 gbrain 数据是最新的。
+每次修改 AIMemoryHub 的文档后手动执行，确保 gbrain 数据是最新的。
 
 **自动同步** (推荐用于生产环境)
 ```bash
@@ -273,7 +273,7 @@ MCP 服务器会继承 OpenClaw 的环境变量，但不会读取 `~/gbrain/.env
 在 OpenClaw 对话中：
 - "搜索 gbrain 里关于 OpenClaw 架构的内容"
 - "查询 vault/projects/openclaw 的关联页面"
-- "从 myLocalRAG 同步最新内容到 gbrain"
+- "从 AIMemoryHub 同步最新内容到 gbrain"
 
 ## 常见问题
 

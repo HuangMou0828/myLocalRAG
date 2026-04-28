@@ -22,7 +22,7 @@
 要点：
 
 - OpenClaw 写入 `~/.openclaw/knowledge/inbox`。
-- myLocalRAG 负责 Raw Inbox、升格审核、Vault/Obsidian 和检索。
+- AIMemoryHub 负责 Raw Inbox、升格审核、Vault/Obsidian 和检索。
 - `syncOpenClaw: true` 用于搜索前增量同步 OpenClaw inbox。
 - 新增可由 OpenClaw 调用的 `POST` 接口时，同步更新 `docs/openclaw/prompts.md`。
 

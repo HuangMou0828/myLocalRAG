@@ -653,7 +653,7 @@ async function deleteKnowledgeItemAndClose() {
               <div class="knowledge-editor-grid knowledge-editor-grid--compact">
                 <label>
                   <small>项目 / 工作流</small>
-                  <input v-model="editorProject" class="app-input" type="text" placeholder="myLocalRAG / srs-h5" />
+                  <input v-model="editorProject" class="app-input" type="text" placeholder="AIMemoryHub / srs-h5" />
                 </label>
 
                 <label>

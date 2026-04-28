@@ -3726,7 +3726,7 @@ function buildWikiExplainPayload() {
   const paths = getVaultPaths()
   return {
     vaultDir: paths.root,
-    overview: 'Vault 是 myLocalRAG 面向 Obsidian 的知识发布层。sources 更偏证据追溯，projects/patterns/issues/syntheses/concepts 更偏人机共享知识层。',
+    overview: 'Vault 是 AIMemoryHub 面向 Obsidian 的知识发布层。sources 更偏证据追溯，projects/patterns/issues/syntheses/concepts 更偏人机共享知识层。',
     audiences: {
       humanPrimary: ['Home.md', 'README.md', 'projects/*.md', 'patterns/*.md', 'issues/*.md', 'syntheses/*.md', 'concepts/*.md', 'Templates/*.md'],
       llmPrimary: ['sources/*.md', 'providers/*.md', 'index.md', 'log.md', 'AGENTS.md'],
