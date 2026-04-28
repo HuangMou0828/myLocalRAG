@@ -2,7 +2,7 @@
 
 本文档给 OpenClaw 使用。
 
-目标：把 `myLocalRAG` 作为 OpenClaw 的 L5 长期记忆后端，而不是让 OpenClaw 直接维护完整 Obsidian Vault。
+目标：把 `AIMemoryHub` 作为 OpenClaw 的 L5 长期记忆后端，而不是让 OpenClaw 直接维护完整 Obsidian Vault。
 
 ## 1. 总体定位
 
@@ -17,7 +17,7 @@ OpenClaw
   L3 daily memory
   L4 learnings / knowledge inbox
         ↓
-myLocalRAG
+AIMemoryHub
   Raw Inbox
   Promotion Review
   reader-first wiki
@@ -33,13 +33,13 @@ OpenClaw
 | 系统 | 职责 |
 | --- | --- |
 | OpenClaw | 产生经验、记录过程、调用 L5 检索、消费长期记忆 |
-| myLocalRAG | 接收原料、去重、审核、升格、索引、发布到 Obsidian |
+| AIMemoryHub | 接收原料、去重、审核、升格、索引、发布到 Obsidian |
 | Obsidian | 人类可读的长期知识展示层 |
 
 一句话：
 
 ```text
-OpenClaw 负责产生和使用记忆；myLocalRAG 负责让记忆变得长期可靠。
+OpenClaw 负责产生和使用记忆；AIMemoryHub 负责让记忆变得长期可靠。
 ```
 
 ## 2. L5 的定义
@@ -52,9 +52,9 @@ L5 是：
 经过浓缩、审核、结构化、可检索、可长期维护的持久记忆层。
 ```
 
-myLocalRAG 中对应：
+AIMemoryHub 中对应：
 
-| L5 能力 | myLocalRAG 对应模块 |
+| L5 能力 | AIMemoryHub 对应模块 |
 | --- | --- |
 | 原料入口 | Raw Inbox |
 | 质量门禁 | Promotion Review |
@@ -67,7 +67,7 @@ myLocalRAG 中对应：
 
 ```text
 ~/.openclaw/knowledge/inbox 不是 L5。
-它是 OpenClaw L4 -> myLocalRAG L5 的同步入口。
+它是 OpenClaw L4 -> AIMemoryHub L5 的同步入口。
 ```
 
 ## 3. OpenClaw 写入规则
@@ -105,7 +105,7 @@ daily/YYYY-MM-DD.md
 reference/REF-YYYYMMDD-001.md
 ```
 
-稳定 ID 由 myLocalRAG 生成：
+稳定 ID 由 AIMemoryHub 生成：
 
 ```text
 openclaw_{sha1(relative_path)}
@@ -113,7 +113,7 @@ openclaw_{sha1(relative_path)}
 
 因此 OpenClaw 应尽量保持文件路径稳定。
 
-如果移动文件，myLocalRAG 会认为这是新条目。
+如果移动文件，AIMemoryHub 会认为这是新条目。
 
 ## 4. Markdown 协议
 
@@ -211,7 +211,7 @@ tags:
 | `status` | 初始状态 | 通常 `active` 或 `draft` |
 | `project` | 项目 | 如 `openclaw`、`myLocalRAG` |
 | `topic` | 主题 | 简短主题名 |
-| `intakeStage` | 进入 myLocalRAG 后的去向 | 见下方 |
+| `intakeStage` | 进入 AIMemoryHub 后的去向 | 见下方 |
 | `confidence` | 可信度 | `low` / `medium` / `high` |
 | `keyQuestion` | 机器检索锚点 | 一个短问题句 |
 | `decisionNote` | 为什么值得保留 | 给审核和升格使用 |
@@ -264,7 +264,7 @@ keyQuestion: "批量清理前应该如何避免误删关键记忆？"
 
 OpenClaw 不能只写入 L5，还必须会查询 L5。
 
-当任务涉及以下内容时，应优先查询 myLocalRAG：
+当任务涉及以下内容时，应优先查询 AIMemoryHub：
 
 - 以前踩过的坑
 - 项目约定
@@ -289,7 +289,7 @@ OpenClaw 不能只写入 L5，还必须会查询 L5。
 - 不够时再查原始历史对话。
 - 不要一上来就查全部历史，避免噪声过大。
 
-## 8. myLocalRAG API
+## 8. AIMemoryHub API
 
 默认服务地址：
 
@@ -340,7 +340,7 @@ POST /api/wiki-vault/search
 注意：
 
 ```text
-刚写入 OpenClaw inbox 的内容，只有在 syncOpenClaw=true 或手动点击“OpenClaw”同步后，才会进入 myLocalRAG。
+刚写入 OpenClaw inbox 的内容，只有在 syncOpenClaw=true 或手动点击“OpenClaw”同步后，才会进入 AIMemoryHub。
 ```
 
 如果只搜索 `patterns/issues/syntheses/projects`，则只会查已升格的 reader-first wiki，不会查未审核 Raw Inbox 原料。
@@ -477,16 +477,16 @@ reference/REF-YYYYMMDD-001.md
 
 ## 11. 同步规则
 
-myLocalRAG 的同步规则：
+AIMemoryHub 的同步规则：
 
-- 当前 OpenClaw inbox 有，myLocalRAG 没有：新增。
+- 当前 OpenClaw inbox 有，AIMemoryHub 没有：新增。
 - 当前 OpenClaw inbox 有，内容变化：更新。
-- 当前 OpenClaw inbox 没有，myLocalRAG 以前导入过：标记为 `Archived`。
+- 当前 OpenClaw inbox 没有，AIMemoryHub 以前导入过：标记为 `Archived`。
 - 不硬删除，避免破坏 evidence 和已升格页面。
 
 因此 OpenClaw 如果想让某条内容从当前同步视图消失，可以删除或移动该文件。
 
-myLocalRAG 会在同步时把它视为 missing，并归档对应 Raw Inbox 条目。
+AIMemoryHub 会在同步时把它视为 missing，并归档对应 Raw Inbox 条目。
 
 ## 12. L5 使用决策树
 
@@ -523,18 +523,18 @@ OpenClaw 先实现这几件事即可：
 
 1. 按协议写入 `~/.openclaw/knowledge/inbox`。
 2. 为 errors/patterns/reference/daily 设置正确 frontmatter。
-3. 在长期经验类问题前调用 myLocalRAG wiki search。
+3. 在长期经验类问题前调用 AIMemoryHub wiki search。
 4. 搜索命中后读取具体 note。
 5. 任务结束后把新经验写回 inbox。
 
 暂时不必实现：
 
 - 直接写 Obsidian Vault
-- 直接改 myLocalRAG vault
+- 直接改 AIMemoryHub vault
 - 自动创建 skill
 - 自动生成 ontology
 
-这些后续可以由 myLocalRAG 升格和回写机制继续扩展。
+这些后续可以由 AIMemoryHub 升格和回写机制继续扩展。
 
 ## 14. 一句话总结
 
@@ -542,8 +542,8 @@ OpenClaw 的 L5 应这样实现：
 
 ```text
 OpenClaw 把经验写入 inbox；
-myLocalRAG 把经验审核、升格、索引、发布到 Obsidian；
-OpenClaw 在需要长期记忆时查询 myLocalRAG；
+AIMemoryHub 把经验审核、升格、索引、发布到 Obsidian；
+OpenClaw 在需要长期记忆时查询 AIMemoryHub；
 新的经验再回到 inbox。
 ```
 

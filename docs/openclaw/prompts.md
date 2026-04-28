@@ -1,6 +1,6 @@
 # OpenClaw Prompt & Tool Template
 
-本文件用于把 `myLocalRAG` 直接接成 OpenClaw 的“wiki 检索 + 历史追溯 + 复盘分析”能力。
+本文件用于把 `AIMemoryHub` 直接接成 OpenClaw 的“wiki 检索 + 历史追溯 + 复盘分析”能力。
 
 ## 1) Tool Definitions（建议）
 
